@@ -1,3 +1,4 @@
-pub mod device;
-pub mod ioctl;
+mod ioctl;
+mod vcpu;
+
 pub mod vm;

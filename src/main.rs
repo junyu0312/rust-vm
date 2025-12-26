@@ -1,21 +1,22 @@
 #![deny(warnings)]
 use clap::Parser;
 use rust_vm::command::Command;
-use rust_vm::kvm::device::open_kvm;
-use rust_vm::kvm::vm::create_vm;
+use rust_vm::kvm::vm::create_kvm_vm;
 use tracing::debug;
+use tracing_subscriber::EnvFilter;
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_target(true)
+        .with_file(true)
+        .with_line_number(true)
+        .init();
 
     let args = Command::parse();
     debug!(?args);
 
-    let kvm_fd = open_kvm()?;
-    debug!(kvm_fd);
-
-    let vm_fd = create_vm(kvm_fd)?;
-    debug!(vm_fd);
+    create_kvm_vm(args)?;
 
     Ok(())
 }
