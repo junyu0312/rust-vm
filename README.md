@@ -1,1 +1,1 @@
-![CI](https://github.com/junyu0312/rust-vm/actions/workflows/ci.yml/badge.svg?branch=main)
+![CI](https://github.com/junyu0312/rust-vm/actions/workflows/ci.yaml/badge.svg?branch=main)
