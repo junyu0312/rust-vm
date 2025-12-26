@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.53", features = ["derive"] }
+nix = {version = "0.30.1", features = ["ioctl"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["fmt"] }
