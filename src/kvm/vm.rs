@@ -1,15 +1,33 @@
-use std::io;
+use tracing::debug;
 
-use nix::libc::c_int;
+use crate::command::Command;
+use crate::kvm::ioctl::*;
+use crate::kvm::vcpu::create_vcpus;
 
-use crate::kvm::ioctl::kvm_create_vm;
+pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
+    let kvm_fd = open_kvm()?;
+    debug!(kvm_fd);
 
-pub fn create_vm(kvm_fd: c_int) -> io::Result<c_int> {
-    let vm_fd = unsafe { kvm_create_vm(kvm_fd)? };
+    let kvm_cap_nr_vcpus = kvm_cap_nr_vcpus(kvm_fd)?;
+    debug!(kvm_cap_nr_vcpus);
 
-    if vm_fd < 0 {
-        return Err(io::Error::last_os_error());
+    let kvm_cap_max_vcpus = kvm_cap_max_vcpus(kvm_fd)?;
+    debug!(kvm_cap_max_vcpus);
+
+    let kvm_cap_max_vcpu_id = kvm_cap_max_vcpu_id(kvm_fd, kvm_cap_max_vcpus)?;
+    debug!(kvm_cap_max_vcpu_id);
+
+    command.validate(kvm_cap_nr_vcpus, kvm_cap_max_vcpus, kvm_cap_max_vcpu_id)?;
+
+    let vm_fd = kvm_create_vm(kvm_fd)?;
+    debug!(vm_fd);
+
+    let vcpus = create_vcpus(vm_fd, command.cpus)?;
+    debug!(?vcpus);
+
+    for vcpu in vcpus {
+        vcpu.run()?;
     }
 
-    Ok(vm_fd)
+    Ok(())
 }
