@@ -1,5 +1,4 @@
-mod ioctl;
+mod mm;
 mod vcpu;
 
-pub mod mm;
 pub mod vm;

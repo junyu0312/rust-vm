@@ -1,66 +1,82 @@
-use std::io;
-
 use anyhow::anyhow;
-use nix::libc::c_int;
+use kvm_ioctls::VcpuExit;
+use kvm_ioctls::VcpuFd;
 
-use crate::kvm::ioctl::create_vcpu;
-use crate::kvm::ioctl::kvm_run;
 use crate::kvm::vm::KvmVm;
 
 #[derive(Debug)]
 pub struct KvmVcpu {
     #[allow(dead_code)]
-    vcpu_id: c_int,
-    vcpu_fd: c_int,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum KvmVcpuRunError {
-    #[error("Failed to run vCPU: {0}")]
-    Io(#[from] io::Error),
-}
-
-fn create_vcpus(vm_fd: c_int, num_vcpus: usize) -> io::Result<Vec<KvmVcpu>> {
-    let mut vcpu_fds = Vec::with_capacity(num_vcpus);
-
-    for vcpu_id in 0..num_vcpus {
-        let vcpu_id = vcpu_id as c_int;
-        let vcpu_fd = create_vcpu(vm_fd, vcpu_id)?;
-
-        vcpu_fds.push(KvmVcpu { vcpu_id, vcpu_fd });
-    }
-
-    Ok(vcpu_fds)
-}
-
-impl KvmVcpu {
-    fn run(&self) -> Result<(), KvmVcpuRunError> {
-        let ret = kvm_run(self.vcpu_fd)?;
-
-        assert_eq!(ret, 0);
-
-        Ok(())
-    }
+    vcpu_id: u64,
+    vcpu_fd: VcpuFd,
 }
 
 impl KvmVm {
     pub fn create_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
-        let vcpus = create_vcpus(self.vm_fd, num_vcpus)?;
+        let mut vcpus = Vec::with_capacity(num_vcpus);
+
+        for vcpu_id in 0..num_vcpus {
+            let vcpu_id = vcpu_id as u64;
+            let vcpu_fd = self.vm_fd.create_vcpu(vcpu_id)?;
+
+            vcpus.push(KvmVcpu { vcpu_id, vcpu_fd });
+        }
+
         self.vcpus
             .set(vcpus)
             .map_err(|_| anyhow!("vcpus are already set"))?;
+
         Ok(())
     }
 
-    pub fn run(&mut self) -> anyhow::Result<()> {
+    fn run_vcpu(&mut self, i: usize) -> anyhow::Result<()> {
         let vcpus = self
             .vcpus
-            .get()
+            .get_mut()
             .ok_or_else(|| anyhow!("vcpus are not created"))?;
 
-        for vcpu in vcpus {
-            vcpu.run()?;
+        let vcpu = &mut vcpus[i];
+
+        match vcpu.vcpu_fd.run()? {
+            VcpuExit::IoOut(_, _) => todo!(),
+            VcpuExit::IoIn(_, _) => todo!(),
+            VcpuExit::MmioRead(_, _) => todo!(),
+            VcpuExit::MmioWrite(_, _) => todo!(),
+            VcpuExit::Unknown => todo!(),
+            VcpuExit::Exception => todo!(),
+            VcpuExit::Hypercall(_) => todo!(),
+            VcpuExit::Debug(_) => todo!(),
+            VcpuExit::Hlt => todo!(),
+            VcpuExit::IrqWindowOpen => todo!(),
+            VcpuExit::Shutdown => todo!(),
+            VcpuExit::FailEntry(_, _) => todo!(),
+            VcpuExit::Intr => todo!(),
+            VcpuExit::SetTpr => todo!(),
+            VcpuExit::TprAccess => todo!(),
+            VcpuExit::S390Sieic => todo!(),
+            VcpuExit::S390Reset => todo!(),
+            VcpuExit::Dcr => todo!(),
+            VcpuExit::Nmi => todo!(),
+            VcpuExit::InternalError => todo!(),
+            VcpuExit::Osi => todo!(),
+            VcpuExit::PaprHcall => todo!(),
+            VcpuExit::S390Ucontrol => todo!(),
+            VcpuExit::Watchdog => todo!(),
+            VcpuExit::S390Tsch => todo!(),
+            VcpuExit::Epr => todo!(),
+            VcpuExit::SystemEvent(_, _) => todo!(),
+            VcpuExit::S390Stsi => todo!(),
+            VcpuExit::IoapicEoi(_) => todo!(),
+            VcpuExit::Hyperv => todo!(),
+            VcpuExit::X86Rdmsr(_) => todo!(),
+            VcpuExit::X86Wrmsr(_) => todo!(),
+            VcpuExit::MemoryFault { .. } => todo!(),
+            VcpuExit::Unsupported(_) => todo!(),
         }
+    }
+
+    pub fn run(&mut self) -> anyhow::Result<()> {
+        self.run_vcpu(0)?;
 
         Ok(())
     }

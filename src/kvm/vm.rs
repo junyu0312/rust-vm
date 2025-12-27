@@ -1,48 +1,46 @@
 use std::cell::OnceCell;
 
 use anyhow::Context;
-use nix::libc::c_int;
+use kvm_ioctls::Kvm;
+use kvm_ioctls::VmFd;
 use tracing::debug;
 use tracing::info;
 
 use crate::command::Command;
-use crate::kvm::ioctl::*;
 use crate::kvm::vcpu::KvmVcpu;
 use crate::mm::MemoryRegion;
 
-#[derive(Default)]
 pub struct KvmVm {
-    pub vm_fd: c_int,
+    pub vm_fd: VmFd,
     pub vcpus: OnceCell<Vec<KvmVcpu>>,
     pub memory_regions: OnceCell<Vec<MemoryRegion>>,
 }
 
 impl KvmVm {
-    fn new(kvm_fd: c_int) -> anyhow::Result<Self> {
-        let vm_fd = kvm_create_vm(kvm_fd)?;
+    fn new(kvm: &Kvm) -> anyhow::Result<Self> {
+        let vm_fd = kvm.create_vm()?;
         Ok(KvmVm {
             vm_fd,
-            ..Default::default()
+            vcpus: Default::default(),
+            memory_regions: Default::default(),
         })
     }
 }
 
 pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
-    let kvm_fd = open_kvm()?;
-    debug!(kvm_fd);
+    let kvm = Kvm::new()?;
 
-    let kvm_cap_nr_vcpus = kvm_cap_nr_vcpus(kvm_fd)?;
-    debug!(kvm_cap_nr_vcpus);
+    let kvm_nr_vcpus = kvm.get_nr_vcpus();
+    debug!(kvm_nr_vcpus);
 
-    let kvm_cap_max_vcpus = kvm_cap_max_vcpus(kvm_fd)?;
-    debug!(kvm_cap_max_vcpus);
+    let kvm_max_vcpus = kvm.get_max_vcpus();
+    debug!(kvm_max_vcpus);
 
-    let kvm_cap_max_vcpu_id = kvm_cap_max_vcpu_id(kvm_fd, kvm_cap_max_vcpus)?;
-    debug!(kvm_cap_max_vcpu_id);
+    let kvm_max_vcpu_id = kvm.get_max_vcpu_id();
 
-    command.validate(kvm_cap_nr_vcpus, kvm_cap_max_vcpus, kvm_cap_max_vcpu_id)?;
+    command.validate(kvm_nr_vcpus, kvm_max_vcpus, kvm_max_vcpu_id)?;
 
-    let mut vm = KvmVm::new(kvm_fd)?;
+    let mut vm = KvmVm::new(&kvm)?;
 
     vm.create_vcpus(command.cpus)
         .context("Failed to create vcpus")?;
