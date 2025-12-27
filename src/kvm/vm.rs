@@ -42,7 +42,7 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
 
     let mut vm = KvmVm::new(&kvm)?;
 
-    vm.create_vcpus(command.cpus)
+    vm.init_vcpus(command.cpus)
         .context("Failed to create vcpus")?;
     vm.init_mm(command.memory).context("Failed to init mm")?;
     vm.run().context("Failed to run")?;
