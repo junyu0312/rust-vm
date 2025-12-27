@@ -33,6 +33,11 @@ impl MemoryRegion {
             bail!("Failed to mmap memory region");
         }
 
+        // Add a halt instruction
+        unsafe {
+            *(ptr as *mut u8) = 0xf4; // x86 HLT instruction
+        }
+
         Ok(MemoryRegion { ptr, size })
     }
 
