@@ -1,4 +1,6 @@
 use anyhow::anyhow;
+use kvm_bindings::kvm_regs;
+use kvm_bindings::kvm_sregs;
 use kvm_ioctls::VcpuExit;
 use kvm_ioctls::VcpuFd;
 
@@ -11,15 +13,62 @@ pub struct KvmVcpu {
     vcpu_fd: VcpuFd,
 }
 
+impl KvmVcpu {
+    fn get_regs(&self) -> anyhow::Result<kvm_regs> {
+        let regs = self.vcpu_fd.get_regs()?;
+
+        Ok(regs)
+    }
+
+    fn set_regs(&self, regs: &kvm_regs) -> anyhow::Result<()> {
+        self.vcpu_fd.set_regs(regs)?;
+
+        Ok(())
+    }
+
+    fn get_sregs(&self) -> anyhow::Result<kvm_sregs> {
+        let sregs = self.vcpu_fd.get_sregs()?;
+
+        Ok(sregs)
+    }
+
+    fn set_sregs(&self, sregs: &kvm_sregs) -> anyhow::Result<()> {
+        self.vcpu_fd.set_sregs(sregs)?;
+
+        Ok(())
+    }
+}
+
 impl KvmVm {
-    pub fn create_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
+    fn create_vcpu(&self, id: u64) -> anyhow::Result<KvmVcpu> {
+        let vcpu_fd = self.vm_fd.create_vcpu(id)?;
+
+        Ok(KvmVcpu {
+            vcpu_id: id,
+            vcpu_fd,
+        })
+    }
+
+    pub fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
         let mut vcpus = Vec::with_capacity(num_vcpus);
 
         for vcpu_id in 0..num_vcpus {
             let vcpu_id = vcpu_id as u64;
-            let vcpu_fd = self.vm_fd.create_vcpu(vcpu_id)?;
+            let vcpu_fd = self.create_vcpu(vcpu_id)?;
 
-            vcpus.push(KvmVcpu { vcpu_id, vcpu_fd });
+            let mut sregs = vcpu_fd.get_sregs()?;
+            sregs.cs.base = 0;
+            sregs.cs.selector = 0;
+            vcpu_fd.set_sregs(&sregs)?;
+
+            let mut regs = vcpu_fd.get_regs()?;
+            regs.rip = 0x0;
+            regs.rax = 2;
+            regs.rbx = 3;
+            regs.rflags = 2;
+            vcpu_fd.set_regs(&regs)?;
+
+            vcpus.push(vcpu_fd);
         }
 
         self.vcpus
