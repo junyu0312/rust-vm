@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use tracing::warn;
 
@@ -8,6 +10,9 @@ pub struct Command {
 
     #[arg(short, long)]
     pub memory: usize,
+
+    #[arg(short, long)]
+    pub kernel: Option<PathBuf>,
 }
 
 #[derive(thiserror::Error, Debug)]
