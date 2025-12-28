@@ -5,6 +5,7 @@ use kvm_ioctls::VcpuExit;
 use kvm_ioctls::VcpuFd;
 use tracing::debug;
 
+use crate::kvm::loader::KERNEL_LOAD_ADDR;
 use crate::kvm::vm::KvmVm;
 
 #[derive(Debug)]
@@ -58,15 +59,31 @@ impl KvmVm {
             let vcpu_fd = self.create_vcpu(vcpu_id)?;
 
             let mut sregs = vcpu_fd.get_sregs()?;
-            sregs.cs.base = 0;
-            sregs.cs.selector = 0;
+
+            let seg = KERNEL_LOAD_ADDR >> 4;
+            let base = seg << 4;
+
+            sregs.cs.base = base as u64;
+            sregs.cs.selector = seg as u16;
+            sregs.ds.base = base as u64;
+            sregs.es.base = base as u64;
+            sregs.fs.base = base as u64;
+            sregs.gs.base = base as u64;
+            sregs.ss.base = base as u64;
+
+            // 设置段界限（64K）
+            sregs.cs.limit = 0xFFFF;
+            sregs.ds.limit = 0xFFFF;
+            sregs.es.limit = 0xFFFF;
+            sregs.fs.limit = 0xFFFF;
+            sregs.gs.limit = 0xFFFF;
+            sregs.ss.limit = 0xFFFF;
             vcpu_fd.set_sregs(&sregs)?;
 
             let mut regs = vcpu_fd.get_regs()?;
-            regs.rip = 0x90000;
-            // regs.rax = 2;
-            // regs.rbx = 3;
+            regs.rip = 0x0200; // 注意：不是 0x90200！
             regs.rflags = 2;
+            regs.rsp = 0x9800;
             vcpu_fd.set_regs(&regs)?;
 
             vcpus.push(vcpu_fd);
@@ -88,11 +105,25 @@ impl KvmVm {
         let vcpu = &mut vcpus[i];
 
         loop {
+            // let sregs = vcpu.get_sregs()?;
+            // println!("=== 当前段寄存器 ===");
+            // println!(
+            //     "CS: base=0x{:016x}, selector=0x{:04x}",
+            //     sregs.cs.base, sregs.cs.selector
+            // );
+            // println!("DS: base=0x{:016x}", sregs.ds.base);
+            // println!("ES: base=0x{:016x}", sregs.es.base);
+            // println!("SS: base=0x{:016x}", sregs.ss.base);
+            // println!("CR0: 0x{:08x}", sregs.cr0);
+            // let regs = vcpu.get_regs()?;
+            // println!("RIP: 0x{:#x}", regs.rip);
             match vcpu.vcpu_fd.run()? {
                 VcpuExit::IoOut(port, data) => {
-                    debug!(port, data);
+                    debug!("IoOut: port: {:#X}, data: {:?}", port, data);
                 }
-                VcpuExit::IoIn(_, _) => todo!(),
+                VcpuExit::IoIn(port, data) => {
+                    debug!("IoIn: port: {:#X}, data: {:?}", port, data);
+                }
                 VcpuExit::MmioRead(_, _) => todo!(),
                 VcpuExit::MmioWrite(_, _) => todo!(),
                 VcpuExit::Unknown => todo!(),
