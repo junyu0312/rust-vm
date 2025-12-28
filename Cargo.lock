@@ -183,10 +183,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37c93d8daa9d8a012fd8ab92f088405fb202ea0b6ab73ee2482ae66af4f42091"
 
 [[package]]
-name = "linux"
-version = "0.1.0"
-
-[[package]]
 name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -293,6 +289,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-subscriber",
+ "vm-linux",
 ]
 
 [[package]]
@@ -434,6 +431,13 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "vm-linux"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
 
 [[package]]
 name = "vmm-sys-util"
