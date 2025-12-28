@@ -8,12 +8,12 @@ use tracing::info;
 
 use crate::command::Command;
 use crate::kvm::vcpu::KvmVcpu;
-use crate::mm::MemoryRegion;
+use crate::mm::manager::MemoryRegions;
 
 pub struct KvmVm {
     pub vm_fd: VmFd,
     pub vcpus: OnceCell<Vec<KvmVcpu>>,
-    pub memory_regions: OnceCell<Vec<MemoryRegion>>,
+    pub memory_regions: OnceCell<MemoryRegions>,
 }
 
 impl KvmVm {
@@ -45,6 +45,11 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     vm.init_vcpus(command.cpus)
         .context("Failed to create vcpus")?;
     vm.init_mm(command.memory).context("Failed to init mm")?;
+
+    if let Some(kernel) = command.kernel {
+        vm.init_kernel(kernel.as_path())?;
+    }
+
     vm.run().context("Failed to run")?;
 
     info!("Vm exits");

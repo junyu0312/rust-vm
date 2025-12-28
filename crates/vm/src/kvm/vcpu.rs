@@ -3,6 +3,7 @@ use kvm_bindings::kvm_regs;
 use kvm_bindings::kvm_sregs;
 use kvm_ioctls::VcpuExit;
 use kvm_ioctls::VcpuFd;
+use tracing::debug;
 
 use crate::kvm::vm::KvmVm;
 
@@ -62,9 +63,9 @@ impl KvmVm {
             vcpu_fd.set_sregs(&sregs)?;
 
             let mut regs = vcpu_fd.get_regs()?;
-            regs.rip = 0x0;
-            regs.rax = 2;
-            regs.rbx = 3;
+            regs.rip = 0x90000;
+            // regs.rax = 2;
+            // regs.rbx = 3;
             regs.rflags = 2;
             vcpu_fd.set_regs(&regs)?;
 
@@ -86,41 +87,45 @@ impl KvmVm {
 
         let vcpu = &mut vcpus[i];
 
-        match vcpu.vcpu_fd.run()? {
-            VcpuExit::IoOut(_, _) => todo!(),
-            VcpuExit::IoIn(_, _) => todo!(),
-            VcpuExit::MmioRead(_, _) => todo!(),
-            VcpuExit::MmioWrite(_, _) => todo!(),
-            VcpuExit::Unknown => todo!(),
-            VcpuExit::Exception => todo!(),
-            VcpuExit::Hypercall(_) => todo!(),
-            VcpuExit::Debug(_) => todo!(),
-            VcpuExit::Hlt => todo!(),
-            VcpuExit::IrqWindowOpen => todo!(),
-            VcpuExit::Shutdown => todo!(),
-            VcpuExit::FailEntry(_, _) => todo!(),
-            VcpuExit::Intr => todo!(),
-            VcpuExit::SetTpr => todo!(),
-            VcpuExit::TprAccess => todo!(),
-            VcpuExit::S390Sieic => todo!(),
-            VcpuExit::S390Reset => todo!(),
-            VcpuExit::Dcr => todo!(),
-            VcpuExit::Nmi => todo!(),
-            VcpuExit::InternalError => todo!(),
-            VcpuExit::Osi => todo!(),
-            VcpuExit::PaprHcall => todo!(),
-            VcpuExit::S390Ucontrol => todo!(),
-            VcpuExit::Watchdog => todo!(),
-            VcpuExit::S390Tsch => todo!(),
-            VcpuExit::Epr => todo!(),
-            VcpuExit::SystemEvent(_, _) => todo!(),
-            VcpuExit::S390Stsi => todo!(),
-            VcpuExit::IoapicEoi(_) => todo!(),
-            VcpuExit::Hyperv => todo!(),
-            VcpuExit::X86Rdmsr(_) => todo!(),
-            VcpuExit::X86Wrmsr(_) => todo!(),
-            VcpuExit::MemoryFault { .. } => todo!(),
-            VcpuExit::Unsupported(_) => todo!(),
+        loop {
+            match vcpu.vcpu_fd.run()? {
+                VcpuExit::IoOut(port, data) => {
+                    debug!(port, data);
+                }
+                VcpuExit::IoIn(_, _) => todo!(),
+                VcpuExit::MmioRead(_, _) => todo!(),
+                VcpuExit::MmioWrite(_, _) => todo!(),
+                VcpuExit::Unknown => todo!(),
+                VcpuExit::Exception => todo!(),
+                VcpuExit::Hypercall(_) => todo!(),
+                VcpuExit::Debug(_) => todo!(),
+                VcpuExit::Hlt => todo!(),
+                VcpuExit::IrqWindowOpen => todo!(),
+                VcpuExit::Shutdown => todo!(),
+                VcpuExit::FailEntry(_, _) => todo!(),
+                VcpuExit::Intr => todo!(),
+                VcpuExit::SetTpr => todo!(),
+                VcpuExit::TprAccess => todo!(),
+                VcpuExit::S390Sieic => todo!(),
+                VcpuExit::S390Reset => todo!(),
+                VcpuExit::Dcr => todo!(),
+                VcpuExit::Nmi => todo!(),
+                VcpuExit::InternalError => todo!(),
+                VcpuExit::Osi => todo!(),
+                VcpuExit::PaprHcall => todo!(),
+                VcpuExit::S390Ucontrol => todo!(),
+                VcpuExit::Watchdog => todo!(),
+                VcpuExit::S390Tsch => todo!(),
+                VcpuExit::Epr => todo!(),
+                VcpuExit::SystemEvent(_, _) => todo!(),
+                VcpuExit::S390Stsi => todo!(),
+                VcpuExit::IoapicEoi(_) => todo!(),
+                VcpuExit::Hyperv => todo!(),
+                VcpuExit::X86Rdmsr(_) => todo!(),
+                VcpuExit::X86Wrmsr(_) => todo!(),
+                VcpuExit::MemoryFault { .. } => todo!(),
+                VcpuExit::Unsupported(_) => todo!(),
+            }
         }
     }
 

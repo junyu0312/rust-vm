@@ -1,6 +1,4 @@
-use std::io::Write;
 use std::os::raw::c_void;
-use std::slice;
 
 use anyhow::bail;
 use nix::libc::MAP_ANONYMOUS;
@@ -13,18 +11,17 @@ use nix::libc::munmap;
 use tracing::error;
 
 pub struct MemoryRegion {
-    ptr: *mut u8,
-    mem_size: usize,
+    pub gpa: usize,
+    pub ptr: *mut u8,
+    pub len: usize,
 }
 
 impl MemoryRegion {
-    pub fn new(gb: usize) -> anyhow::Result<Self> {
-        let mem_size = gb << 30;
-
+    pub fn new(gpa: usize, len: usize) -> anyhow::Result<Self> {
         let ptr = unsafe {
             mmap(
                 std::ptr::null_mut(),
-                mem_size,
+                len,
                 PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS,
                 -1,
@@ -37,13 +34,7 @@ impl MemoryRegion {
 
         let ptr = ptr as *mut u8;
 
-        let x86_code = [0xf4 /* hlt */];
-        unsafe {
-            let mut slice = slice::from_raw_parts_mut(ptr, mem_size);
-            slice.write_all(&x86_code)?;
-        }
-
-        Ok(MemoryRegion { ptr, mem_size })
+        Ok(MemoryRegion { gpa, ptr, len })
     }
 
     pub fn as_u64(&self) -> u64 {
@@ -53,7 +44,7 @@ impl MemoryRegion {
 
 impl Drop for MemoryRegion {
     fn drop(&mut self) {
-        let r = unsafe { munmap(self.ptr as *mut c_void, self.mem_size) };
+        let r = unsafe { munmap(self.ptr as *mut c_void, self.len) };
 
         if r != 0 {
             error!("Failed to munmap memory region");
