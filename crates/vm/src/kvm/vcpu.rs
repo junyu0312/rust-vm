@@ -8,7 +8,7 @@ use kvm_bindings::kvm_sregs;
 use kvm_ioctls::VcpuExit;
 use kvm_ioctls::VcpuFd;
 use tracing::debug;
-use tracing::trace;
+// use tracing::trace;
 
 use crate::kvm::loader::KERNEL_LOAD_ADDR;
 use crate::kvm::vm::KvmVm;
@@ -150,11 +150,11 @@ impl KvmVm {
         );
 
         loop {
-            trace!("al: {}", vcpu.get_regs()?.rax & 0xFF);
+            // trace!("al: {}", vcpu.get_regs()?.rax & 0xFF);
 
             let r = vcpu.vcpu_fd.run();
 
-            trace!("{:?}", r);
+            // trace!("{:?}", r);
             match r? {
                 VcpuExit::IoOut(port, data) => {
                     debug!("IoOut: port: {:#X}, data: {:?}", port, data);

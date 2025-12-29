@@ -15,8 +15,8 @@ impl KvmVm {
 
         bzimage.set_heap_end_ptr(0x9800 - 0x200)?;
         bzimage.set_loadflags(bzimage.get_loadflags()? | 0x80)?;
-        bzimage.set_command_line_ptr(KERNEL_LOAD_ADDR as u32 + 0x9800)?;
-        bzimage.set_cmdline(b"console=ttyS0\0", KERNEL_LOAD_ADDR as u32 + 0x9800)?;
+        bzimage.set_cmd_line_ptr(KERNEL_LOAD_ADDR as u32 + 0x9800)?;
+        bzimage.set_cmdline(b"earlyprintk=serial,console=ttyS0\0", 0x9800)?;
 
         let memory_regions = self
             .memory_regions
@@ -30,13 +30,7 @@ impl KvmVm {
         unsafe {
             let dst = memory_region.ptr.add(KERNEL_LOAD_ADDR);
             std::ptr::copy(bzimage.as_ptr(), dst, bzimage.len());
-
-            // *memory_region.ptr.add(0x902fe) = 0xf4;
         }
-        // unsafe {
-        //     let dst = memory_region.ptr.add(KERNEL_LOAD_ADDR).add(0x200);
-        //     *dst = 0xf4;
-        // }
 
         Ok(())
     }
