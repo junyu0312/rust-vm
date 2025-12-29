@@ -1,9 +1,14 @@
 use anyhow::anyhow;
+use kvm_bindings::KVM_GUESTDBG_ENABLE;
+use kvm_bindings::KVM_GUESTDBG_SINGLESTEP;
+use kvm_bindings::kvm_guest_debug;
+use kvm_bindings::kvm_guest_debug_arch;
 use kvm_bindings::kvm_regs;
 use kvm_bindings::kvm_sregs;
 use kvm_ioctls::VcpuExit;
 use kvm_ioctls::VcpuFd;
 use tracing::debug;
+use tracing::trace;
 
 use crate::kvm::loader::KERNEL_LOAD_ADDR;
 use crate::kvm::vm::KvmVm;
@@ -39,6 +44,12 @@ impl KvmVcpu {
 
         Ok(())
     }
+
+    fn set_guest_debug(&self, ctl: &kvm_guest_debug) -> anyhow::Result<()> {
+        self.vcpu_fd.set_guest_debug(ctl)?;
+
+        Ok(())
+    }
 }
 
 impl KvmVm {
@@ -60,31 +71,58 @@ impl KvmVm {
 
             let mut sregs = vcpu_fd.get_sregs()?;
 
-            let seg = KERNEL_LOAD_ADDR >> 4;
-            let base = seg << 4;
+            let kernel_load = KERNEL_LOAD_ADDR;
 
-            sregs.cs.base = base as u64;
-            sregs.cs.selector = seg as u16;
-            sregs.ds.base = base as u64;
-            sregs.es.base = base as u64;
-            sregs.fs.base = base as u64;
-            sregs.gs.base = base as u64;
-            sregs.ss.base = base as u64;
+            let segment_base = kernel_load >> 4;
 
-            // 设置段界限（64K）
+            {
+                let segment_base = segment_base + 0x20;
+                sregs.cs.base = (segment_base as u64) << 4;
+                sregs.cs.selector = segment_base as u16;
+                sregs.cs.limit = 0xFFFF;
+                sregs.cs.present = 1;
+                sregs.cs.type_ = 3;
+                sregs.cs.s = 1;
+            }
+
+            {
+                for seg in [
+                    &mut sregs.ss,
+                    &mut sregs.ds,
+                    &mut sregs.es,
+                    &mut sregs.fs,
+                    &mut sregs.gs,
+                ] {
+                    seg.base = (segment_base as u64) << 4;
+                    seg.selector = segment_base as u16;
+                    seg.limit = 0xFFFF;
+                    seg.present = 1;
+                    seg.type_ = 3;
+                    seg.s = 1;
+                }
+            }
+
             sregs.cs.limit = 0xFFFF;
             sregs.ds.limit = 0xFFFF;
             sregs.es.limit = 0xFFFF;
             sregs.fs.limit = 0xFFFF;
             sregs.gs.limit = 0xFFFF;
             sregs.ss.limit = 0xFFFF;
+            sregs.cr0 = 0;
+            sregs.efer = 0;
             vcpu_fd.set_sregs(&sregs)?;
 
             let mut regs = vcpu_fd.get_regs()?;
-            regs.rip = 0x0200; // 注意：不是 0x90200！
+            regs.rip = 0x0000;
             regs.rflags = 2;
             regs.rsp = 0x9800;
             vcpu_fd.set_regs(&regs)?;
+
+            vcpu_fd.set_guest_debug(&kvm_guest_debug {
+                control: KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_SINGLESTEP,
+                pad: 0,
+                arch: kvm_guest_debug_arch { debugreg: [0; 8] },
+            })?;
 
             vcpus.push(vcpu_fd);
         }
@@ -104,33 +142,37 @@ impl KvmVm {
 
         let vcpu = &mut vcpus[i];
 
+        debug!(
+            "Starting vCPU {}, regs: {:?}, sregs: {:?}",
+            i,
+            vcpu.get_regs(),
+            vcpu.get_sregs()
+        );
+
         loop {
-            // let sregs = vcpu.get_sregs()?;
-            // println!("=== 当前段寄存器 ===");
-            // println!(
-            //     "CS: base=0x{:016x}, selector=0x{:04x}",
-            //     sregs.cs.base, sregs.cs.selector
-            // );
-            // println!("DS: base=0x{:016x}", sregs.ds.base);
-            // println!("ES: base=0x{:016x}", sregs.es.base);
-            // println!("SS: base=0x{:016x}", sregs.ss.base);
-            // println!("CR0: 0x{:08x}", sregs.cr0);
-            // let regs = vcpu.get_regs()?;
-            // println!("RIP: 0x{:#x}", regs.rip);
-            match vcpu.vcpu_fd.run()? {
+            trace!("al: {}", vcpu.get_regs()?.rax & 0xFF);
+
+            let r = vcpu.vcpu_fd.run();
+
+            trace!("{:?}", r);
+            match r? {
                 VcpuExit::IoOut(port, data) => {
                     debug!("IoOut: port: {:#X}, data: {:?}", port, data);
+                    todo!()
                 }
                 VcpuExit::IoIn(port, data) => {
                     debug!("IoIn: port: {:#X}, data: {:?}", port, data);
+                    todo!()
                 }
                 VcpuExit::MmioRead(_, _) => todo!(),
                 VcpuExit::MmioWrite(_, _) => todo!(),
                 VcpuExit::Unknown => todo!(),
                 VcpuExit::Exception => todo!(),
                 VcpuExit::Hypercall(_) => todo!(),
-                VcpuExit::Debug(_) => todo!(),
-                VcpuExit::Hlt => todo!(),
+                VcpuExit::Debug(_) => {}
+                VcpuExit::Hlt => {
+                    todo!()
+                }
                 VcpuExit::IrqWindowOpen => todo!(),
                 VcpuExit::Shutdown => todo!(),
                 VcpuExit::FailEntry(_, _) => todo!(),

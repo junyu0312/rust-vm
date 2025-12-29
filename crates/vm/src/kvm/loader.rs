@@ -30,7 +30,13 @@ impl KvmVm {
         unsafe {
             let dst = memory_region.ptr.add(KERNEL_LOAD_ADDR);
             std::ptr::copy(bzimage.as_ptr(), dst, bzimage.len());
+
+            // *memory_region.ptr.add(0x902fe) = 0xf4;
         }
+        // unsafe {
+        //     let dst = memory_region.ptr.add(KERNEL_LOAD_ADDR).add(0x200);
+        //     *dst = 0xf4;
+        // }
 
         Ok(())
     }
