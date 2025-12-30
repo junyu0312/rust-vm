@@ -23,7 +23,10 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
 
     vm.init_vcpus(command.cpus)
         .context("Failed to create vcpus")?;
-    vm.init_mm(command.memory).context("Failed to init mm")?;
+
+    vm.init_mm(command.memory << 30)
+        .context("Failed to init mm")?;
+
     vm.init_device()?;
 
     vm.init_kernel(command.kernel.as_path(), command.cmdline)?;
