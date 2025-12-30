@@ -157,12 +157,16 @@ impl KvmVm {
             // trace!("{:?}", r);
             match r? {
                 VcpuExit::IoOut(port, data) => {
-                    debug!("IoOut: port: {:#X}, data: {:?}", port, data);
-                    todo!()
+                    self.pio_bus
+                        .get_mut()
+                        .ok_or_else(|| anyhow!("pio_bus is not initialized"))?
+                        .io_out(port, data)?;
                 }
                 VcpuExit::IoIn(port, data) => {
-                    debug!("IoIn: port: {:#X}, data: {:?}", port, data);
-                    todo!()
+                    self.pio_bus
+                        .get_mut()
+                        .ok_or_else(|| anyhow!("pio_bus is not initialized"))?
+                        .io_in(port, data)?;
                 }
                 VcpuExit::MmioRead(_, _) => todo!(),
                 VcpuExit::MmioWrite(_, _) => todo!(),

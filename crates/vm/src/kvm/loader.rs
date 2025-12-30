@@ -16,7 +16,7 @@ impl KvmVm {
         bzimage.set_heap_end_ptr(0x9800 - 0x200)?;
         bzimage.set_loadflags(bzimage.get_loadflags()? | 0x80)?;
         bzimage.set_cmd_line_ptr(KERNEL_LOAD_ADDR as u32 + 0x9800)?;
-        bzimage.set_cmdline(b"earlyprintk=serial,console=ttyS0\0", 0x9800)?;
+        bzimage.set_cmdline(b"earlyprintk=serial,console=ttyS0 debug\0", 0x9800)?;
 
         let memory_regions = self
             .memory_regions
