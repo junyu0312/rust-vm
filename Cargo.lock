@@ -289,6 +289,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-subscriber",
+ "vm-device",
  "vm-linux",
 ]
 
@@ -431,6 +432,13 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "vm-device"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "vm-linux"

@@ -59,7 +59,7 @@ const HEAP_END_PTR: Header = Header {
     offset: 0x224,
     size: 2,
 };
-const COMMAND_LINE_PTR: Header = Header {
+const CMD_LINE_PTR: Header = Header {
     offset: 0x228,
     size: 4,
 };
@@ -106,12 +106,12 @@ impl BzImage {
         self.set_header(&HEAP_END_PTR, Value::U16(ptr))
     }
 
-    pub fn set_command_line_ptr(&mut self, ptr: u32) -> anyhow::Result<()> {
-        self.set_header(&COMMAND_LINE_PTR, Value::U32(ptr))
+    pub fn set_cmd_line_ptr(&mut self, ptr: u32) -> anyhow::Result<()> {
+        self.set_header(&CMD_LINE_PTR, Value::U32(ptr))
     }
 
-    pub fn get_command_line_ptr(&self) -> anyhow::Result<u32> {
-        self.get_header(&COMMAND_LINE_PTR)?.as_u32()
+    pub fn get_cmd_line_ptr(&self) -> anyhow::Result<u32> {
+        self.get_header(&CMD_LINE_PTR)?.as_u32()
     }
 
     pub fn set_cmdline(&mut self, cmdline: &[u8], dst: u32) -> anyhow::Result<()> {
