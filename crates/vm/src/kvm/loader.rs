@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use std::path::Path;
 
 use anyhow::anyhow;
@@ -8,15 +9,19 @@ use crate::kvm::vm::KvmVm;
 pub const KERNEL_LOAD_ADDR: usize = 0x90000;
 
 impl KvmVm {
-    pub fn init_kernel(&mut self, kernel: &Path) -> anyhow::Result<()> {
+    pub fn init_kernel(&mut self, kernel: &Path, cmdline: Option<String>) -> anyhow::Result<()> {
         let mut bzimage = BzImage::read(kernel)?;
 
         assert_eq!(bzimage.get_boot_flag()?, 0xAA55);
 
         bzimage.set_heap_end_ptr(0x9800 - 0x200)?;
         bzimage.set_loadflags(bzimage.get_loadflags()? | 0x80)?;
-        bzimage.set_cmd_line_ptr(KERNEL_LOAD_ADDR as u32 + 0x9800)?;
-        bzimage.set_cmdline(b"earlyprintk=serial,console=ttyS0 debug\0", 0x9800)?;
+
+        if let Some(cmdline) = cmdline {
+            let cstr = CString::new(cmdline)?;
+            bzimage.set_cmd_line_ptr(KERNEL_LOAD_ADDR as u32 + 0x9800)?;
+            bzimage.set_cmdline(cstr.as_bytes_with_nul(), 0x9800)?;
+        }
 
         let memory_regions = self
             .memory_regions

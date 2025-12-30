@@ -3,5 +3,6 @@ mod device;
 mod loader;
 mod mm;
 mod vcpu;
+mod vm;
 
-pub mod vm;
+pub mod builder;
