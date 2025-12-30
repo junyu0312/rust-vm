@@ -1,7 +1,7 @@
 #![deny(warnings)]
 use clap::Parser;
 use rust_vm::command::Command;
-use rust_vm::kvm::vm::create_kvm_vm;
+use rust_vm::kvm::builder::create_kvm_vm;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 

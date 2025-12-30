@@ -12,7 +12,10 @@ pub struct Command {
     pub memory: usize,
 
     #[arg(short, long)]
-    pub kernel: Option<PathBuf>,
+    pub kernel: PathBuf,
+
+    #[arg(short, long)]
+    pub cmdline: Option<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
