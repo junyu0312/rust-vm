@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use kvm_bindings::CpuId;
 use kvm_bindings::KVM_GUESTDBG_ENABLE;
 use kvm_bindings::KVM_GUESTDBG_SINGLESTEP;
 use kvm_bindings::kvm_guest_debug;
@@ -47,6 +48,12 @@ impl KvmVcpu {
 
     fn set_guest_debug(&self, ctl: &kvm_guest_debug) -> anyhow::Result<()> {
         self.vcpu_fd.set_guest_debug(ctl)?;
+
+        Ok(())
+    }
+
+    fn set_cpuid2(&self, cpuid: &CpuId) -> anyhow::Result<()> {
+        self.vcpu_fd.set_cpuid2(cpuid)?;
 
         Ok(())
     }
@@ -123,6 +130,9 @@ impl KvmVm {
                 pad: 0,
                 arch: kvm_guest_debug_arch { debugreg: [0; 8] },
             })?;
+
+            let cpuid2 = self.get_supported_cpuid()?;
+            vcpu_fd.set_cpuid2(&cpuid2)?;
 
             vcpus.push(vcpu_fd);
         }

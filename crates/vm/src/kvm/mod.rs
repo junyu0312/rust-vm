@@ -1,3 +1,4 @@
+mod arch;
 mod device;
 mod loader;
 mod mm;

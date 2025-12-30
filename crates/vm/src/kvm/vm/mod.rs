@@ -12,6 +12,7 @@ use crate::kvm::vcpu::KvmVcpu;
 use crate::mm::manager::MemoryRegions;
 
 pub struct KvmVm {
+    pub kvm: Kvm,
     pub vm_fd: VmFd,
     pub vcpus: OnceCell<Vec<KvmVcpu>>,
     pub memory_regions: OnceCell<MemoryRegions>,
@@ -19,9 +20,10 @@ pub struct KvmVm {
 }
 
 impl KvmVm {
-    fn new(kvm: &Kvm) -> anyhow::Result<Self> {
+    fn new(kvm: Kvm) -> anyhow::Result<Self> {
         let vm_fd = kvm.create_vm()?;
         Ok(KvmVm {
+            kvm,
             vm_fd,
             vcpus: Default::default(),
             memory_regions: Default::default(),
@@ -43,7 +45,7 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
 
     command.validate(kvm_nr_vcpus, kvm_max_vcpus, kvm_max_vcpu_id)?;
 
-    let mut vm = KvmVm::new(&kvm)?;
+    let mut vm = KvmVm::new(kvm)?;
 
     vm.init_vcpus(command.cpus)
         .context("Failed to create vcpus")?;
