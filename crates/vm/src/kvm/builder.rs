@@ -31,6 +31,8 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
 
     vm.init_kernel(command.kernel.as_path(), command.cmdline)?;
 
+    vm.init_ivt()?;
+
     vm.run().context("Failed to run")?;
 
     info!("Vm exits");
