@@ -12,13 +12,13 @@ impl KvmVm {
     pub fn init_device(&mut self) -> anyhow::Result<()> {
         let uart16550 = Uart16550::default();
 
-        let cmos = Cmos::default();
+        let cmos = Cmos;
 
-        let post_debug = PostDebug::default();
+        let post_debug = PostDebug;
 
-        let coprocessor = Coprocessor::default();
+        let coprocessor = Coprocessor;
 
-        let pic = Pic::default();
+        let pic = Pic;
 
         let mut pio_bus = PioBus::default();
         pio_bus.register(Box::new(uart16550))?;

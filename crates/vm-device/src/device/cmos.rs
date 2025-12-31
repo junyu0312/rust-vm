@@ -13,11 +13,8 @@ impl PioDevice for Cmos {
     }
 
     fn io_out(&mut self, port: u16, _data: &[u8]) {
-        match port {
-            0x70 => {
-                // Handle CMOS register selection
-            }
-            _ => {}
+        if port == 0x70 {
+            // Handle CMOS register selection
         }
     }
 }

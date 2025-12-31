@@ -15,9 +15,6 @@ impl PioDevice for PostDebug {
     }
 
     fn io_out(&mut self, port: u16, _data: &[u8]) {
-        match port {
-            PORT => {}
-            _ => {}
-        }
+        if port == PORT {}
     }
 }
