@@ -3,3 +3,6 @@
 
 int10_handler:
     iret
+
+int15_handler:
+    iret

@@ -3,6 +3,7 @@ use kvm_bindings::kvm_guest_debug;
 use kvm_bindings::kvm_regs;
 use kvm_ioctls::VcpuExit;
 use kvm_ioctls::VcpuFd;
+use tracing::error;
 // use tracing::trace;
 
 use crate::kvm::vm::KvmVm;
@@ -109,7 +110,13 @@ impl KvmVm {
                 VcpuExit::S390Reset => todo!(),
                 VcpuExit::Dcr => todo!(),
                 VcpuExit::Nmi => todo!(),
-                VcpuExit::InternalError => todo!(),
+                VcpuExit::InternalError => {
+                    let kvm_run = vcpu.vcpu_fd.get_kvm_run();
+                    unsafe {
+                        error!(?kvm_run.__bindgen_anon_1.internal, "InternalError");
+                    }
+                    panic!();
+                }
                 VcpuExit::Osi => todo!(),
                 VcpuExit::PaprHcall => todo!(),
                 VcpuExit::S390Ucontrol => todo!(),

@@ -35,6 +35,7 @@ impl KvmVm {
         }
 
         set_ivt(memory_region.ptr, 0x10, 0x0000, 0x0800);
+        set_ivt(memory_region.ptr, 0x15, 0x0000, 0x0801);
 
         Ok(())
     }
