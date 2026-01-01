@@ -13,4 +13,3 @@ thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 vm-device.workspace = true
-vm-linux.workspace = true

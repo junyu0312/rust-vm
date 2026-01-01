@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map;
 
+use anyhow::anyhow;
+use anyhow::bail;
+
 use crate::mm::region::MemoryRegion;
 
 #[derive(Default)]
@@ -49,5 +52,51 @@ impl MemoryRegions {
             .values_mut()
             .find(|region| gpa >= region.gpa && gpa < region.gpa + region.len)
             .map(|v| v as _)
+    }
+
+    pub fn gpa_to_ptr(&mut self, gpa: usize) -> anyhow::Result<*mut u8> {
+        let region = self
+            .get_mut_by_gpa(gpa)
+            .ok_or_else(|| anyhow!("Memory region not found"))?;
+
+        let offset = gpa - region.gpa;
+
+        Ok(unsafe { region.ptr.add(offset) })
+    }
+
+    pub fn memset(&mut self, gpa: usize, v: u8, len: usize) -> anyhow::Result<()> {
+        let region = self
+            .get_mut_by_gpa(gpa)
+            .ok_or_else(|| anyhow!("Memory region not found"))?;
+
+        let offset = gpa - region.gpa;
+        if offset + len > region.len {
+            bail!("Copy exceeds memory region bounds");
+        }
+
+        for i in 0..len {
+            unsafe {
+                *region.ptr.add(i) = v;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn copy_from_slice(&mut self, gpa: usize, buf: &[u8], len: usize) -> anyhow::Result<()> {
+        let region = self
+            .get_mut_by_gpa(gpa)
+            .ok_or_else(|| anyhow!("Memory region not found"))?;
+
+        let offset = gpa - region.gpa;
+        if offset + len > region.len {
+            bail!("Copy exceeds memory region bounds");
+        }
+
+        unsafe {
+            region.ptr.add(offset).copy_from(buf.as_ptr(), len);
+        }
+
+        Ok(())
     }
 }
