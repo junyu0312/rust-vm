@@ -3,6 +3,8 @@ use kvm_ioctls::Kvm;
 use tracing::debug;
 use tracing::info;
 
+use crate::bootable::Bootable;
+use crate::bootable::linux::x86_64::bzimage::BzImage;
 use crate::command::Command;
 use crate::kvm::vm::KvmVm;
 
@@ -27,9 +29,10 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     vm.init_mm(command.memory << 30)
         .context("Failed to init mm")?;
 
-    vm.init_device()?;
+    let mut bz_image = BzImage::new(&command.kernel, None, command.cmdline.as_deref())?;
+    bz_image.init(&mut vm)?;
 
-    vm.init_kernel(command.kernel.as_path(), command.cmdline)?;
+    vm.init_device()?;
 
     vm.init_ivt()?;
 

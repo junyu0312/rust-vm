@@ -290,7 +290,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "vm-device",
- "vm-linux",
 ]
 
 [[package]]
@@ -438,13 +437,6 @@ name = "vm-device"
 version = "0.1.0"
 dependencies = [
  "thiserror",
-]
-
-[[package]]
-name = "vm-linux"
-version = "0.1.0"
-dependencies = [
- "anyhow",
 ]
 
 [[package]]
