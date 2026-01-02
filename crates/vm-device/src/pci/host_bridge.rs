@@ -51,7 +51,7 @@ impl PioDevice for PciHostBridge {
                 let slot = ((data >> 11) & 0x1f) as u8;
                 let func = ((data >> 8) & 0x7) as u8;
                 let register = ((data >> 2) & 0x3f) as u8;
-                let offset = (register & 0xff) as u8;
+                let offset = register;
 
                 let config_address = ConfigAddress {
                     enable_bit,
