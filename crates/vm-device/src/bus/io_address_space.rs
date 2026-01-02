@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::device::pio::PioDevice;
 
 #[derive(Default)]
-pub struct PioBus {
+pub struct IoAddressSpace {
     devices: BTreeMap<usize, Box<dyn PioDevice>>,
     port_to_device: HashMap<u16, usize>,
 }
@@ -17,7 +17,7 @@ pub enum Error {
     NoDeviceForPort(u16),
 }
 
-impl PioBus {
+impl IoAddressSpace {
     pub fn register(&mut self, device: Box<dyn PioDevice>) -> Result<(), Error> {
         let id = self.devices.len();
         for &port in device.ports() {
