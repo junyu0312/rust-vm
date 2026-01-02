@@ -1,51 +1,108 @@
 use anyhow::anyhow;
 
+use crate::arch::x86::bios::e820::*;
+use crate::arch::x86::bios::ivt::*;
+use crate::bootable::linux::x86_64::bzimage::KERNEL_START;
 use crate::kvm::vm::KvmVm;
 
-#[repr(C)]
-#[derive(Copy, Clone, Default)]
-struct IvEntry {
-    ip: u16,
-    cs: u16,
-}
+mod ivt {
+    #[repr(C)]
+    #[derive(Clone, Copy, Default)]
+    struct IvEntry {
+        ip: u16,
+        cs: u16,
+    }
 
-impl From<u32> for IvEntry {
-    fn from(addr: u32) -> Self {
-        IvEntry {
-            ip: (addr & 0xffff) as u16,
-            cs: (addr >> 16) as u16,
+    impl From<u32> for IvEntry {
+        fn from(addr: u32) -> Self {
+            IvEntry {
+                ip: (addr & 0xffff) as u16,
+                cs: (addr >> 16) as u16,
+            }
+        }
+    }
+
+    #[repr(C)]
+    pub struct InterruptVectorTable {
+        entries: [IvEntry; 256],
+    }
+
+    impl Default for InterruptVectorTable {
+        fn default() -> Self {
+            Self {
+                entries: [Default::default(); 256],
+            }
+        }
+    }
+
+    impl InterruptVectorTable {
+        pub fn set_entry(&mut self, index: u32, addr: u32) {
+            self.entries[index as usize] = IvEntry::from(addr);
+        }
+
+        pub fn len(&self) -> usize {
+            self.entries.len() * 4
+        }
+
+        pub fn as_bytes(&self) -> &[u8] {
+            unsafe {
+                core::slice::from_raw_parts(
+                    self as *const _ as *const u8,
+                    core::mem::size_of::<InterruptVectorTable>(),
+                )
+            }
         }
     }
 }
 
-#[repr(C)]
-struct InterruptVectorTable {
-    entries: [IvEntry; 256],
-}
+mod e820 {
+    const E820_X_MAX: usize = 128; // 这里用你在 C 里定义的最大值
 
-impl Default for InterruptVectorTable {
-    fn default() -> Self {
-        Self {
-            entries: [Default::default(); 256],
+    #[repr(u32)]
+    #[derive(Clone, Copy)]
+    pub enum E820Type {
+        Ram = 1,
+        Reserved = 2,
+    }
+
+    #[repr(C, packed)]
+    #[derive(Clone, Copy, Default)]
+    pub struct E820Entry {
+        pub addr: u64,
+        pub size: u64,
+        pub typ: u32,
+    }
+
+    #[repr(C, packed)]
+    pub struct E820Map {
+        nr_map: u32,
+        map: [E820Entry; E820_X_MAX],
+    }
+
+    impl Default for E820Map {
+        fn default() -> Self {
+            Self {
+                nr_map: Default::default(),
+                map: [E820Entry::default(); E820_X_MAX],
+            }
         }
     }
-}
 
-impl InterruptVectorTable {
-    fn set_entry(&mut self, index: u32, addr: u32) {
-        self.entries[index as usize] = IvEntry::from(addr);
-    }
+    impl E820Map {
+        pub fn insert(&mut self, entry: E820Entry) {
+            let index = self.nr_map;
 
-    fn len(&self) -> usize {
-        self.entries.len() * 4
-    }
+            self.map[index as usize] = entry;
+            self.nr_map += 1;
+        }
 
-    fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            core::slice::from_raw_parts(
-                self as *const _ as *const u8,
-                core::mem::size_of::<InterruptVectorTable>(),
-            )
+        pub fn as_bytes(&self) -> &[u8] {
+            unsafe {
+                core::slice::from_raw_parts(
+                    self as *const _ as *const u8,
+                    core::mem::size_of::<E820Map>(),
+                )
+            }
         }
     }
 }
@@ -53,18 +110,57 @@ impl InterruptVectorTable {
 #[derive(Default)]
 pub struct Bios;
 
+const BIOS_OFFSET: usize = 0xf000;
+
 impl Bios {
     #[allow(warnings)]
     pub fn init(&self, vm: &mut KvmVm) -> anyhow::Result<()> {
-        let mut ivt = InterruptVectorTable::default();
-        ivt.set_entry(0x10, todo!());
-        ivt.set_entry(0x15, todo!());
-
         let memory_region = vm
             .memory_regions
             .get_mut()
             .ok_or_else(|| anyhow!("Memory is not initialized"))?;
-        memory_region.copy_from_slice(0, ivt.as_bytes(), ivt.len())?;
+
+        let bios_bin = include_bytes!("../../../../../bios.bin");
+        {
+            memory_region.copy_from_slice(BIOS_OFFSET, bios_bin, bios_bin.len())?;
+        }
+
+        {
+            let mut ivt = InterruptVectorTable::default();
+            for i in 0..256 {
+                ivt.set_entry(i, (BIOS_OFFSET + 0x30) as u32);
+            }
+            ivt.set_entry(0x10, (BIOS_OFFSET + 0x40) as u32);
+            ivt.set_entry(0x15, (BIOS_OFFSET + 0x80) as u32);
+
+            memory_region.copy_from_slice(0, ivt.as_bytes(), ivt.len())?;
+        }
+
+        {
+            let mut e820 = E820Map::default();
+            e820.insert(E820Entry {
+                addr: 0,
+                size: 4 * 256,
+                typ: E820Type::Ram as u32,
+            });
+            e820.insert(E820Entry {
+                addr: BIOS_OFFSET as u64,
+                size: bios_bin.len() as u64,
+                typ: E820Type::Reserved as u32,
+            });
+            e820.insert(E820Entry {
+                addr: KERNEL_START as u64,
+                size: vm.ram_size as u64 - KERNEL_START as u64,
+                typ: E820Type::Ram as u32,
+            });
+
+            memory_region.copy_from_slice(
+                0x0009fc00,
+                e820.as_bytes(),
+                std::mem::size_of::<E820Map>(),
+            )?;
+        }
+
         Ok(())
     }
 }

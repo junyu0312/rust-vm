@@ -95,7 +95,7 @@ const CS: u16 = 0x1000;
 const IP: u16 = 0x0000;
 const SP: u16 = 0x8000;
 const CMDLINE_OFFSET: u32 = 0x20000;
-const KERNEL_START: u32 = 0x100000;
+pub const KERNEL_START: u32 = 0x100000;
 
 fn to_gpa(cs: u16, ip: u16) -> u32 {
     ((cs as u32) << 4) + ip as u32

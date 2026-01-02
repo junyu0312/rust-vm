@@ -4,6 +4,7 @@ members = ["crates/*"]
 
 [workspace.dependencies]
 anyhow = "1.0.100"
+cc = "1.2.51"
 clap = { version = "4.5.53", features = ["derive"] }
 kvm-bindings = "0.14.0"
 kvm-ioctls = "0.24.0"

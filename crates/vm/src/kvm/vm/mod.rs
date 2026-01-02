@@ -12,6 +12,7 @@ pub struct KvmVm {
     pub vm_fd: VmFd,
     pub vcpus: OnceCell<Vec<KvmVcpu>>,
     pub memory_regions: OnceCell<MemoryRegions>,
+    pub ram_size: usize,
     pub pio_bus: OnceCell<PioBus>,
 }
 
@@ -23,6 +24,7 @@ impl KvmVm {
             vm_fd,
             vcpus: Default::default(),
             memory_regions: Default::default(),
+            ram_size: Default::default(),
             pio_bus: Default::default(),
         })
     }

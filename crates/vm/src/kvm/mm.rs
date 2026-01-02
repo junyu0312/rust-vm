@@ -28,6 +28,7 @@ impl KvmVm {
         self.memory_regions
             .set(memory_regions)
             .map_err(|_| anyhow!("memory regions are already set"))?;
+        self.ram_size = len;
 
         Ok(())
     }
