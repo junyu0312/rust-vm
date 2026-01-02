@@ -80,15 +80,15 @@ impl KvmVm {
             // trace!("{:?}", r);
             match r? {
                 VcpuExit::IoOut(port, data) => {
-                    self.pio_bus
+                    self.io_address_space
                         .get_mut()
-                        .ok_or_else(|| anyhow!("pio_bus is not initialized"))?
+                        .ok_or_else(|| anyhow!("io_address_space is not initialized"))?
                         .io_out(port, data)?;
                 }
                 VcpuExit::IoIn(port, data) => {
-                    self.pio_bus
+                    self.io_address_space
                         .get_mut()
-                        .ok_or_else(|| anyhow!("pio_bus is not initialized"))?
+                        .ok_or_else(|| anyhow!("io_address_space is not initialized"))?
                         .io_in(port, data)?;
                 }
                 VcpuExit::MmioRead(_, _) => todo!(),

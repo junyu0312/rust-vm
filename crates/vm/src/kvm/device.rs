@@ -1,11 +1,12 @@
 use anyhow::anyhow;
-use vm_device::bus::pio::PioBus;
+use vm_device::bus::io_address_space::IoAddressSpace;
 use vm_device::device::cmos::Cmos;
 use vm_device::device::coprocessor::Coprocessor;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart16550::Uart16550;
 use vm_device::device::vga::Vga;
+use vm_device::pci::host_bridge::PciHostBridge;
 
 use crate::kvm::vm::KvmVm;
 
@@ -23,16 +24,19 @@ impl KvmVm {
 
         let vga = Vga;
 
-        let mut pio_bus = PioBus::default();
-        pio_bus.register(Box::new(uart16550))?;
-        pio_bus.register(Box::new(cmos))?;
-        pio_bus.register(Box::new(post_debug))?;
-        pio_bus.register(Box::new(coprocessor))?;
-        pio_bus.register(Box::new(pic))?;
-        pio_bus.register(Box::new(vga))?;
+        let pci = PciHostBridge::default();
 
-        self.pio_bus
-            .set(pio_bus)
+        let mut io_address_space = IoAddressSpace::default();
+        io_address_space.register(Box::new(uart16550))?;
+        io_address_space.register(Box::new(cmos))?;
+        io_address_space.register(Box::new(post_debug))?;
+        io_address_space.register(Box::new(coprocessor))?;
+        io_address_space.register(Box::new(pic))?;
+        io_address_space.register(Box::new(vga))?;
+        io_address_space.register(Box::new(pci))?;
+
+        self.io_address_space
+            .set(io_address_space)
             .map_err(|_| anyhow!("pio_bus already set"))?;
 
         Ok(())

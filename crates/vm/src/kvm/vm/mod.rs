@@ -2,7 +2,7 @@ use std::cell::OnceCell;
 
 use kvm_ioctls::Kvm;
 use kvm_ioctls::VmFd;
-use vm_device::bus::pio::PioBus;
+use vm_device::bus::io_address_space::IoAddressSpace;
 
 use crate::kvm::vcpu::KvmVcpu;
 use crate::mm::manager::MemoryRegions;
@@ -13,7 +13,7 @@ pub struct KvmVm {
     pub vcpus: OnceCell<Vec<KvmVcpu>>,
     pub memory_regions: OnceCell<MemoryRegions>,
     pub ram_size: usize,
-    pub pio_bus: OnceCell<PioBus>,
+    pub io_address_space: OnceCell<IoAddressSpace>,
 }
 
 impl KvmVm {
@@ -25,7 +25,7 @@ impl KvmVm {
             vcpus: Default::default(),
             memory_regions: Default::default(),
             ram_size: Default::default(),
-            pio_bus: Default::default(),
+            io_address_space: Default::default(),
         })
     }
 }
