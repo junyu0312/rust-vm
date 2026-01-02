@@ -5,6 +5,7 @@ use vm_device::device::coprocessor::Coprocessor;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart16550::Uart16550;
+use vm_device::device::vga::Vga;
 
 use crate::kvm::vm::KvmVm;
 
@@ -20,12 +21,15 @@ impl KvmVm {
 
         let pic = Pic;
 
+        let vga = Vga;
+
         let mut pio_bus = PioBus::default();
         pio_bus.register(Box::new(uart16550))?;
         pio_bus.register(Box::new(cmos))?;
         pio_bus.register(Box::new(post_debug))?;
         pio_bus.register(Box::new(coprocessor))?;
         pio_bus.register(Box::new(pic))?;
+        pio_bus.register(Box::new(vga))?;
 
         self.pio_bus
             .set(pio_bus)

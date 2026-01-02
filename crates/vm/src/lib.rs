@@ -1,4 +1,5 @@
-// #![deny(warnings)]
+#![deny(warnings)]
+mod arch;
 mod bootable;
 mod mm;
 
