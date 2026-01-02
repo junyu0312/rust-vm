@@ -154,7 +154,7 @@ impl BzImage {
 }
 
 impl Bootable for BzImage {
-    fn init(&mut self, vm: &mut KvmVm) -> anyhow::Result<()> {
+    fn init(&self, vm: &mut KvmVm) -> anyhow::Result<()> {
         ensure!(self.get_boot_flag()? == 0xAA55, "Invalid boot_flag");
 
         ensure!(

@@ -5,3 +5,4 @@ pub mod coprocessor;
 pub mod pic;
 pub mod post_debug;
 pub mod uart16550;
+pub mod vga;
