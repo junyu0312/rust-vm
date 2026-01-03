@@ -8,8 +8,12 @@ impl PioDevice for Pic {
         &[0xa1, 0x21]
     }
 
-    fn io_in(&mut self, _port: u16, _data: &mut [u8]) {
-        todo!()
+    fn io_in(&mut self, port: u16, _data: &mut [u8]) {
+        match port {
+            0xa1 => (),
+            0x21 => (),
+            _ => {}
+        }
     }
 
     fn io_out(&mut self, port: u16, _data: &[u8]) {

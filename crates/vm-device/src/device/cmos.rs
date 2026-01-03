@@ -5,16 +5,14 @@ pub struct Cmos;
 
 impl PioDevice for Cmos {
     fn ports(&self) -> &[u16] {
-        &[0x70]
+        &[0x70, 0x71]
     }
 
     fn io_in(&mut self, _port: u16, _data: &mut [u8]) {
-        todo!()
+        // TODO
     }
 
-    fn io_out(&mut self, port: u16, _data: &[u8]) {
-        if port == 0x70 {
-            // Handle CMOS register selection
-        }
+    fn io_out(&mut self, _port: u16, _data: &[u8]) {
+        // TODO
     }
 }
