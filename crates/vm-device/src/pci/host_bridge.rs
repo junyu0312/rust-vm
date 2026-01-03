@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 use crate::device::pio::PioDevice;
 use crate::pci::bus::PciBus;
 
