@@ -91,14 +91,19 @@ impl KvmVm {
                         .ok_or_else(|| anyhow!("io_address_space is not initialized"))?
                         .io_in(port, data)?;
                 }
-                VcpuExit::MmioRead(_, _) => todo!(),
-                VcpuExit::MmioWrite(_, _) => todo!(),
+                VcpuExit::MmioRead(_, _) => {
+                    // Ignore
+                }
+                VcpuExit::MmioWrite(_, _) => {
+                    // Ignore
+                }
                 VcpuExit::Unknown => todo!(),
                 VcpuExit::Exception => todo!(),
                 VcpuExit::Hypercall(_) => todo!(),
                 VcpuExit::Debug(_) => {}
                 VcpuExit::Hlt => {
-                    todo!()
+                    // warn!("hlt");
+                    // todo!()
                 }
                 VcpuExit::IrqWindowOpen => todo!(),
                 VcpuExit::Shutdown => todo!(),

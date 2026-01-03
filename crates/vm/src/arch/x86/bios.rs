@@ -148,6 +148,12 @@ impl Bios {
                 size: bios_bin.len() as u64,
                 typ: E820Type::Reserved as u32,
             });
+            // trampoline
+            e820.insert(E820Entry {
+                addr: 0x70000 as u64,
+                size: 0x8000,
+                typ: E820Type::Ram as u32,
+            });
             e820.insert(E820Entry {
                 addr: KERNEL_START as u64,
                 size: vm.ram_size as u64 - KERNEL_START as u64,

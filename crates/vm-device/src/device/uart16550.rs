@@ -41,7 +41,8 @@ impl Uart16550 {
 
     // Receive register
     fn in_rxr(&self, _data: &mut [u8]) {
-        todo!()
+        // todo!()
+        // TODO
     }
 
     // Divisor Latch Low
@@ -68,7 +69,8 @@ impl Uart16550 {
 
     // Interrupt ID
     fn in_iir(&self, _data: &mut [u8]) {
-        todo!()
+        // todo!()
+        // TODO
     }
 
     // FIFO Control

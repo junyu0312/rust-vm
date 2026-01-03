@@ -2,8 +2,10 @@ use anyhow::anyhow;
 use vm_device::bus::io_address_space::IoAddressSpace;
 use vm_device::device::cmos::Cmos;
 use vm_device::device::coprocessor::Coprocessor;
+use vm_device::device::dummy::Dummy;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
+use vm_device::device::serial::Serial;
 use vm_device::device::uart16550::Uart16550;
 use vm_device::device::vga::Vga;
 use vm_device::pci::host_bridge::PciHostBridge;
@@ -24,6 +26,8 @@ impl KvmVm {
 
         let vga = Vga;
 
+        let serial = Serial;
+
         let pci = PciHostBridge::default();
 
         let mut io_address_space = IoAddressSpace::default();
@@ -34,6 +38,8 @@ impl KvmVm {
         io_address_space.register(Box::new(pic))?;
         io_address_space.register(Box::new(vga))?;
         io_address_space.register(Box::new(pci))?;
+        io_address_space.register(Box::new(serial))?;
+        io_address_space.register(Box::new(Dummy))?;
 
         self.io_address_space
             .set(io_address_space)
