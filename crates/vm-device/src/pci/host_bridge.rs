@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use tracing::trace;
 
 use crate::device::pio::PioDevice;
 use crate::pci::bus::PciBus;
@@ -45,7 +44,7 @@ impl PioDevice for PciHostBridge {
         }
     }
 
-    fn io_out(&mut self, port: u16, data: &[u8]) {
+    fn io_out(&mut self, port: u16, _data: &[u8]) {
         match port {
             CONFIG_ADDRESS => {
                 // assert_eq!(data.len(), 4);
