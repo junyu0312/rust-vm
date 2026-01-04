@@ -6,7 +6,6 @@ use vm_device::device::dummy::Dummy;
 use vm_device::device::i8042::I8042;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
-use vm_device::device::serial::Serial;
 use vm_device::device::uart16550::Uart16550;
 use vm_device::device::vga::Vga;
 use vm_device::pci::host_bridge::PciHostBridge;
@@ -27,8 +26,6 @@ impl KvmVm {
 
         let vga = Vga;
 
-        let serial = Serial;
-
         let pci = PciHostBridge::default();
 
         let mut io_address_space = IoAddressSpace::default();
@@ -39,7 +36,6 @@ impl KvmVm {
         io_address_space.register(Box::new(pic))?;
         io_address_space.register(Box::new(vga))?;
         io_address_space.register(Box::new(pci))?;
-        io_address_space.register(Box::new(serial))?;
 
         #[cfg(target_arch = "x86_64")]
         {
