@@ -3,6 +3,7 @@ use vm_device::bus::io_address_space::IoAddressSpace;
 use vm_device::device::cmos::Cmos;
 use vm_device::device::coprocessor::Coprocessor;
 use vm_device::device::dummy::Dummy;
+use vm_device::device::i8042::I8042;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::serial::Serial;
@@ -39,6 +40,13 @@ impl KvmVm {
         io_address_space.register(Box::new(vga))?;
         io_address_space.register(Box::new(pci))?;
         io_address_space.register(Box::new(serial))?;
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            let i8042 = I8042::default();
+            io_address_space.register(Box::new(i8042))?;
+        }
+
         io_address_space.register(Box::new(Dummy))?;
 
         self.io_address_space
