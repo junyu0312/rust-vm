@@ -33,13 +33,8 @@ impl KvmVcpu {
 
         let entries = cpuid.as_mut_slice();
         for entry in entries.iter_mut() {
-            match entry.function {
-                0x1 => {
-                    if entry.index == 0 {
-                        entry.ecx |= 1 << 31;
-                    }
-                }
-                _ => (),
+            if entry.function == 0x1 && entry.index == 0 {
+                entry.ecx |= 1 << 31;
             }
         }
 
