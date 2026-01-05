@@ -52,7 +52,7 @@ impl KvmVm {
             let vcpu_id = vcpu_id as u64;
             let vcpu_fd = self.create_vcpu(vcpu_id)?;
 
-            // vcpu_fd.init_arch_vcpu(&self.kvm)?;
+            vcpu_fd.init_arch_vcpu(&self.kvm)?;
 
             vcpus.push(vcpu_fd);
         }
