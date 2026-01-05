@@ -5,11 +5,6 @@ use std::path::Path;
 use anyhow::anyhow;
 use anyhow::ensure;
 use header::*;
-use kvm_bindings::KVM_GUESTDBG_ENABLE;
-use kvm_bindings::KVM_GUESTDBG_SINGLESTEP;
-use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
-use kvm_bindings::kvm_guest_debug;
-use kvm_bindings::kvm_guest_debug_arch;
 
 use crate::bootable::Bootable;
 use crate::kvm::vm::KvmVm;
@@ -254,14 +249,6 @@ impl Bootable for BzImage {
             sregs.gs.selector = CS;
             sregs.gs.base = (CS as u64) << 4;
             vcpu0.set_sregs(&sregs)?;
-
-            vcpu0.set_cpuid2(&vm.kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?)?;
-
-            vcpu0.set_guest_debug(&kvm_guest_debug {
-                control: KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_SINGLESTEP,
-                pad: 0,
-                arch: kvm_guest_debug_arch { debugreg: [0; 8] },
-            })?;
         }
 
         Ok(())
