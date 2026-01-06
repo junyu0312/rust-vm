@@ -1,4 +1,5 @@
 use std::cell::OnceCell;
+use std::sync::Arc;
 
 use kvm_ioctls::Kvm;
 use kvm_ioctls::VmFd;
@@ -9,7 +10,7 @@ use crate::mm::manager::MemoryRegions;
 
 pub struct KvmVm {
     pub kvm: Kvm,
-    pub vm_fd: VmFd,
+    pub vm_fd: Arc<VmFd>,
     pub vcpus: OnceCell<Vec<KvmVcpu>>,
     pub memory_regions: OnceCell<MemoryRegions>,
     pub ram_size: usize,
@@ -21,7 +22,7 @@ impl KvmVm {
         let vm_fd = kvm.create_vm()?;
         Ok(KvmVm {
             kvm,
-            vm_fd,
+            vm_fd: Arc::new(vm_fd),
             vcpus: Default::default(),
             memory_regions: Default::default(),
             ram_size: Default::default(),

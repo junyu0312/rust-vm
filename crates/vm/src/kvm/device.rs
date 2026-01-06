@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use vm_device::bus::io_address_space::IoAddressSpace;
 use vm_device::device::cmos::Cmos;
@@ -6,15 +8,19 @@ use vm_device::device::dummy::Dummy;
 use vm_device::device::i8042::I8042;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
-use vm_device::device::uart16550::Uart16550;
+use vm_device::device::uart8250::Uart8250;
 use vm_device::device::vga::Vga;
 use vm_device::pci::host_bridge::PciHostBridge;
 
+use crate::kvm::irq::KvmIRQ;
 use crate::kvm::vm::KvmVm;
 
 impl KvmVm {
-    pub fn init_device(&mut self) -> anyhow::Result<()> {
-        let uart16550 = Uart16550::default();
+    pub fn init_device(&mut self, irq_chip: Arc<KvmIRQ>) -> anyhow::Result<()> {
+        let uart8250_com0 = Uart8250::<0x3f8, 4>::new(irq_chip.clone());
+        let uart8250_com1 = Uart8250::<0x2f8, 3>::new(irq_chip.clone());
+        let uart8250_com2 = Uart8250::<0x3e8, 4>::new(irq_chip.clone());
+        let uart8250_com3 = Uart8250::<0x2e8, 3>::new(irq_chip);
 
         let cmos = Cmos;
 
@@ -29,7 +35,10 @@ impl KvmVm {
         let pci = PciHostBridge::default();
 
         let mut io_address_space = IoAddressSpace::default();
-        io_address_space.register(Box::new(uart16550))?;
+        io_address_space.register(Box::new(uart8250_com0))?;
+        io_address_space.register(Box::new(uart8250_com1))?;
+        io_address_space.register(Box::new(uart8250_com2))?;
+        io_address_space.register(Box::new(uart8250_com3))?;
         io_address_space.register(Box::new(cmos))?;
         io_address_space.register(Box::new(post_debug))?;
         io_address_space.register(Box::new(coprocessor))?;

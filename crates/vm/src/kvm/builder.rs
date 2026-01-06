@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use anyhow::Context;
+use kvm_bindings::kvm_pit_config;
 use kvm_ioctls::Kvm;
 use tracing::debug;
 use tracing::info;
@@ -7,6 +10,7 @@ use crate::arch::x86::bios::Bios;
 use crate::bootable::Bootable;
 use crate::bootable::linux::x86_64::bzimage::BzImage;
 use crate::command::Command;
+use crate::kvm::irq::KvmIRQ;
 use crate::kvm::vm::KvmVm;
 
 pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
@@ -24,6 +28,16 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
 
     let mut vm = KvmVm::new(kvm)?;
 
+    let kvm_irq = Arc::new(KvmIRQ::new(&vm)?);
+
+    {
+        let pit_config = kvm_pit_config::default();
+        vm.vm_fd.create_pit2(pit_config).unwrap();
+        // let mut pitstate = kvm_pit_state2::default();
+        // Your `pitstate` manipulation here.
+        // vm.set_pit2(&mut pitstate).unwrap();
+    }
+
     vm.init_vcpus(command.cpus)
         .context("Failed to create vcpus")?;
 
@@ -36,7 +50,7 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     let bios = Bios;
     bios.init(&mut vm)?;
 
-    vm.init_device()?;
+    vm.init_device(kvm_irq)?;
 
     vm.run().context("Failed to run")?;
 
