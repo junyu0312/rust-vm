@@ -10,7 +10,7 @@ use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_device::device::vga::Vga;
-use vm_device::pci::host_bridge::PciHostBridge;
+use vm_device::pci::root_complex::PciRootComplex;
 
 use crate::kvm::irq::KvmIRQ;
 use crate::kvm::vm::KvmVm;
@@ -32,7 +32,7 @@ impl KvmVm {
 
         let vga = Vga;
 
-        let pci = PciHostBridge::default();
+        let pci = PciRootComplex::default();
 
         let mut io_address_space = IoAddressSpace::default();
         io_address_space.register(Box::new(uart8250_com0))?;

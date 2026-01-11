@@ -1,4 +1,5 @@
-use crate::pci::{configuration_space::ConfigurationSpace, device::PciDevice};
+use crate::pci::configuration_space::ConfigurationSpace;
+use crate::pci::device::PciDevice;
 
 pub struct PciBridge {
     configuration_space: ConfigurationSpace,
