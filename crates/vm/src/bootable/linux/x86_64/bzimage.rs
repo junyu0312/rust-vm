@@ -1,6 +1,7 @@
 use std::ffi::CString;
 use std::fs;
 use std::path::Path;
+use std::str::FromStr;
 
 use anyhow::anyhow;
 use anyhow::ensure;
@@ -220,6 +221,35 @@ impl Bootable for BzImage {
             unsafe {
                 let ptr = memory.gpa_to_ptr(setup_start_gpa + LOADFLAGS.offset)?;
                 *ptr |= 0x80;
+            }
+
+            {
+                // To meet kvmtool bios
+                {
+                    const VGA_ROM_BEGIN: u64 = 0x000c0000;
+                    const VGA_ROM_OEM_STRING: u64 = VGA_ROM_BEGIN;
+                    const VGA_ROM_OEM_STRING_SIZE: usize = 16;
+                    const VGA_ROM_MODES: u64 = VGA_ROM_OEM_STRING + VGA_ROM_OEM_STRING_SIZE as u64;
+
+                    memory.copy_from_slice(
+                        VGA_ROM_BEGIN as usize,
+                        &[0; VGA_ROM_OEM_STRING_SIZE],
+                        VGA_ROM_OEM_STRING_SIZE,
+                    )?;
+                    let s = CString::from_str("KVM VESA")?;
+                    memory.copy_from_slice(
+                        VGA_ROM_BEGIN as usize,
+                        s.as_bytes(),
+                        s.count_bytes(),
+                    )?;
+
+                    memory.copy_from_slice(VGA_ROM_MODES as usize, &0x0112u16.to_le_bytes(), 2)?;
+                    memory.copy_from_slice(
+                        VGA_ROM_MODES as usize + 2,
+                        &0x0ffffu16.to_le_bytes(),
+                        2,
+                    )?;
+                }
             }
         }
 
