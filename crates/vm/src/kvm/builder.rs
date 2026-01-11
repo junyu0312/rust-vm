@@ -44,7 +44,11 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     vm.init_mm(command.memory << 30)
         .context("Failed to init mm")?;
 
-    let bz_image = BzImage::new(&command.kernel, None, command.cmdline.as_deref())?;
+    let bz_image = BzImage::new(
+        &command.kernel,
+        command.initramfs.as_deref(),
+        command.cmdline.as_deref(),
+    )?;
     bz_image.init(&mut vm)?;
 
     let bios = Bios;

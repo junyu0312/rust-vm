@@ -42,12 +42,24 @@ mod header {
         offset: 0x211,
         size: 1,
     };
+    pub const RAMDISK_IMAGE: Header = Header {
+        offset: 0x218,
+        size: 4,
+    };
+    pub const RAMDISK_SIZE: Header = Header {
+        offset: 0x21c,
+        size: 4,
+    };
     pub const HEAP_END_PTR: Header = Header {
         offset: 0x224,
         size: 2,
     };
     pub const CMD_LINE_PTR: Header = Header {
         offset: 0x228,
+        size: 4,
+    };
+    pub const INITRD_ADDR_MAX: Header = Header {
+        offset: 0x22c,
         size: 4,
     };
     pub const CMDLINE_SIZE: Header = Header {
@@ -132,6 +144,10 @@ impl BzImage {
         self.read_header(&VERSION)?.as_u16()
     }
 
+    fn get_initrd_addr_max(&self) -> anyhow::Result<u32> {
+        self.read_header(&INITRD_ADDR_MAX)?.as_u32()
+    }
+
     fn get_cmdline_size(&self) -> anyhow::Result<u32> {
         self.read_header(&CMDLINE_SIZE)?.as_u32()
     }
@@ -203,6 +219,28 @@ impl Bootable for BzImage {
                         cstr.as_bytes_with_nul(),
                         cstr.count_bytes(),
                     )?;
+                }
+            }
+
+            {
+                // copy initramfs
+                if let Some(initrd) = &self.initrd {
+                    let initrd_address = vm.ram_size.min(self.get_initrd_addr_max()? as usize);
+                    let initrd_address = initrd_address as u32 - initrd.len() as u32;
+
+                    memory.copy_from_slice(initrd_address as usize, initrd, initrd.len())?;
+
+                    unsafe {
+                        let ptr =
+                            memory.gpa_to_ptr(setup_start_gpa + RAMDISK_IMAGE.offset)? as *mut u32;
+                        *ptr = initrd_address;
+                    }
+
+                    unsafe {
+                        let ptr =
+                            memory.gpa_to_ptr(setup_start_gpa + RAMDISK_SIZE.offset)? as *mut u32;
+                        *ptr = initrd.len() as u32;
+                    }
                 }
             }
 
