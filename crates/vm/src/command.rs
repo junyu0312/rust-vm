@@ -16,6 +16,9 @@ pub struct Command {
 
     #[arg(short, long)]
     pub cmdline: Option<String>,
+
+    #[arg(short, long)]
+    pub initramfs: Option<PathBuf>,
 }
 
 #[derive(thiserror::Error, Debug)]
