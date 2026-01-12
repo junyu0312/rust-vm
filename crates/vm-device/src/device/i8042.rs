@@ -1,5 +1,8 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::mpsc::Receiver;
+use std::thread;
 
 use crate::device::i8042::controller_configuration_byte::ControllerConfigurationByte;
 use crate::device::i8042::status_register::StatusRegister;
@@ -70,7 +73,7 @@ struct Ram {
     controller_configuration_byte: ControllerConfigurationByte, // Byte0
 }
 
-pub struct I8042 {
+struct I8042Raw {
     queue: VecDeque<u8>,
     status_register: StatusRegister,
     ram: Ram,
@@ -80,9 +83,9 @@ pub struct I8042 {
     irq_controller: Arc<dyn InterruptController>,
 }
 
-impl I8042 {
-    pub fn new(irq_controller: Arc<dyn InterruptController>) -> Self {
-        I8042 {
+impl I8042Raw {
+    fn new(irq_controller: Arc<dyn InterruptController>) -> Self {
+        I8042Raw {
             queue: Default::default(),
             status_register: Default::default(),
             ram: Default::default(),
@@ -209,25 +212,53 @@ impl I8042 {
     }
 }
 
+pub struct I8042 {
+    raw: Arc<Mutex<I8042Raw>>,
+}
+
+impl I8042 {
+    pub fn new(irq_controller: Arc<dyn InterruptController>, rx: Receiver<u8>) -> Self {
+        let raw = Arc::new(Mutex::new(I8042Raw::new(irq_controller)));
+
+        thread::spawn({
+            let raw = raw.clone();
+            move || {
+                loop {
+                    if let Ok(c) = rx.recv() {
+                        let mut raw = raw.lock().unwrap();
+                        raw.push_byte(c);
+                    }
+                }
+            }
+        });
+
+        I8042 { raw }
+    }
+}
+
 impl PioDevice for I8042 {
     fn ports(&self) -> &[u16] {
         &[DATA_PORT, SYSTEM_CONTROL_PORT_B_PORT, REGISTER_PORT]
     }
 
     fn io_in(&mut self, port: u16, data: &mut [u8]) {
+        let mut raw = self.raw.lock().unwrap();
+
         match port {
-            DATA_PORT => self.read_data(data),
+            DATA_PORT => raw.read_data(data),
             SYSTEM_CONTROL_PORT_B_PORT => todo!(),
-            REGISTER_PORT => self.read_status_register(data),
+            REGISTER_PORT => raw.read_status_register(data),
             _ => unreachable!(),
         }
     }
 
     fn io_out(&mut self, port: u16, data: &[u8]) {
+        let mut raw = self.raw.lock().unwrap();
+
         match port {
-            DATA_PORT => self.write_data(data),
+            DATA_PORT => raw.write_data(data),
             SYSTEM_CONTROL_PORT_B_PORT => todo!(),
-            REGISTER_PORT => self.write_command_register(data),
+            REGISTER_PORT => raw.write_command_register(data),
             _ => unreachable!(),
         }
     }
