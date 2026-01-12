@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::mpsc;
 
 use anyhow::Context;
 use kvm_bindings::kvm_pit_config;
@@ -12,6 +13,7 @@ use crate::bootable::linux::x86_64::bzimage::BzImage;
 use crate::command::Command;
 use crate::kvm::irq::KvmIRQ;
 use crate::kvm::vm::KvmVm;
+use crate::utils::stdin::init_stdin;
 
 pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     let kvm = Kvm::new()?;
@@ -54,7 +56,9 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     let bios = Bios;
     bios.init(&mut vm)?;
 
-    vm.init_device(kvm_irq)?;
+    let (tx, rx) = mpsc::channel();
+    init_stdin(tx);
+    vm.init_device(kvm_irq, rx)?;
 
     vm.run().context("Failed to run")?;
 
