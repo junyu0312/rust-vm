@@ -1,28 +1,42 @@
+use std::collections::VecDeque;
+use std::sync::Arc;
+
 use crate::device::i8042::controller_configuration_byte::ControllerConfigurationByte;
 use crate::device::i8042::status_register::StatusRegister;
+use crate::device::irq::InterruptController;
 use crate::device::pio::PioDevice;
 
 /*
  * https://wiki.osdev.org/I8042_PS/2_Controller#PS/2_Controller_IO_Ports
  */
 const DATA_PORT: u16 = 0x60;
+const SYSTEM_CONTROL_PORT_B_PORT: u16 = 0x61;
 const REGISTER_PORT: u16 = 0x64;
+
+const BUFFER_LEN: usize = 16;
 
 mod status_register {
     use bitflags::bitflags;
 
     bitflags! {
-        #[derive(Default)]
         pub struct StatusRegister: u8 {
             const OutputBufferStatus = 1 << 0;
             const InputBufferStatus = 1 << 1;
             const SystemFlag = 1 << 2;
             const Command = 1 << 3;
-            const Unknown0 = 1 << 4;
-            const Unknown1 = 1 << 5;
+            const KEYLOCK = 1 << 4;
+            const AUXDATA = 1 << 5;
             const TimeoutError = 1 << 6;
             const ParityError = 1 << 7;
+        }
+    }
 
+    impl Default for StatusRegister {
+        fn default() -> Self {
+            let mut reg = StatusRegister::empty();
+            reg.insert(StatusRegister::SystemFlag);
+            reg.insert(StatusRegister::KEYLOCK);
+            reg
         }
     }
 }
@@ -45,7 +59,8 @@ mod controller_configuration_byte {
 
     impl Default for ControllerConfigurationByte {
         fn default() -> Self {
-            ControllerConfigurationByte::SystemFlag | ControllerConfigurationByte::FirstPs2PortClock
+            ControllerConfigurationByte::SystemFlag
+                | ControllerConfigurationByte::FirstPs2PortInterrupt
         }
     }
 }
@@ -55,20 +70,46 @@ struct Ram {
     controller_configuration_byte: ControllerConfigurationByte, // Byte0
 }
 
-#[derive(Default)]
 pub struct I8042 {
+    queue: VecDeque<u8>,
     status_register: StatusRegister,
     ram: Ram,
 
     last_command: Option<u8>,
-    output_buffer: Option<u8>,
+
+    irq_controller: Arc<dyn InterruptController>,
 }
 
 impl I8042 {
-    fn handle_command_0x20(&mut self) {
+    pub fn new(irq_controller: Arc<dyn InterruptController>) -> Self {
+        I8042 {
+            queue: Default::default(),
+            status_register: Default::default(),
+            ram: Default::default(),
+            last_command: Default::default(),
+            irq_controller,
+        }
+    }
+
+    fn trigger_irq(&mut self) {
+        let active = !self.queue.is_empty();
+        self.irq_controller.trigger_irq(1, active);
+    }
+
+    fn push_byte(&mut self, c: u8) {
+        if self.queue.len() >= BUFFER_LEN {
+            return;
+        }
+
+        self.queue.push_back(c);
         self.status_register
             .insert(StatusRegister::OutputBufferStatus);
-        self.output_buffer = Some(self.ram.controller_configuration_byte.bits());
+
+        self.trigger_irq();
+    }
+
+    fn handle_command_0x20(&mut self) {
+        self.push_byte(self.ram.controller_configuration_byte.bits());
     }
 
     fn handle_command_0x60(&mut self) {
@@ -89,9 +130,7 @@ impl I8042 {
     }
 
     fn handle_command_0xa9(&mut self) {
-        self.status_register
-            .insert(StatusRegister::OutputBufferStatus);
-        self.output_buffer = Some(0x00);
+        self.push_byte(0x00);
     }
 
     fn handle_command_0xd3(&mut self) {
@@ -101,9 +140,20 @@ impl I8042 {
 
     fn read_data(&mut self, data: &mut [u8]) {
         assert_eq!(data.len(), 1);
-        self.status_register
-            .remove(StatusRegister::OutputBufferStatus);
-        data[0] = self.output_buffer.take().unwrap_or_default();
+
+        let c = if let Some(c) = self.queue.pop_front() {
+            if self.queue.is_empty() {
+                self.status_register
+                    .remove(StatusRegister::OutputBufferStatus);
+            }
+            self.irq_controller.trigger_irq(1, false);
+
+            c
+        } else {
+            0
+        };
+
+        data[0] = c;
     }
 
     fn write_data(&mut self, data: &[u8]) {
@@ -115,11 +165,7 @@ impl I8042 {
                 self.ram.controller_configuration_byte =
                     ControllerConfigurationByte::from_bits_truncate(data)
             }
-            Some(0xd3) => {
-                self.status_register
-                    .insert(StatusRegister::OutputBufferStatus);
-                self.output_buffer = Some(data);
-            }
+            Some(0xd3) => self.push_byte(data),
             _ => todo!(),
         }
     }
@@ -165,12 +211,13 @@ impl I8042 {
 
 impl PioDevice for I8042 {
     fn ports(&self) -> &[u16] {
-        &[DATA_PORT, REGISTER_PORT]
+        &[DATA_PORT, SYSTEM_CONTROL_PORT_B_PORT, REGISTER_PORT]
     }
 
     fn io_in(&mut self, port: u16, data: &mut [u8]) {
         match port {
             DATA_PORT => self.read_data(data),
+            SYSTEM_CONTROL_PORT_B_PORT => todo!(),
             REGISTER_PORT => self.read_status_register(data),
             _ => unreachable!(),
         }
@@ -179,6 +226,7 @@ impl PioDevice for I8042 {
     fn io_out(&mut self, port: u16, data: &[u8]) {
         match port {
             DATA_PORT => self.write_data(data),
+            SYSTEM_CONTROL_PORT_B_PORT => todo!(),
             REGISTER_PORT => self.write_command_register(data),
             _ => unreachable!(),
         }
