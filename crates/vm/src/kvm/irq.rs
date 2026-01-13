@@ -30,6 +30,7 @@ impl KvmIRQ {
 
 impl InterruptController for KvmIRQ {
     fn trigger_irq(&self, irq: u32, active: bool) {
+        // debug!(irq, active);
         if let Err(err) = self.set_irq_line(irq, active) {
             error!(?err, "Failed to set_irq_line")
         }
