@@ -57,7 +57,7 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     bios.init(&mut vm)?;
 
     let (tx, rx) = mpsc::channel();
-    init_stdin(tx);
+    init_stdin(tx)?;
     vm.init_device(kvm_irq, rx)?;
 
     vm.run().context("Failed to run")?;
