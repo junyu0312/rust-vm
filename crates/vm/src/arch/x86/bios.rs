@@ -149,7 +149,7 @@ impl Bios {
             });
             // trampoline
             e820.insert(E820Entry {
-                addr: 0x70000 as u64,
+                addr: 0x70000u64,
                 size: 0x8000,
                 typ: E820Type::Ram as u32,
             });
