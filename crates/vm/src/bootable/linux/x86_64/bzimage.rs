@@ -111,7 +111,6 @@ fn to_gpa(cs: u16, ip: u16) -> u32 {
 
 pub struct BzImage {
     bzimage: Vec<u8>,
-    #[allow(dead_code)]
     initrd: Option<Vec<u8>>,
     cmdline: Option<String>,
 }

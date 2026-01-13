@@ -113,7 +113,6 @@ pub struct Bios;
 const BIOS_OFFSET: usize = 0xf000;
 
 impl Bios {
-    #[allow(warnings)]
     pub fn init(&self, vm: &mut KvmVm) -> anyhow::Result<()> {
         let memory_region = vm
             .memory_regions

@@ -10,7 +10,6 @@ use crate::kvm::vm::KvmVm;
 
 #[derive(Debug)]
 pub struct KvmVcpu {
-    #[allow(dead_code)]
     pub vcpu_id: u64,
     pub vcpu_fd: VcpuFd,
 }
