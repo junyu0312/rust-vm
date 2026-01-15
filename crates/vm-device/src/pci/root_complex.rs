@@ -20,8 +20,6 @@ pub struct PciRootComplex {
 
 impl PciRootComplex {
     fn get_device(&self, bus_number: u8, device_number: u8) -> Option<&dyn PciDevice> {
-        debug!(bus_number, device_number);
-
         if bus_number == 0 && device_number == 0 {
             return Some(self.host_bridge.as_ref() as &dyn PciDevice);
         }
