@@ -2,6 +2,25 @@ use std::collections::VecDeque;
 
 use crate::device::irq::InterruptController;
 
+pub mod psmouse;
+
+pub trait Ps2DeviceT {
+    const IRQ: u32;
+    const OUTPUT_BUFFER_SIZE: usize;
+
+    fn trigger_irq(&mut self, irq: &dyn InterruptController, active: bool) {
+        irq.trigger_irq(Self::IRQ, active);
+    }
+
+    fn output_buffer_is_empty(&self) -> bool;
+
+    fn output_buffer_is_full(&self) -> bool;
+
+    fn try_push_output_buffer(&mut self, value: u8) -> Result<(), u8>;
+
+    fn pop_output_buffer(&mut self) -> Option<u8>;
+}
+
 const BUFFER_SIZE: usize = 16;
 
 #[derive(Default)]

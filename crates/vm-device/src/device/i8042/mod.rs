@@ -3,10 +3,14 @@ use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
 use std::thread;
 
+use tracing::trace;
+
 use crate::device::i8042::command::I8042Cmd;
 use crate::device::i8042::command::KbdCommand;
 use crate::device::i8042::controller_cfg::ControllerConfigurationByte;
-use crate::device::i8042::device::Ps2Device;
+use crate::device::i8042::ps2::Ps2Device;
+use crate::device::i8042::ps2::Ps2DeviceT;
+use crate::device::i8042::ps2::psmouse::PsMouse;
 use crate::device::i8042::status_register::StatusRegister;
 use crate::device::irq::InterruptController;
 use crate::device::pio::PioDevice;
@@ -14,11 +18,10 @@ use crate::utils::keyboard::SCANCODE_SET2_MAP;
 
 mod command;
 mod controller_cfg;
-mod device;
+mod ps2;
 mod status_register;
 
 const KBD_IRQ: u32 = 1;
-const AUX_IRQ: u32 = 12;
 
 const DATA_PORT: u16 = 0x60;
 const REGISTER_PORT: u16 = 0x64;
@@ -27,7 +30,7 @@ const STATUS_REGISTER: u16 = REGISTER_PORT;
 
 struct I8042Raw {
     kbd_ctl: Ps2Device<KBD_IRQ>,
-    aux_ctl: Ps2Device<AUX_IRQ>,
+    ps_mouse: PsMouse,
     status_register: StatusRegister,
     ctr: ControllerConfigurationByte,
 
@@ -40,7 +43,7 @@ impl I8042Raw {
     fn new(irq: Arc<dyn InterruptController>) -> Self {
         I8042Raw {
             kbd_ctl: Default::default(),
-            aux_ctl: Default::default(),
+            ps_mouse: Default::default(),
             status_register: Default::default(),
             ctr: Default::default(),
             pending_command: None,
@@ -57,7 +60,7 @@ impl I8042Raw {
             self.status_register.remove(StatusRegister::STR_AUXDATA);
 
             kbd_active = true;
-        } else if !self.aux_ctl.is_empty() {
+        } else if !self.ps_mouse.output_buffer_is_empty() {
             self.status_register.insert(StatusRegister::STR_OBF);
             self.status_register.insert(StatusRegister::STR_AUXDATA);
 
@@ -68,7 +71,7 @@ impl I8042Raw {
         }
 
         self.kbd_ctl.trigger_irq(self.irq.as_ref(), kbd_active);
-        self.aux_ctl.trigger_irq(self.irq.as_ref(), aux_active);
+        self.ps_mouse.trigger_irq(self.irq.as_ref(), aux_active);
     }
 
     fn push_kbd(&mut self, val: u8) {
@@ -82,19 +85,19 @@ impl I8042Raw {
     }
 
     fn push_aux(&mut self, val: u8) {
-        if self.aux_ctl.is_full() {
+        if self.ps_mouse.output_buffer_is_full() {
             return;
         }
 
-        self.aux_ctl.try_push_back(val).unwrap();
+        self.ps_mouse.try_push_output_buffer(val).unwrap();
 
         self.update_state();
     }
 
     fn read_data(&mut self, data: &mut [u8]) {
         if self.status_register.contains(StatusRegister::STR_AUXDATA) {
-            data[0] = self.aux_ctl.pop_front().unwrap();
-            self.aux_ctl.trigger_irq(self.irq.as_ref(), false);
+            data[0] = self.ps_mouse.pop_output_buffer().unwrap();
+            self.ps_mouse.trigger_irq(self.irq.as_ref(), false);
             self.update_state();
         } else {
             data[0] = self.kbd_ctl.pop_front().unwrap();
@@ -109,6 +112,8 @@ impl I8042Raw {
     }
 
     fn write_data(&mut self, data: u8) {
+        trace!(pending_command = ?self.pending_command);
+
         match self.pending_command.take() {
             Some(cmd) => match cmd {
                 I8042Cmd::CtlRctr => todo!(),
@@ -119,27 +124,25 @@ impl I8042Raw {
                 I8042Cmd::CtlTest => todo!(),
                 I8042Cmd::AuxDisable => todo!(),
                 I8042Cmd::AuxEnable => todo!(),
+                I8042Cmd::AuxTest => todo!(),
                 I8042Cmd::AuxLoop => self.push_aux(data),
+                I8042Cmd::AuxSend => {
+                    self.ps_mouse.handle_command(data);
+                    self.update_state();
+                }
             },
             None => {
-                match KbdCommand::from_repr(data) {
-                    Some(cmd) => match cmd {
-                        KbdCommand::SetLeds => {
-                            self.push_kbd(0xfa);
-                        }
+                self.push_kbd(0xfa);
+                if let Some(cmd) = KbdCommand::from_repr(data) {
+                    match cmd {
+                        KbdCommand::SetLeds => (),
                         KbdCommand::GetId => {
-                            self.push_kbd(0xfa);
                             self.push_kbd(0xab);
                             self.push_kbd(0x41); // or 0x83?
                         }
-                        KbdCommand::SetRep => {
-                            self.push_kbd(0xfa);
-                        }
-                        KbdCommand::ResetDis => {
-                            self.push_kbd(0xfa);
-                        }
-                    },
-                    None => todo!(),
+                        KbdCommand::SetRep => (),
+                        KbdCommand::ResetDis => (),
+                    }
                 }
                 self.update_state();
             }
@@ -157,22 +160,10 @@ impl I8042Raw {
             I8042Cmd::CtlTest => todo!(),
             I8042Cmd::AuxDisable => self.ctr.insert(ControllerConfigurationByte::CTL_AUXDIS),
             I8042Cmd::AuxEnable => self.ctr.remove(ControllerConfigurationByte::CTL_AUXDIS),
+            I8042Cmd::AuxTest => todo!(),
             I8042Cmd::AuxLoop => self.pending_command = Some(cmd),
+            I8042Cmd::AuxSend => self.pending_command = Some(cmd),
         }
-
-        // match cmd {
-        //     0x20 => self.push_output_buffer(self.ccb.bits()),
-        //     0x60 => self.pending_command = cmd,
-        //     0xd3 => self.pending_command = cmd,
-        //     0xa7 => self
-        //         .ccb
-        //         .insert(ControllerConfigurationByte::SecondPs2PortClock),
-        //     0xa8 => self
-        //         .ccb
-        //         .remove(ControllerConfigurationByte::SecondPs2PortClock),
-        //     0xa9 => self.push_output_buffer(0xff), // TODO: Mouse is not supported yet
-        //     _ => todo!("{cmd}"),
-        // }
     }
 
     fn io_in(&mut self, port: u16, data: &mut [u8]) {
