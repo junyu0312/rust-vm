@@ -3,13 +3,10 @@ use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
 use std::thread;
 
-use tracing::trace;
-
 use crate::device::i8042::command::I8042Cmd;
-use crate::device::i8042::command::KbdCommand;
 use crate::device::i8042::controller_cfg::ControllerConfigurationByte;
 use crate::device::i8042::ps2::Ps2Device;
-use crate::device::i8042::ps2::Ps2DeviceT;
+use crate::device::i8042::ps2::atkbd::AtKbd;
 use crate::device::i8042::ps2::psmouse::PsMouse;
 use crate::device::i8042::status_register::StatusRegister;
 use crate::device::irq::InterruptController;
@@ -21,7 +18,7 @@ mod controller_cfg;
 mod ps2;
 mod status_register;
 
-const KBD_IRQ: u32 = 1;
+const OUTPUT_BUFFER_SIZE: usize = 16;
 
 const DATA_PORT: u16 = 0x60;
 const REGISTER_PORT: u16 = 0x64;
@@ -29,8 +26,8 @@ const COMMAND_REGISTER: u16 = REGISTER_PORT;
 const STATUS_REGISTER: u16 = REGISTER_PORT;
 
 struct I8042Raw {
-    kbd_ctl: Ps2Device<KBD_IRQ>,
-    ps_mouse: PsMouse,
+    atkbd: AtKbd<OUTPUT_BUFFER_SIZE>,
+    ps_mouse: PsMouse<OUTPUT_BUFFER_SIZE>,
     status_register: StatusRegister,
     ctr: ControllerConfigurationByte,
 
@@ -42,8 +39,8 @@ struct I8042Raw {
 impl I8042Raw {
     fn new(irq: Arc<dyn InterruptController>) -> Self {
         I8042Raw {
-            kbd_ctl: Default::default(),
-            ps_mouse: Default::default(),
+            atkbd: AtKbd::<OUTPUT_BUFFER_SIZE>::default(),
+            ps_mouse: PsMouse::<OUTPUT_BUFFER_SIZE>::default(),
             status_register: Default::default(),
             ctr: Default::default(),
             pending_command: None,
@@ -55,7 +52,7 @@ impl I8042Raw {
         let mut kbd_active = false;
         let mut aux_active = false;
 
-        if !self.kbd_ctl.is_empty() {
+        if !self.atkbd.output_buffer_is_empty() {
             self.status_register.insert(StatusRegister::STR_OBF);
             self.status_register.remove(StatusRegister::STR_AUXDATA);
 
@@ -70,16 +67,16 @@ impl I8042Raw {
             self.status_register.remove(StatusRegister::STR_AUXDATA);
         }
 
-        self.kbd_ctl.trigger_irq(self.irq.as_ref(), kbd_active);
+        self.atkbd.trigger_irq(self.irq.as_ref(), kbd_active);
         self.ps_mouse.trigger_irq(self.irq.as_ref(), aux_active);
     }
 
     fn push_kbd(&mut self, val: u8) {
-        if self.kbd_ctl.is_full() {
+        if self.atkbd.output_buffer_is_full() {
             return;
         }
 
-        self.kbd_ctl.try_push_back(val).unwrap();
+        self.atkbd.try_push_output_buffer(val).unwrap();
 
         self.update_state();
     }
@@ -100,8 +97,8 @@ impl I8042Raw {
             self.ps_mouse.trigger_irq(self.irq.as_ref(), false);
             self.update_state();
         } else {
-            data[0] = self.kbd_ctl.pop_front().unwrap();
-            self.kbd_ctl.trigger_irq(self.irq.as_ref(), false);
+            data[0] = self.atkbd.pop_output_buffer().unwrap();
+            self.atkbd.trigger_irq(self.irq.as_ref(), false);
             self.update_state();
         }
     }
@@ -112,8 +109,6 @@ impl I8042Raw {
     }
 
     fn write_data(&mut self, data: u8) {
-        trace!(pending_command = ?self.pending_command);
-
         match self.pending_command.take() {
             Some(cmd) => match cmd {
                 I8042Cmd::CtlRctr => todo!(),
@@ -132,18 +127,7 @@ impl I8042Raw {
                 }
             },
             None => {
-                self.push_kbd(0xfa);
-                if let Some(cmd) = KbdCommand::from_repr(data) {
-                    match cmd {
-                        KbdCommand::SetLeds => (),
-                        KbdCommand::GetId => {
-                            self.push_kbd(0xab);
-                            self.push_kbd(0x41); // or 0x83?
-                        }
-                        KbdCommand::SetRep => (),
-                        KbdCommand::ResetDis => (),
-                    }
-                }
+                self.atkbd.handle_command(data);
                 self.update_state();
             }
         }
@@ -168,17 +152,8 @@ impl I8042Raw {
 
     fn io_in(&mut self, port: u16, data: &mut [u8]) {
         match port {
-            DATA_PORT => {
-                self.read_data(data);
-                println!("8042 read data, port: 0x{:x}, data: 0x{:x}", port, data[0]);
-            }
-            STATUS_REGISTER => {
-                self.read_status_register(data);
-                println!(
-                    "8042 read status, port: 0x{:x}, data: 0x{:x}",
-                    port, data[0]
-                );
-            }
+            DATA_PORT => self.read_data(data),
+            STATUS_REGISTER => self.read_status_register(data),
             _ => unreachable!(),
         }
     }
@@ -186,17 +161,8 @@ impl I8042Raw {
     fn io_out(&mut self, port: u16, data: &[u8]) {
         let cmd = data[0];
         match port {
-            DATA_PORT => {
-                println!("8042 write data, port: 0x{:x}, data: 0x{:x}", port, data[0]);
-                self.write_data(cmd);
-            }
-            COMMAND_REGISTER => {
-                println!(
-                    "8042 write command, port: 0x{:x}, data: 0x{:x}",
-                    port, data[0]
-                );
-                self.write_command_reg(cmd);
-            }
+            DATA_PORT => self.write_data(cmd),
+            COMMAND_REGISTER => self.write_command_reg(cmd),
             _ => unreachable!(),
         }
     }

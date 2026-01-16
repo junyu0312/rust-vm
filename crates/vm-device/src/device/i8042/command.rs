@@ -13,12 +13,3 @@ pub enum I8042Cmd {
     AuxLoop = 0xd3,
     AuxSend = 0xd4,
 }
-
-#[derive(FromRepr, Debug)]
-#[repr(u8)]
-pub enum KbdCommand {
-    SetLeds = 0xed,
-    GetId = 0xf2,
-    SetRep = 0xf3,
-    ResetDis = 0xf5,
-}
