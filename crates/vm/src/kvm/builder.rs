@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use anyhow::anyhow;
 use kvm_ioctls::Kvm;
 use tracing::debug;
 use tracing::info;
@@ -8,6 +9,7 @@ use tracing::info;
 use crate::bootable::Bootable;
 use crate::bootable::linux::x86_64::bzimage::BzImage;
 use crate::command::Command;
+use crate::device::init_device;
 use crate::kvm::irq::KvmIRQ;
 use crate::kvm::vm::KvmVm;
 
@@ -34,7 +36,10 @@ pub fn create_kvm_vm(command: Command) -> anyhow::Result<()> {
     vm.init_mm(command.memory << 30)
         .context("Failed to init mm")?;
 
-    vm.init_device(kvm_irq)?;
+    let pio = init_device(kvm_irq)?;
+    vm.io_address_space
+        .set(pio)
+        .map_err(|_| anyhow!("io_address_space is already set"))?;
 
     let bz_image = BzImage::new(
         &command.kernel,
