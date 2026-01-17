@@ -5,5 +5,5 @@ mod device;
 mod firmware;
 mod utils;
 
-pub mod command;
+pub mod cli;
 pub mod kvm;

@@ -8,7 +8,7 @@ use tracing::info;
 
 use crate::bootable::Bootable;
 use crate::bootable::linux::x86_64::bzimage::BzImage;
-use crate::command::Command;
+use crate::cli::Command;
 use crate::device::init_device;
 use crate::kvm::irq::KvmIRQ;
 use crate::kvm::vm::KvmVm;
