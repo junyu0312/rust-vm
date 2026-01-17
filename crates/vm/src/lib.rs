@@ -1,7 +1,8 @@
 #![deny(warnings)]
-mod arch;
+
 mod bootable;
-mod mm;
+mod device;
+mod firmware;
 mod utils;
 
 pub mod command;

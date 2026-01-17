@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 
-use crate::arch::x86::bios::e820::*;
-use crate::arch::x86::bios::ivt::*;
 use crate::bootable::linux::x86_64::bzimage::KERNEL_START;
+use crate::firmware::bios::e820::*;
+use crate::firmware::bios::ivt::InterruptVectorTable;
 use crate::kvm::vm::KvmVm;
 
 mod ivt {
@@ -56,7 +56,7 @@ mod ivt {
 }
 
 mod e820 {
-    const E820_X_MAX: usize = 128; // 这里用你在 C 里定义的最大值
+    const E820_X_MAX: usize = 128;
 
     #[repr(u32)]
     #[derive(Clone, Copy)]
@@ -119,7 +119,7 @@ impl Bios {
             .get_mut()
             .ok_or_else(|| anyhow!("Memory is not initialized"))?;
 
-        let bios_bin = include_bytes!("../../../../../bios.bin");
+        let bios_bin = include_bytes!("../../../../bios.bin");
         {
             memory_region.copy_from_slice(BIOS_OFFSET, bios_bin, bios_bin.len())?;
         }
