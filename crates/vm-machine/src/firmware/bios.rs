@@ -1,9 +1,8 @@
-use anyhow::anyhow;
+use vm_bootloader::linux::bzimage::KERNEL_START;
+use vm_core::mm::manager::MemoryRegions;
 
-use crate::bootable::linux::x86_64::bzimage::KERNEL_START;
 use crate::firmware::bios::e820::*;
 use crate::firmware::bios::ivt::InterruptVectorTable;
-use crate::kvm::vm::KvmVm;
 
 mod ivt {
     #[repr(C)]
@@ -113,15 +112,10 @@ pub struct Bios;
 const BIOS_OFFSET: usize = 0xf000;
 
 impl Bios {
-    pub fn init(&self, vm: &mut KvmVm) -> anyhow::Result<()> {
-        let memory_region = vm
-            .memory_regions
-            .get_mut()
-            .ok_or_else(|| anyhow!("Memory is not initialized"))?;
-
+    pub fn init(&self, memory: &mut MemoryRegions, memory_size: usize) -> anyhow::Result<()> {
         let bios_bin = include_bytes!("../../../../bios.bin");
         {
-            memory_region.copy_from_slice(BIOS_OFFSET, bios_bin, bios_bin.len())?;
+            memory.copy_from_slice(BIOS_OFFSET, bios_bin, bios_bin.len())?;
         }
 
         {
@@ -132,7 +126,7 @@ impl Bios {
             ivt.set_entry(0x10, (BIOS_OFFSET + 0x40) as u32);
             ivt.set_entry(0x15, (BIOS_OFFSET + 0x80) as u32);
 
-            memory_region.copy_from_slice(0, ivt.as_bytes(), ivt.len())?;
+            memory.copy_from_slice(0, ivt.as_bytes(), ivt.len())?;
         }
 
         {
@@ -155,15 +149,11 @@ impl Bios {
             });
             e820.insert(E820Entry {
                 addr: KERNEL_START as u64,
-                size: vm.ram_size as u64 - KERNEL_START as u64,
+                size: memory_size as u64 - KERNEL_START as u64,
                 typ: E820Type::Ram as u32,
             });
 
-            memory_region.copy_from_slice(
-                0x0009fc00,
-                e820.as_bytes(),
-                std::mem::size_of::<E820Map>(),
-            )?;
+            memory.copy_from_slice(0x0009fc00, e820.as_bytes(), std::mem::size_of::<E820Map>())?;
         }
 
         Ok(())

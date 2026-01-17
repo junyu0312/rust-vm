@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use tracing::warn;
 
 #[derive(Parser, Debug)]
 pub struct Command {
@@ -21,6 +20,7 @@ pub struct Command {
     pub initramfs: Option<PathBuf>,
 }
 
+/*
 #[derive(thiserror::Error, Debug)]
 pub enum CommandError {
     #[error("The number of cpus {current} exceeds maximum supported {max}")]
@@ -58,3 +58,4 @@ impl Command {
         Ok(())
     }
 }
+*/

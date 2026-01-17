@@ -18,5 +18,7 @@ termios = "0.3.3"
 thiserror = "2.0.17"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["fmt", "env-filter"] }
+vm-bootloader = { path = "crates/vm-bootloader" }
 vm-core = { path = "crates/vm-core" }
 vm-device = { path = "crates/vm-device" }
+vm-machine = { path = "crates/vm-machine" }

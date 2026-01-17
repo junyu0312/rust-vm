@@ -5,5 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+kvm-bindings.workspace = true
+kvm-ioctls.workspace = true
 nix.workspace = true
 tracing.workspace = true

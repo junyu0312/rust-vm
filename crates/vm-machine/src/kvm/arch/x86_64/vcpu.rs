@@ -10,12 +10,6 @@ use kvm_ioctls::Kvm;
 use crate::kvm::vcpu::KvmVcpu;
 
 impl KvmVcpu {
-    pub fn get_sregs(&self) -> anyhow::Result<kvm_sregs> {
-        let sregs = self.vcpu_fd.get_sregs()?;
-
-        Ok(sregs)
-    }
-
     pub fn set_sregs(&self, sregs: &kvm_sregs) -> anyhow::Result<()> {
         self.vcpu_fd.set_sregs(sregs)?;
 

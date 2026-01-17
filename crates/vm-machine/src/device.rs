@@ -1,12 +1,12 @@
 use std::sync::Arc;
 use std::sync::mpsc;
 
+use vm_core::irq::InterruptController;
 use vm_device::bus::io_address_space::IoAddressSpace;
 use vm_device::device::cmos::Cmos;
 use vm_device::device::coprocessor::Coprocessor;
 use vm_device::device::dummy::Dummy;
 use vm_device::device::i8042::I8042;
-use vm_device::device::irq::InterruptController;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
