@@ -1,6 +1,6 @@
 use kvm_bindings::kvm_pit_config;
 
-use crate::arch::x86::bios::Bios;
+use crate::firmware::bios::Bios;
 use crate::kvm::vm::KvmVm;
 
 mod vcpu;
