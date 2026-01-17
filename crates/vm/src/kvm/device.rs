@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc;
 
 use anyhow::anyhow;
 use vm_device::bus::io_address_space::IoAddressSpace;
@@ -15,9 +15,10 @@ use vm_device::pci::root_complex::PciRootComplex;
 
 use crate::kvm::irq::KvmIRQ;
 use crate::kvm::vm::KvmVm;
+use crate::utils::stdin::init_stdin;
 
 impl KvmVm {
-    pub fn init_device(&mut self, irq_chip: Arc<KvmIRQ>, rx: Receiver<u8>) -> anyhow::Result<()> {
+    pub fn init_device(&mut self, irq_chip: Arc<KvmIRQ>) -> anyhow::Result<()> {
         let uart8250_com0 = Uart8250::<0x3f8, 4>::new(irq_chip.clone());
         let uart8250_com1 = Uart8250::<0x2f8, 3>::new(irq_chip.clone());
         let uart8250_com2 = Uart8250::<0x3e8, 4>::new(irq_chip.clone());
@@ -49,6 +50,9 @@ impl KvmVm {
 
         #[cfg(target_arch = "x86_64")]
         {
+            let (tx, rx) = mpsc::channel();
+            init_stdin(tx)?;
+
             let i8042 = I8042::new(irq_chip, rx);
             io_address_space.register(Box::new(i8042))?;
         }
