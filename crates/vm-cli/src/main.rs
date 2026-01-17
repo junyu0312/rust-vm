@@ -1,10 +1,13 @@
 #![deny(warnings)]
 
 use clap::Parser;
-use rust_vm::cli::Command;
-use rust_vm::kvm::builder::create_kvm_vm;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
+use vm_machine::kvm::builder::create_kvm_vm;
+
+use crate::cmd::Command;
+
+mod cmd;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -18,7 +21,13 @@ fn main() -> anyhow::Result<()> {
     let args = Command::parse();
     debug!(?args);
 
-    create_kvm_vm(args)?;
+    create_kvm_vm(
+        args.cpus,
+        args.memory << 30,
+        &args.kernel,
+        args.initramfs.as_deref(),
+        args.cmdline.as_deref(),
+    )?;
 
     Ok(())
 }

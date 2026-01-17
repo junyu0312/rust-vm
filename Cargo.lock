@@ -284,25 +284,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
-name = "rust-vm"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "kvm-bindings",
- "kvm-ioctls",
- "lazy_static",
- "maplit",
- "nix",
- "termios",
- "thiserror",
- "tracing",
- "tracing-subscriber",
- "vm-core",
- "vm-device",
-]
-
-[[package]]
 name = "sharded-slab"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -470,6 +451,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
+name = "vm-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+ "vm-machine",
+]
+
+[[package]]
 name = "vm-core"
 version = "0.1.0"
 dependencies = [
@@ -489,6 +482,25 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "vm-machine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "kvm-bindings",
+ "kvm-ioctls",
+ "lazy_static",
+ "maplit",
+ "nix",
+ "termios",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+ "vm-core",
+ "vm-device",
 ]
 
 [[package]]
