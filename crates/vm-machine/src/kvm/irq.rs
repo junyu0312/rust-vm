@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use kvm_ioctls::VmFd;
 use tracing::error;
-use vm_device::device::irq::InterruptController;
+use vm_core::irq::InterruptController;
 
 use crate::kvm::vm::KvmVm;
 

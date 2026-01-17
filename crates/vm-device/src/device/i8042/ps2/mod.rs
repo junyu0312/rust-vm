@@ -1,4 +1,4 @@
-use crate::device::irq::InterruptController;
+use vm_core::irq::InterruptController;
 
 pub mod atkbd;
 pub mod psmouse;

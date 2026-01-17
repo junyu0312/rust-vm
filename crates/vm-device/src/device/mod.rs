@@ -1,4 +1,3 @@
-pub mod irq;
 pub mod pio;
 
 pub mod cmos;

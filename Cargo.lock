@@ -482,6 +482,7 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "tracing",
+ "vm-core",
 ]
 
 [[package]]
