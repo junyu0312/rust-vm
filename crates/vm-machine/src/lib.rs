@@ -7,3 +7,4 @@ mod utils;
 
 pub mod cli;
 pub mod kvm;
+pub mod vm;

@@ -6,9 +6,10 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use anyhow::ensure;
 use header::*;
+use vm_core::mm::manager::MemoryRegions;
 
 use crate::bootable::Bootable;
-use crate::kvm::vm::KvmVm;
+use crate::kvm::vcpu::KvmVcpu;
 
 mod header {
     use anyhow::anyhow;
@@ -165,7 +166,12 @@ impl BzImage {
 }
 
 impl Bootable for BzImage {
-    fn init(&self, vm: &mut KvmVm) -> anyhow::Result<()> {
+    fn init(
+        &self,
+        memory: &mut MemoryRegions,
+        memory_size: usize,
+        vcpu0: &mut KvmVcpu,
+    ) -> anyhow::Result<()> {
         ensure!(self.get_boot_flag()? == 0xAA55, "Invalid boot_flag");
 
         ensure!(
@@ -182,11 +188,6 @@ impl Bootable for BzImage {
         }
 
         {
-            let memory = vm
-                .memory_regions
-                .get_mut()
-                .ok_or_else(|| anyhow!("Memory is not initialized"))?;
-
             let setup_start_gpa = to_gpa(CS, IP) as usize;
 
             // boot sector + setup code
@@ -224,7 +225,7 @@ impl Bootable for BzImage {
             {
                 // copy initramfs
                 if let Some(initrd) = &self.initrd {
-                    let initrd_address = vm.ram_size.min(self.get_initrd_addr_max()? as usize);
+                    let initrd_address = memory_size.min(self.get_initrd_addr_max()? as usize);
                     let initrd_address = initrd_address as u32 - initrd.len() as u32;
 
                     memory.copy_from_slice(initrd_address as usize, initrd, initrd.len())?;
@@ -291,12 +292,6 @@ impl Bootable for BzImage {
         }
 
         {
-            let vcpus = vm
-                .vcpus
-                .get_mut()
-                .ok_or_else(|| anyhow!("Cpu is not initialized"))?;
-            let vcpu0 = vcpus.get_mut(0).ok_or_else(|| anyhow!("No cpu0"))?;
-
             let mut regs = vcpu0.get_regs()?;
             regs.rip = IP as u64 + 0x200;
             regs.rsp = SP as u64;
