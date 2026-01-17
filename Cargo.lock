@@ -451,6 +451,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
+name = "vm-bootloader"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "vm-core",
+]
+
+[[package]]
 name = "vm-cli"
 version = "0.1.0"
 dependencies = [
@@ -467,6 +475,8 @@ name = "vm-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "kvm-bindings",
+ "kvm-ioctls",
  "nix",
  "tracing",
 ]
@@ -500,6 +510,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-subscriber",
+ "vm-bootloader",
  "vm-core",
  "vm-device",
 ]

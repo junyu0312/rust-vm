@@ -1,14 +1,13 @@
 use vm_core::mm::manager::MemoryRegions;
-
-use crate::kvm::vcpu::KvmVcpu;
+use vm_core::vcpu::Vcpu;
 
 pub mod linux;
 
-pub trait Bootable {
+pub trait BootLoader {
     fn init(
         &self,
         memory: &mut MemoryRegions,
         memory_size: usize,
-        vcpu0: &mut KvmVcpu,
+        vcpu0: &mut dyn Vcpu,
     ) -> anyhow::Result<()>;
 }

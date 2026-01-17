@@ -8,12 +8,12 @@ use kvm_ioctls::Kvm;
 use kvm_ioctls::VcpuExit;
 use kvm_ioctls::VmFd;
 use tracing::error;
+use vm_bootloader::BootLoader;
+use vm_bootloader::linux::bzimage::BzImage;
 use vm_core::mm::manager::MemoryRegions;
 use vm_core::mm::region::MemoryRegion;
 use vm_device::bus::io_address_space::IoAddressSpace;
 
-use crate::bootable::Bootable;
-use crate::bootable::linux::x86_64::bzimage::BzImage;
 use crate::device::init_device;
 use crate::firmware::bios::Bios;
 use crate::kvm::irq::KvmIRQ;

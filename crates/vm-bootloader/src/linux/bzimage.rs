@@ -7,9 +7,9 @@ use anyhow::anyhow;
 use anyhow::ensure;
 use header::*;
 use vm_core::mm::manager::MemoryRegions;
+use vm_core::vcpu::Vcpu;
 
-use crate::bootable::Bootable;
-use crate::kvm::vcpu::KvmVcpu;
+use crate::BootLoader;
 
 mod header {
     use anyhow::anyhow;
@@ -165,12 +165,12 @@ impl BzImage {
     }
 }
 
-impl Bootable for BzImage {
+impl BootLoader for BzImage {
     fn init(
         &self,
         memory: &mut MemoryRegions,
         memory_size: usize,
-        vcpu0: &mut KvmVcpu,
+        vcpu0: &mut dyn Vcpu,
     ) -> anyhow::Result<()> {
         ensure!(self.get_boot_flag()? == 0xAA55, "Invalid boot_flag");
 

@@ -1,6 +1,6 @@
+use vm_bootloader::linux::bzimage::KERNEL_START;
 use vm_core::mm::manager::MemoryRegions;
 
-use crate::bootable::linux::x86_64::bzimage::KERNEL_START;
 use crate::firmware::bios::e820::*;
 use crate::firmware::bios::ivt::InterruptVectorTable;
 
