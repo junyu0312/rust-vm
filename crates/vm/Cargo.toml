@@ -15,4 +15,5 @@ termios.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+vm-core.workspace = true
 vm-device.workspace = true

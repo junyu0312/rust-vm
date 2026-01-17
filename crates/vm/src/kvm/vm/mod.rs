@@ -1,12 +1,15 @@
 use std::cell::OnceCell;
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::Kvm;
 use kvm_ioctls::VmFd;
+use vm_core::mm::manager::MemoryRegions;
+use vm_core::mm::region::MemoryRegion;
 use vm_device::bus::io_address_space::IoAddressSpace;
 
 use crate::kvm::vcpu::KvmVcpu;
-use crate::mm::manager::MemoryRegions;
 
 pub struct KvmVm {
     pub kvm: Kvm,
@@ -28,5 +31,32 @@ impl KvmVm {
             ram_size: Default::default(),
             io_address_space: Default::default(),
         })
+    }
+
+    pub fn init_mm(&mut self, len: usize) -> anyhow::Result<()> {
+        let memory_region = MemoryRegion::new(0, len)?;
+
+        unsafe {
+            self.vm_fd
+                .set_user_memory_region(kvm_userspace_memory_region {
+                    slot: 0,
+                    flags: 0,
+                    guest_phys_addr: 0x0,
+                    memory_size: len as u64,
+                    userspace_addr: memory_region.as_u64(),
+                })?;
+        }
+
+        let mut memory_regions = MemoryRegions::default();
+        memory_regions
+            .try_insert(memory_region)
+            .map_err(|_| anyhow!("Failed to insert memory_region"))?;
+
+        self.memory_regions
+            .set(memory_regions)
+            .map_err(|_| anyhow!("memory regions are already set"))?;
+        self.ram_size = len;
+
+        Ok(())
     }
 }
