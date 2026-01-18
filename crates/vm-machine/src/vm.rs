@@ -12,12 +12,12 @@ use vm_bootloader::BootLoader;
 use vm_bootloader::linux::bzimage::BzImage;
 use vm_core::mm::manager::MemoryRegions;
 use vm_core::mm::region::MemoryRegion;
+use vm_core::virt::kvm::irq_chip::KvmIRQ;
 use vm_core::virt::kvm::vcpu::KvmVcpu;
 use vm_device::bus::io_address_space::IoAddressSpace;
 
 use crate::device::init_device;
 use crate::firmware::bios::Bios;
-use crate::kvm::irq::KvmIRQ;
 
 pub struct VmBuilder {
     pub memory_size: usize,
