@@ -4,19 +4,15 @@ use kvm_ioctls::VmFd;
 use tracing::error;
 use vm_core::irq::InterruptController;
 
-use crate::kvm::vm::KvmVm;
-
 pub struct KvmIRQ {
     vm_fd: Arc<VmFd>,
 }
 
 impl KvmIRQ {
-    pub fn new(vm: &KvmVm) -> anyhow::Result<Self> {
-        vm.vm_fd.create_irq_chip()?;
+    pub fn new(vm_fd: Arc<VmFd>) -> anyhow::Result<Self> {
+        vm_fd.create_irq_chip()?;
 
-        Ok(KvmIRQ {
-            vm_fd: vm.vm_fd.clone(),
-        })
+        Ok(KvmIRQ { vm_fd })
     }
 }
 
