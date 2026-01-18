@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use kvm_ioctls::VmFd;
 use tracing::error;
-use vm_core::irq::InterruptController;
+
+use crate::irq::InterruptController;
 
 pub struct KvmIRQ {
     vm_fd: Arc<VmFd>,
