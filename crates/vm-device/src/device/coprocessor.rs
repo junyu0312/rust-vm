@@ -1,4 +1,4 @@
-use crate::device::pio::PioDevice;
+use vm_core::device::pio::PioDevice;
 
 #[derive(Default)]
 pub struct Coprocessor;

@@ -8,4 +8,5 @@ anyhow.workspace = true
 kvm-bindings.workspace = true
 kvm-ioctls.workspace = true
 nix.workspace = true
+thiserror.workspace = true
 tracing.workspace = true

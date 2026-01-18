@@ -1,5 +1,3 @@
-pub mod pio;
-
 pub mod cmos;
 pub mod coprocessor;
 pub mod dummy;

@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
 use std::thread;
 
+use vm_core::device::pio::PioDevice;
 use vm_core::irq::InterruptController;
 
 use crate::device::i8042::command::I8042Cmd;
@@ -11,7 +12,6 @@ use crate::device::i8042::ps2::Ps2Device;
 use crate::device::i8042::ps2::atkbd::AtKbd;
 use crate::device::i8042::ps2::psmouse::PsMouse;
 use crate::device::i8042::status_register::StatusRegister;
-use crate::device::pio::PioDevice;
 use crate::utils::keyboard::SCANCODE_SET2_MAP;
 
 mod command;
