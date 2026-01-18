@@ -1,4 +1,4 @@
-use crate::device::pio::PioDevice;
+use vm_core::device::pio::PioDevice;
 
 const PORT: u16 = 0x80;
 

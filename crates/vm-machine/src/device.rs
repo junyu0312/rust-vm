@@ -1,19 +1,15 @@
 use std::sync::Arc;
-use std::sync::mpsc;
 
+use vm_core::device::pio::IoAddressSpace;
 use vm_core::irq::InterruptController;
-use vm_device::bus::io_address_space::IoAddressSpace;
 use vm_device::device::cmos::Cmos;
 use vm_device::device::coprocessor::Coprocessor;
 use vm_device::device::dummy::Dummy;
-use vm_device::device::i8042::I8042;
 use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_device::device::vga::Vga;
 use vm_device::pci::root_complex::PciRootComplex;
-
-use crate::utils::stdin::init_stdin;
 
 pub fn init_device(irq_chip: Arc<dyn InterruptController>) -> anyhow::Result<IoAddressSpace> {
     let uart8250_com0 = Uart8250::<0x3f8, 4>::new(irq_chip.clone());
@@ -47,6 +43,12 @@ pub fn init_device(irq_chip: Arc<dyn InterruptController>) -> anyhow::Result<IoA
 
     #[cfg(target_arch = "x86_64")]
     {
+        use std::sync::mpsc;
+
+        use vm_device::device::i8042::I8042;
+
+        use crate::utils::stdin::init_stdin;
+
         let (tx, rx) = mpsc::channel();
         init_stdin(tx)?;
 

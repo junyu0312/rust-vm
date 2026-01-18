@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use tracing::debug;
+use vm_core::device::pio::PioDevice;
 
-use crate::device::pio::PioDevice;
 use crate::pci::bus::PciBus;
 use crate::pci::config_address::ConfigAddress;
 use crate::pci::device::PciDevice;

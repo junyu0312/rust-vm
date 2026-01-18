@@ -19,6 +19,7 @@ fn disable_stdin_echo() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn init_stdin(tx: Sender<u8>) -> anyhow::Result<()> {
     disable_stdin_echo()?;
 

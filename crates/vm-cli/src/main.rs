@@ -3,6 +3,8 @@
 use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
+use vm_core::virt::kvm::KvmVirt;
+use vm_machine::vm::Vm;
 use vm_machine::vm::VmBuilder;
 
 use crate::cmd::Command;
@@ -21,7 +23,7 @@ fn main() -> anyhow::Result<()> {
     let args = Command::parse();
     debug!(?args);
 
-    let mut vm = VmBuilder {
+    let mut vm: Vm<KvmVirt> = VmBuilder {
         memory_size: args.memory << 30,
         vcpus: args.cpus,
         kernel: args.kernel,
