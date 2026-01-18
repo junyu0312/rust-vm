@@ -12,13 +12,12 @@ use vm_bootloader::BootLoader;
 use vm_bootloader::linux::bzimage::BzImage;
 use vm_core::mm::manager::MemoryRegions;
 use vm_core::mm::region::MemoryRegion;
+use vm_core::virt::kvm::vcpu::KvmVcpu;
 use vm_device::bus::io_address_space::IoAddressSpace;
 
 use crate::device::init_device;
 use crate::firmware::bios::Bios;
 use crate::kvm::irq::KvmIRQ;
-use crate::kvm::vcpu::KvmVcpu;
-use crate::kvm::vm::KvmVm;
 
 pub struct VmBuilder {
     pub memory_size: usize,
@@ -91,23 +90,22 @@ impl VmBuilder {
     pub fn build(&self) -> anyhow::Result<Vm> {
         let kvm = Kvm::new()?;
 
-        let vm = KvmVm::new(kvm)?;
+        let vm_fd = Arc::new(kvm.create_vm()?);
 
-        let kvm_irq = Arc::new(KvmIRQ::new(&vm)?);
+        let kvm_irq = Arc::new(KvmIRQ::new(vm_fd.clone())?);
 
-        let mut vcpus = self.init_vcpus(&vm.kvm, &vm.vm_fd)?;
+        let mut vcpus = self.init_vcpus(&kvm, &vm_fd)?;
 
         let mut memory = self.init_mm()?;
         for (slot, region) in memory.into_iter().enumerate() {
             unsafe {
-                vm.vm_fd
-                    .set_user_memory_region(kvm_userspace_memory_region {
-                        slot: slot as u32,
-                        flags: 0,
-                        guest_phys_addr: region.gpa as u64,
-                        memory_size: region.len as u64,
-                        userspace_addr: region.as_u64(),
-                    })?;
+                vm_fd.set_user_memory_region(kvm_userspace_memory_region {
+                    slot: slot as u32,
+                    flags: 0,
+                    guest_phys_addr: region.gpa as u64,
+                    memory_size: region.len as u64,
+                    userspace_addr: region.as_u64(),
+                })?;
             }
         }
 
@@ -120,7 +118,7 @@ impl VmBuilder {
         )?;
         bz_image.init(&mut memory, self.memory_size, vcpus.get_mut(0).unwrap())?;
 
-        self.arch_init(&mut memory, &vm.vm_fd)?;
+        self.arch_init(&mut memory, &vm_fd)?;
 
         let vm = Vm {
             memory,

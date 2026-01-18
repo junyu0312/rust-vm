@@ -2,8 +2,7 @@
 
 mod device;
 mod firmware;
+mod kvm;
 mod utils;
 
-pub mod cli;
-pub mod kvm;
 pub mod vm;
