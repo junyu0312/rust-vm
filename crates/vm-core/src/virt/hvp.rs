@@ -32,8 +32,10 @@ impl Virt for Hvp {
     type Irq = HvpGicV3;
 
     fn new() -> Result<Self, VirtError> {
-        let vm = VirtualMachine::new().map_err(|_| {
-            VirtError::FailedInitialize("hvp: Failed to create a vm instance".to_string())
+        let vm = VirtualMachine::new().map_err(|err| {
+            VirtError::FailedInitialize(
+                format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
+            )
         })?;
 
         Ok(Hvp {

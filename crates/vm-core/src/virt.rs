@@ -6,6 +6,8 @@ use crate::vcpu::Vcpu;
 use crate::virt::error::VirtError;
 
 pub mod error;
+
+#[cfg(feature = "kvm")]
 pub mod kvm;
 
 #[cfg(feature = "hvp")]
