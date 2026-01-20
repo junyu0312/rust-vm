@@ -82,7 +82,7 @@ impl Virt for KvmVirt {
                     .set_user_memory_region(kvm_userspace_memory_region {
                         slot: slot as u32,
                         flags: 0,
-                        guest_phys_addr: region.gpa as u64,
+                        guest_phys_addr: region.gpa,
                         memory_size: region.len as u64,
                         userspace_addr: region.to_hva().unwrap() as u64,
                     })?;
