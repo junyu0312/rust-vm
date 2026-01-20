@@ -5,6 +5,7 @@ use tracing::error;
 
 use crate::device::pio::IoAddressSpace;
 use crate::vcpu::Vcpu;
+use crate::vcpu::arch::x86_64::X86Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 impl KvmVcpu {
@@ -42,7 +43,7 @@ impl KvmVcpu {
     }
 }
 
-impl Vcpu for KvmVcpu {
+impl X86Vcpu for KvmVcpu {
     fn get_regs(&self) -> anyhow::Result<kvm_regs> {
         let regs = self.vcpu_fd.get_regs()?;
 
@@ -66,7 +67,9 @@ impl Vcpu for KvmVcpu {
 
         Ok(())
     }
+}
 
+impl Vcpu for KvmVcpu {
     fn run(&mut self, pio: &mut IoAddressSpace) -> anyhow::Result<()> {
         loop {
             // trace!("al: {}", vcpu.get_regs()?.rax & 0xFF);

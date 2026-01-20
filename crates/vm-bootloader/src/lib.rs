@@ -1,13 +1,14 @@
-use vm_core::mm::manager::MemoryRegions;
-use vm_core::vcpu::Vcpu;
+use vm_core::mm::{allocator::MemoryContainer, manager::MemoryAddressSpace};
 
 pub mod linux;
 
-pub trait BootLoader {
-    fn init(
+pub trait BootLoader<V> {
+    fn init<C>(
         &self,
-        memory: &mut MemoryRegions,
+        memory: &mut MemoryAddressSpace<C>,
         memory_size: usize,
-        vcpu0: &mut dyn Vcpu,
-    ) -> anyhow::Result<()>;
+        vcpu0: &mut V,
+    ) -> anyhow::Result<()>
+    where
+        C: MemoryContainer;
 }

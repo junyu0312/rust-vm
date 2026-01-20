@@ -4,9 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow.workspace = true
-kvm-bindings.workspace = true
-kvm-ioctls.workspace = true
-nix.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
+anyhow = { workspace = true }
+kvm-bindings = { workspace = true }
+kvm-ioctls = { workspace = true }
+nix = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+applevisor = { workspace = true, optional = true }
+applevisor-sys = { workspace = true, optional = true }
+
+[features]
+default = []
+hvp = ["dep:applevisor", "dep:applevisor-sys"]

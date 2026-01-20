@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use vm_core::device::pio::IoAddressSpace;
-use vm_core::mm::manager::MemoryRegions;
+use vm_core::mm::allocator::MemoryContainer;
+use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::mm::region::MemoryRegion;
 use vm_core::virt::Virt;
 
@@ -18,8 +19,8 @@ pub struct VmBuilder {
 }
 
 #[allow(dead_code)]
-pub struct Vm<V> {
-    memory: MemoryRegions,
+pub struct Vm<V: Virt> {
+    memory: MemoryAddressSpace<V::Memory>,
     memory_size: usize,
 
     virt: V,
@@ -28,10 +29,13 @@ pub struct Vm<V> {
 }
 
 impl VmBuilder {
-    fn init_mm(&self) -> anyhow::Result<MemoryRegions> {
+    fn init_mm<C>(&self) -> anyhow::Result<MemoryAddressSpace<C>>
+    where
+        C: MemoryContainer,
+    {
         let memory_region = MemoryRegion::new(0, self.memory_size)?;
 
-        let mut memory_regions = MemoryRegions::default();
+        let mut memory_regions = MemoryAddressSpace::default();
         memory_regions
             .try_insert(memory_region)
             .map_err(|_| anyhow!("Failed to insert memory_region"))?;
@@ -51,12 +55,13 @@ impl VmBuilder {
 
         #[allow(unused_mut)]
         let mut memory = self.init_mm()?;
-        virt.init_memory(&memory)?;
+        virt.init_memory(&mut memory)?;
 
         virt.post_init()?;
 
         let devices = init_device(kvm_irq)?;
 
+        /*
         #[cfg(target_arch = "x86_64")]
         {
             use vm_bootloader::BootLoader;
@@ -77,6 +82,7 @@ impl VmBuilder {
                 bios.init(&mut memory, self.memory_size)?;
             }
         }
+        */
 
         let vm = Vm {
             memory,

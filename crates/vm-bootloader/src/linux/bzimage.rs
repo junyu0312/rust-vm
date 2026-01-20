@@ -6,8 +6,9 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use anyhow::ensure;
 use header::*;
-use vm_core::mm::manager::MemoryRegions;
-use vm_core::vcpu::Vcpu;
+use vm_core::mm::allocator::MemoryContainer;
+use vm_core::mm::manager::MemoryAddressSpace;
+use vm_core::vcpu::arch::x86_64::X86Vcpu;
 
 use crate::BootLoader;
 
@@ -165,13 +166,19 @@ impl BzImage {
     }
 }
 
-impl BootLoader for BzImage {
-    fn init(
+impl<V> BootLoader<V> for BzImage
+where
+    V: X86Vcpu,
+{
+    fn init<C>(
         &self,
-        memory: &mut MemoryRegions,
+        memory: &mut MemoryAddressSpace<C>,
         memory_size: usize,
-        vcpu0: &mut dyn Vcpu,
-    ) -> anyhow::Result<()> {
+        vcpu0: &mut V,
+    ) -> anyhow::Result<()>
+    where
+        C: MemoryContainer,
+    {
         ensure!(self.get_boot_flag()? == 0xAA55, "Invalid boot_flag");
 
         ensure!(
@@ -188,7 +195,7 @@ impl BootLoader for BzImage {
         }
 
         {
-            let setup_start_gpa = to_gpa(CS, IP) as usize;
+            let setup_start_gpa = to_gpa(CS, IP) as u64;
 
             // boot sector + setup code
             let setup_sects_size = (setup_sects + 1) as usize * 512;
@@ -201,7 +208,7 @@ impl BootLoader for BzImage {
             {
                 // copy kernel
                 let buf = &self.bzimage[setup_sects_size..];
-                memory.copy_from_slice(KERNEL_START as usize, buf, buf.len())?;
+                memory.copy_from_slice(KERNEL_START as u64, buf, buf.len())?;
             }
 
             {
@@ -213,9 +220,9 @@ impl BootLoader for BzImage {
                     let len = cstr.count_bytes();
                     ensure!(len < cmdline_size, "Cmdline too long");
 
-                    memory.memset(CMDLINE_OFFSET as usize, 0, cmdline_size)?;
+                    memory.memset(CMDLINE_OFFSET as u64, 0, cmdline_size)?;
                     memory.copy_from_slice(
-                        CMDLINE_OFFSET as usize,
+                        CMDLINE_OFFSET as u64,
                         cstr.as_bytes_with_nul(),
                         cstr.count_bytes(),
                     )?;
@@ -228,36 +235,39 @@ impl BootLoader for BzImage {
                     let initrd_address = memory_size.min(self.get_initrd_addr_max()? as usize);
                     let initrd_address = initrd_address as u32 - initrd.len() as u32;
 
-                    memory.copy_from_slice(initrd_address as usize, initrd, initrd.len())?;
+                    memory.copy_from_slice(initrd_address as u64, initrd, initrd.len())?;
 
                     unsafe {
-                        let ptr =
-                            memory.gpa_to_ptr(setup_start_gpa + RAMDISK_IMAGE.offset)? as *mut u32;
+                        let ptr = memory
+                            .gpa_to_hva(setup_start_gpa + RAMDISK_IMAGE.offset as u64)?
+                            as *mut u32;
                         *ptr = initrd_address;
                     }
 
                     unsafe {
-                        let ptr =
-                            memory.gpa_to_ptr(setup_start_gpa + RAMDISK_SIZE.offset)? as *mut u32;
+                        let ptr = memory.gpa_to_hva(setup_start_gpa + RAMDISK_SIZE.offset as u64)?
+                            as *mut u32;
                         *ptr = initrd.len() as u32;
                     }
                 }
             }
 
             unsafe {
-                let ptr = memory.gpa_to_ptr(setup_start_gpa + CMD_LINE_PTR.offset)? as *mut u32;
+                let ptr =
+                    memory.gpa_to_hva(setup_start_gpa + CMD_LINE_PTR.offset as u64)? as *mut u32;
                 *ptr = CMDLINE_OFFSET;
             }
             unsafe {
-                let ptr = memory.gpa_to_ptr(setup_start_gpa + HEAP_END_PTR.offset)? as *mut u16;
+                let ptr =
+                    memory.gpa_to_hva(setup_start_gpa + HEAP_END_PTR.offset as u64)? as *mut u16;
                 *ptr = 0xfe00;
             }
             unsafe {
-                let ptr = memory.gpa_to_ptr(setup_start_gpa + TYPE_OF_LOADER.offset)?;
+                let ptr = memory.gpa_to_hva(setup_start_gpa + TYPE_OF_LOADER.offset as u64)?;
                 *ptr = 0xff; // undefined
             }
             unsafe {
-                let ptr = memory.gpa_to_ptr(setup_start_gpa + LOADFLAGS.offset)?;
+                let ptr = memory.gpa_to_hva(setup_start_gpa + LOADFLAGS.offset as u64)?;
                 *ptr |= 0x80;
             }
 
@@ -270,23 +280,15 @@ impl BootLoader for BzImage {
                     const VGA_ROM_MODES: u64 = VGA_ROM_OEM_STRING + VGA_ROM_OEM_STRING_SIZE as u64;
 
                     memory.copy_from_slice(
-                        VGA_ROM_BEGIN as usize,
+                        VGA_ROM_BEGIN,
                         &[0; VGA_ROM_OEM_STRING_SIZE],
                         VGA_ROM_OEM_STRING_SIZE,
                     )?;
                     let s = CString::from_str("KVM VESA")?;
-                    memory.copy_from_slice(
-                        VGA_ROM_BEGIN as usize,
-                        s.as_bytes(),
-                        s.count_bytes(),
-                    )?;
+                    memory.copy_from_slice(VGA_ROM_BEGIN, s.as_bytes(), s.count_bytes())?;
 
-                    memory.copy_from_slice(VGA_ROM_MODES as usize, &0x0112u16.to_le_bytes(), 2)?;
-                    memory.copy_from_slice(
-                        VGA_ROM_MODES as usize + 2,
-                        &0x0ffffu16.to_le_bytes(),
-                        2,
-                    )?;
+                    memory.copy_from_slice(VGA_ROM_MODES, &0x0112u16.to_le_bytes(), 2)?;
+                    memory.copy_from_slice(VGA_ROM_MODES + 2, &0x0ffffu16.to_le_bytes(), 2)?;
                 }
             }
         }
