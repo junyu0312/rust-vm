@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use vm_bootloader::BootLoader;
 use vm_core::device::pio::IoAddressSpace;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
@@ -99,6 +100,16 @@ impl<V> Vm<V>
 where
     V: Virt,
 {
+    pub fn install_bootloader(&mut self, bootloader: &dyn BootLoader<V>) -> anyhow::Result<()> {
+        bootloader.install(
+            &mut self.memory,
+            self.memory_size,
+            self.virt
+                .get_vcpu_mut(0)?
+                .ok_or_else(|| anyhow!("vcpu0 is not exist"))?,
+        )
+    }
+
     pub fn run(&mut self) -> anyhow::Result<()> {
         self.virt.run(&mut self.devices)?;
 

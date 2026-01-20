@@ -41,16 +41,25 @@ fn main() -> anyhow::Result<()> {
         }
         #[cfg(feature = "hvp")]
         Accel::Hvp => {
+            use vm_bootloader::linux::image::Image;
             use vm_core::virt::hvp::Hvp;
 
             let mut vm: Vm<Hvp> = VmBuilder {
                 memory_size: args.memory << 30,
                 vcpus: args.cpus,
-                kernel: args.kernel,
-                initramfs: args.initramfs,
-                cmdline: args.cmdline,
+                kernel: args.kernel.clone(),
+                initramfs: args.initramfs.clone(),
+                cmdline: args.cmdline.clone(),
             }
             .build()?;
+
+            let image = Image::new(
+                &args.kernel,
+                args.initramfs.as_deref(),
+                args.cmdline.as_deref(),
+            )?;
+
+            vm.install_bootloader(&image)?;
 
             vm.run()?;
         }

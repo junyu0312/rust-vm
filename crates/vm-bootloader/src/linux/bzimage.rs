@@ -6,9 +6,9 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use anyhow::ensure;
 use header::*;
-use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::arch::x86_64::X86Vcpu;
+use vm_core::virt::Virt;
 
 use crate::BootLoader;
 
@@ -168,17 +168,15 @@ impl BzImage {
 
 impl<V> BootLoader<V> for BzImage
 where
-    V: X86Vcpu,
+    V: Virt,
+    V::Vcpu: X86Vcpu,
 {
-    fn init<C>(
+    fn install(
         &self,
-        memory: &mut MemoryAddressSpace<C>,
+        memory: &mut MemoryAddressSpace<V::Memory>,
         memory_size: usize,
-        vcpu0: &mut V,
-    ) -> anyhow::Result<()>
-    where
-        C: MemoryContainer,
-    {
+        vcpu0: &mut V::Vcpu,
+    ) -> anyhow::Result<()> {
         ensure!(self.get_boot_flag()? == 0xAA55, "Invalid boot_flag");
 
         ensure!(

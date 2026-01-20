@@ -468,6 +468,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "vm-core",
+ "zerocopy",
 ]
 
 [[package]]
@@ -479,6 +480,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-subscriber",
+ "vm-bootloader",
  "vm-core",
  "vm-machine",
 ]
@@ -551,4 +553,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
 dependencies = [
  "windows-link",
+]
+
+[[package]]
+name = "zerocopy"
+version = "0.8.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "668f5168d10b9ee831de31933dc111a459c97ec93225beb307aed970d1372dfd"
+dependencies = [
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.8.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c7962b26b0a8685668b671ee4b54d007a67d4eaf05fda79ac0ecf41e32270f1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]

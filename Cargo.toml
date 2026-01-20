@@ -23,3 +23,4 @@ vm-bootloader = { path = "crates/vm-bootloader" }
 vm-core = { path = "crates/vm-core" }
 vm-device = { path = "crates/vm-device" }
 vm-machine = { path = "crates/vm-machine" }
+zerocopy = { version = "0.8.33", features = ["derive"] }
