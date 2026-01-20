@@ -170,7 +170,7 @@ impl<V> BootLoader<V> for BzImage
 where
     V: X86Vcpu,
 {
-    fn init<C>(
+    fn install<C>(
         &self,
         memory: &mut MemoryAddressSpace<C>,
         memory_size: usize,
