@@ -9,6 +9,7 @@ use applevisor::vm::VirtualMachineInstance;
 
 use crate::device::pio::IoAddressSpace;
 use crate::mm::manager::MemoryAddressSpace;
+use crate::vcpu::Vcpu;
 use crate::virt::Virt;
 use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
@@ -77,7 +78,7 @@ impl Virt for Hvp {
     }
 
     fn post_init(&mut self) -> anyhow::Result<()> {
-        todo!()
+        Ok(())
     }
 
     fn get_vcpu_mut(&mut self, vcpu_id: u64) -> anyhow::Result<Option<&mut HvpVcpu>> {
@@ -91,6 +92,6 @@ impl Virt for Hvp {
     }
 
     fn run(&mut self, _device: &mut IoAddressSpace) -> anyhow::Result<()> {
-        todo!()
+        self.get_vcpu_mut(0)?.unwrap().run(_device)
     }
 }
