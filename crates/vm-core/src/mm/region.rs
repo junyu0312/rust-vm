@@ -1,53 +1,46 @@
-use std::os::raw::c_void;
+use std::cell::OnceCell;
 
+use anyhow::anyhow;
 use anyhow::bail;
-use nix::libc::MAP_ANONYMOUS;
-use nix::libc::MAP_FAILED;
-use nix::libc::MAP_PRIVATE;
-use nix::libc::PROT_READ;
-use nix::libc::PROT_WRITE;
-use nix::libc::mmap;
-use nix::libc::munmap;
-use tracing::error;
 
-pub struct MemoryRegion {
-    pub gpa: usize,
-    pub ptr: *mut u8,
+use crate::mm::allocator::Allocator;
+use crate::mm::allocator::MemoryContainer;
+
+pub struct MemoryRegion<C> {
+    pub gpa: u64,
     pub len: usize,
+    pub memory: OnceCell<C>,
 }
 
-impl MemoryRegion {
-    pub fn new(gpa: usize, len: usize) -> anyhow::Result<Self> {
-        let ptr = unsafe {
-            mmap(
-                std::ptr::null_mut(),
-                len,
-                PROT_READ | PROT_WRITE,
-                MAP_PRIVATE | MAP_ANONYMOUS,
-                -1,
-                0,
-            )
-        };
-        if ptr == MAP_FAILED {
-            bail!("Failed to mmap memory region");
-        }
-
-        let ptr = ptr as *mut u8;
-
-        Ok(MemoryRegion { gpa, ptr, len })
+impl<C> MemoryRegion<C>
+where
+    C: MemoryContainer,
+{
+    pub fn new(gpa: u64, len: usize) -> anyhow::Result<Self> {
+        Ok(MemoryRegion {
+            gpa,
+            len,
+            memory: OnceCell::new(),
+        })
     }
 
-    pub fn as_u64(&self) -> u64 {
-        self.ptr as u64
-    }
-}
-
-impl Drop for MemoryRegion {
-    fn drop(&mut self) {
-        let r = unsafe { munmap(self.ptr as *mut c_void, self.len) };
-
-        if r != 0 {
-            error!("Failed to munmap memory region");
+    pub fn alloc<A>(&mut self, allocator: &A) -> anyhow::Result<()>
+    where
+        A: Allocator<Contrainer = C>,
+    {
+        if self.memory.get().is_some() {
+            bail!(anyhow!("memory is already initialized"));
         }
+
+        let memory = allocator.alloc(self.len, None)?;
+        self.memory
+            .set(memory)
+            .map_err(|_| anyhow!("memory is already initialized"))?;
+
+        Ok(())
+    }
+
+    pub fn to_hva(&self) -> Option<*mut u8> {
+        self.memory.get().map(|m| m.to_hva())
     }
 }

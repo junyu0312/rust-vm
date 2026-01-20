@@ -6,7 +6,9 @@ use kvm_bindings::*;
 use kvm_ioctls::*;
 
 use crate::device::pio::IoAddressSpace;
-use crate::mm::manager::MemoryRegions;
+use crate::mm::allocator::mmap_allocator::MmapAllocator;
+use crate::mm::allocator::mmap_allocator::MmapMemory;
+use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;
@@ -32,6 +34,7 @@ impl KvmVirt {
 
 impl Virt for KvmVirt {
     type Vcpu = KvmVcpu;
+    type Memory = MmapMemory;
     type Irq = KvmIRQ;
 
     fn new() -> anyhow::Result<Self> {
@@ -68,16 +71,20 @@ impl Virt for KvmVirt {
         Ok(())
     }
 
-    fn init_memory(&mut self, memory: &MemoryRegions) -> anyhow::Result<()> {
+    fn init_memory(&mut self, memory: &mut MemoryAddressSpace<MmapMemory>) -> anyhow::Result<()> {
+        let allocator = MmapAllocator;
+
         for (slot, region) in memory.into_iter().enumerate() {
+            region.alloc(&allocator)?;
+
             unsafe {
                 self.vm_fd
                     .set_user_memory_region(kvm_userspace_memory_region {
                         slot: slot as u32,
                         flags: 0,
-                        guest_phys_addr: region.gpa as u64,
+                        guest_phys_addr: region.gpa,
                         memory_size: region.len as u64,
-                        userspace_addr: region.as_u64(),
+                        userspace_addr: region.to_hva().unwrap() as u64,
                     })?;
             }
         }

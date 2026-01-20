@@ -1,5 +1,6 @@
 use vm_bootloader::linux::bzimage::KERNEL_START;
-use vm_core::mm::manager::MemoryRegions;
+use vm_core::mm::allocator::MemoryContainer;
+use vm_core::mm::manager::MemoryAddressSpace;
 
 use crate::firmware::bios::e820::*;
 use crate::firmware::bios::ivt::InterruptVectorTable;
@@ -112,10 +113,17 @@ pub struct Bios;
 const BIOS_OFFSET: usize = 0xf000;
 
 impl Bios {
-    pub fn init(&self, memory: &mut MemoryRegions, memory_size: usize) -> anyhow::Result<()> {
+    pub fn init<C>(
+        &self,
+        memory: &mut MemoryAddressSpace<C>,
+        memory_size: usize,
+    ) -> anyhow::Result<()>
+    where
+        C: MemoryContainer,
+    {
         let bios_bin = include_bytes!("../../../../bios.bin");
         {
-            memory.copy_from_slice(BIOS_OFFSET, bios_bin, bios_bin.len())?;
+            memory.copy_from_slice(BIOS_OFFSET as u64, bios_bin, bios_bin.len())?;
         }
 
         {
