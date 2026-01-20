@@ -11,3 +11,8 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 vm-core.workspace = true
 vm-machine.workspace = true
+
+[features]
+default = ["kvm"]
+kvm = []
+hvp = []

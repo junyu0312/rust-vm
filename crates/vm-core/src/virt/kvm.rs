@@ -11,6 +11,7 @@ use crate::mm::allocator::mmap_allocator::MmapMemory;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::virt::Virt;
+use crate::virt::error::VirtError;
 use crate::virt::kvm::irq_chip::KvmIRQ;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
@@ -37,10 +38,14 @@ impl Virt for KvmVirt {
     type Memory = MmapMemory;
     type Irq = KvmIRQ;
 
-    fn new() -> anyhow::Result<Self> {
-        let kvm = Kvm::new()?;
+    fn new() -> Result<Self, VirtError> {
+        let kvm = Kvm::new()
+            .map_err(|_| VirtError::FailedInitialize("kvm: Failed to open /dev/kvm".to_string()))?;
 
-        let vm_fd = Arc::new(kvm.create_vm()?);
+        let vm_fd =
+            Arc::new(kvm.create_vm().map_err(|_| {
+                VirtError::FailedInitialize("kvm: Failed to create_vm".to_string())
+            })?);
 
         Ok(KvmVirt {
             kvm,
