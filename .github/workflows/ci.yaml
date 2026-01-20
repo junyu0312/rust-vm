@@ -16,7 +16,7 @@ defaults:
     shell: bash
 
 jobs:
-  build:
+  build_x86_64:
     name: Build
     runs-on: ubuntu-latest
     steps:
@@ -28,6 +28,32 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build --verbose
+
+  build_aarch64:
+    name: Build(AArch64)
+    runs-on: ubuntu22.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_STABLE }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+      - uses: Swatinem/rust-cache@v2
+      - name: build
+        run: cargo build --verbose
+
+  build_macos:
+    name: Build(Macos)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_STABLE }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+      - uses: Swatinem/rust-cache@v2
+      - name: build
+        run: cargo build --no-default-features --features hvp --verbose
 
   fmt:
     name: Fmt
