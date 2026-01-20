@@ -1,4 +1,5 @@
-use vm_core::mm::{allocator::MemoryContainer, manager::MemoryAddressSpace};
+use vm_core::mm::allocator::MemoryContainer;
+use vm_core::mm::manager::MemoryAddressSpace;
 
 pub mod linux;
 

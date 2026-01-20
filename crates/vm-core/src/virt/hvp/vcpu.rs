@@ -1,10 +1,9 @@
 use applevisor_sys::hv_exit_reason_t;
 use tracing::trace;
 
-use crate::{
-    device::pio::IoAddressSpace,
-    vcpu::{Vcpu, arch::aarch64::AArch64Vcpu},
-};
+use crate::device::pio::IoAddressSpace;
+use crate::vcpu::Vcpu;
+use crate::vcpu::arch::aarch64::AArch64Vcpu;
 
 pub struct HvpVcpu {
     vcpu_id: u64,

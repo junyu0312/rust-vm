@@ -6,7 +6,8 @@ use kvm_bindings::*;
 use kvm_ioctls::*;
 
 use crate::device::pio::IoAddressSpace;
-use crate::mm::allocator::mmap_allocator::{MmapAllocator, MmapMemory};
+use crate::mm::allocator::mmap_allocator::MmapAllocator;
+use crate::mm::allocator::mmap_allocator::MmapMemory;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::virt::Virt;

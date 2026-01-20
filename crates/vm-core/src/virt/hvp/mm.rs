@@ -1,9 +1,9 @@
-use applevisor::{
-    memory::Memory,
-    vm::{GicDisabled, VirtualMachineInstance},
-};
+use applevisor::memory::Memory;
+use applevisor::vm::GicDisabled;
+use applevisor::vm::VirtualMachineInstance;
 
-use crate::mm::allocator::{Allocator, MemoryContainer};
+use crate::mm::allocator::Allocator;
+use crate::mm::allocator::MemoryContainer;
 
 impl MemoryContainer for Memory {
     fn to_hva(&self) -> *mut u8 {

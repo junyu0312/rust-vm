@@ -1,19 +1,18 @@
 use std::cell::OnceCell;
 
 use anyhow::anyhow;
-use applevisor::{
-    memory::{MemPerms, Memory},
-    vm::{GicDisabled, VirtualMachine, VirtualMachineInstance},
-};
+use applevisor::memory::MemPerms;
+use applevisor::memory::Memory;
+use applevisor::vm::GicDisabled;
+use applevisor::vm::VirtualMachine;
+use applevisor::vm::VirtualMachineInstance;
 
-use crate::{
-    device::pio::IoAddressSpace,
-    mm::manager::MemoryAddressSpace,
-    virt::{
-        Virt,
-        hvp::{irq_chip::HvpGicV3, mm::HvpAllocator, vcpu::HvpVcpu},
-    },
-};
+use crate::device::pio::IoAddressSpace;
+use crate::mm::manager::MemoryAddressSpace;
+use crate::virt::Virt;
+use crate::virt::hvp::irq_chip::HvpGicV3;
+use crate::virt::hvp::mm::HvpAllocator;
+use crate::virt::hvp::vcpu::HvpVcpu;
 
 mod irq_chip;
 mod mm;

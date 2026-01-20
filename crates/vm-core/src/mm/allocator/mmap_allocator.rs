@@ -1,9 +1,16 @@
 use std::ffi::c_void;
 
 use anyhow::bail;
-use nix::libc::{MAP_ANONYMOUS, MAP_FAILED, MAP_PRIVATE, PROT_READ, PROT_WRITE, mmap, munmap};
+use nix::libc::MAP_ANONYMOUS;
+use nix::libc::MAP_FAILED;
+use nix::libc::MAP_PRIVATE;
+use nix::libc::PROT_READ;
+use nix::libc::PROT_WRITE;
+use nix::libc::mmap;
+use nix::libc::munmap;
 
-use crate::mm::allocator::{Allocator, MemoryContainer};
+use crate::mm::allocator::Allocator;
+use crate::mm::allocator::MemoryContainer;
 
 pub struct MmapMemory {
     ptr: *mut u8,
