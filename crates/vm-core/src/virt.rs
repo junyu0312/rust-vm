@@ -3,7 +3,9 @@ use crate::irq::InterruptController;
 use crate::mm::allocator::MemoryContainer;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
+use crate::virt::error::VirtError;
 
+pub mod error;
 pub mod kvm;
 
 #[cfg(feature = "hvp")]
@@ -14,7 +16,7 @@ pub trait Virt: Sized {
     type Memory: MemoryContainer;
     type Irq: InterruptController;
 
-    fn new() -> anyhow::Result<Self>;
+    fn new() -> Result<Self, VirtError>;
 
     fn init_irq(&mut self) -> anyhow::Result<Self::Irq>;
     fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()>;

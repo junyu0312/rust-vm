@@ -10,6 +10,7 @@ use applevisor::vm::VirtualMachineInstance;
 use crate::device::pio::IoAddressSpace;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::virt::Virt;
+use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
 use crate::virt::hvp::vcpu::HvpVcpu;
@@ -30,8 +31,10 @@ impl Virt for Hvp {
 
     type Irq = HvpGicV3;
 
-    fn new() -> anyhow::Result<Self> {
-        let vm = VirtualMachine::new()?;
+    fn new() -> Result<Self, VirtError> {
+        let vm = VirtualMachine::new().map_err(|_| {
+            VirtError::FailedInitialize("hvp: Failed to create a vm instance".to_string())
+        })?;
 
         Ok(Hvp {
             vm,

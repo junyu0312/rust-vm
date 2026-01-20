@@ -3,10 +3,10 @@
 use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
-use vm_core::virt::kvm::KvmVirt;
 use vm_machine::vm::Vm;
 use vm_machine::vm::VmBuilder;
 
+use crate::cmd::Accel;
 use crate::cmd::Command;
 
 mod cmd;
@@ -23,16 +23,38 @@ fn main() -> anyhow::Result<()> {
     let args = Command::parse();
     debug!(?args);
 
-    let mut vm: Vm<KvmVirt> = VmBuilder {
-        memory_size: args.memory << 30,
-        vcpus: args.cpus,
-        kernel: args.kernel,
-        initramfs: args.initramfs,
-        cmdline: args.cmdline,
-    }
-    .build()?;
+    match args.accel {
+        #[cfg(feature = "kvm")]
+        Accel::Kvm => {
+            use vm_core::virt::kvm::KvmVirt;
 
-    vm.run()?;
+            let mut vm: Vm<KvmVirt> = VmBuilder {
+                memory_size: args.memory << 30,
+                vcpus: args.cpus,
+                kernel: args.kernel,
+                initramfs: args.initramfs,
+                cmdline: args.cmdline,
+            }
+            .build()?;
+
+            vm.run()?;
+        }
+        #[cfg(feature = "hvp")]
+        Accel::Hvp => {
+            use vm_core::virt::hvp::Hvp;
+
+            let mut vm: Vm<Hvp> = VmBuilder {
+                memory_size: args.memory << 30,
+                vcpus: args.cpus,
+                kernel: args.kernel,
+                initramfs: args.initramfs,
+                cmdline: args.cmdline,
+            }
+            .build()?;
+
+            vm.run()?;
+        }
+    };
 
     Ok(())
 }
