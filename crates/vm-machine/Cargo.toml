@@ -4,17 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow.workspace = true
-kvm-bindings.workspace = true
-kvm-ioctls.workspace = true
-lazy_static.workspace = true
-maplit.workspace = true
-nix.workspace = true
-termios.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
-vm-core.workspace = true
-vm-device.workspace = true
-
-[target.'cfg(target_arch = "x86_64")'.dependencies]
-vm-bootloader.workspace = true
+anyhow = { workspace = true }
+kvm-bindings = { workspace = true, optional = true }
+kvm-ioctls = { workspace = true, optional = true }
+lazy_static = { workspace = true }
+maplit = { workspace = true }
+nix = { workspace = true }
+termios = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+vm-bootloader = { workspace = true }
+vm-core = { workspace = true }
+vm-device = { workspace = true }
