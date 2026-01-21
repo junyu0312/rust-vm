@@ -30,6 +30,8 @@ pub enum CoreRegister {
     X28,
     X29,
     X30,
+    SP,
+    PC,
     PState,
 }
 

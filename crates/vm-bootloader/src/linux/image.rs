@@ -123,20 +123,20 @@ impl Image {
             // Setup general-purpose register
 
             let gpa_of_dtb = todo!();
-            primary_cpu.set_one_reg(CoreRegister::X0, gpa_of_dtb)?;
-            primary_cpu.set_one_reg(CoreRegister::X1, 0)?;
-            primary_cpu.set_one_reg(CoreRegister::X2, 0)?;
-            primary_cpu.set_one_reg(CoreRegister::X3, 0)?;
+            primary_cpu.set_core_reg(CoreRegister::X0, gpa_of_dtb)?;
+            primary_cpu.set_core_reg(CoreRegister::X1, 0)?;
+            primary_cpu.set_core_reg(CoreRegister::X2, 0)?;
+            primary_cpu.set_core_reg(CoreRegister::X3, 0)?;
         }
 
         {
             // CPU mode
 
-            let mut pstate = primary_cpu.get_one_reg(CoreRegister::PState)?;
+            let mut pstate = primary_cpu.get_core_reg(CoreRegister::PState)?;
             pstate |= 0x03C0; // DAIF
             pstate &= !0xf; // Clear low 4 bits
             pstate |= 0x0005; // El1h
-            primary_cpu.set_one_reg(CoreRegister::PState, pstate)?;
+            primary_cpu.set_core_reg(CoreRegister::PState, pstate)?;
 
             // more, non secure el1
             todo!()

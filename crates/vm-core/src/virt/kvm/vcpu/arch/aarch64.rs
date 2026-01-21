@@ -4,7 +4,6 @@ use crate::device::pio::IoAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
-use crate::vcpu::arch::aarch64::reg::Reg;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
@@ -17,7 +16,7 @@ impl KvmVcpu {
 }
 
 impl AArch64Vcpu for KvmVcpu {
-    fn get_one_reg(&self, reg: CoreRegister) -> anyhow::Result<u64> {
+    fn get_core_reg(&self, reg: CoreRegister) -> anyhow::Result<u64> {
         let mut bytes = [0; 8];
         let len = self.vcpu_fd.get_one_reg(reg.to_kvm_reg(), &mut bytes)?;
         assert_eq!(len, 8);
@@ -26,20 +25,20 @@ impl AArch64Vcpu for KvmVcpu {
         Ok(value)
     }
 
-    fn set_one_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()> {
+    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()> {
         let len = self
             .vcpu_fd
-            .set_one_reg(reg.to_kvm_reg(), value.to_le_bytes())?;
+            .set_one_reg(reg.to_kvm_reg(), &value.to_le_bytes())?;
         assert_eq!(len, 8);
 
         Ok(())
     }
 
-    fn get_sys_reg(&self, reg: SysRegister) -> anyhow::Result<u64> {
+    fn get_sys_reg(&self, _reg: SysRegister) -> anyhow::Result<u64> {
         todo!()
     }
 
-    fn set_sys_reg(&self, reg: SysRegister, value: u64) -> anyhow::Result<()> {
+    fn set_sys_reg(&self, _reg: SysRegister, _value: u64) -> anyhow::Result<()> {
         todo!()
     }
 }

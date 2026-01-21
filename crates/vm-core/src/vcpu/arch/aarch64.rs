@@ -7,9 +7,9 @@ use crate::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
 pub mod reg;
 
 pub trait AArch64Vcpu: Vcpu {
-    fn get_one_reg(&self, reg: CoreRegister) -> anyhow::Result<u64>;
+    fn get_core_reg(&self, reg: CoreRegister) -> anyhow::Result<u64>;
 
-    fn set_one_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()>;
+    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()>;
 
     fn get_sys_reg(&self, reg: SysRegister) -> anyhow::Result<u64>;
 

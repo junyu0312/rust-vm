@@ -9,41 +9,48 @@ use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
 
+enum HvpReg {
+    CoreReg(hv_reg_t),
+    SysReg(hv_sys_reg_t),
+}
+
 impl CoreRegister {
-    fn to_hvp_reg(&self) -> hv_reg_t {
+    fn to_hvp_reg(&self) -> HvpReg {
         match self {
-            CoreRegister::X0 => hv_reg_t::X0,
-            CoreRegister::X1 => hv_reg_t::X1,
-            CoreRegister::X2 => hv_reg_t::X2,
-            CoreRegister::X3 => hv_reg_t::X3,
-            CoreRegister::X4 => hv_reg_t::X4,
-            CoreRegister::X5 => hv_reg_t::X5,
-            CoreRegister::X6 => hv_reg_t::X6,
-            CoreRegister::X7 => hv_reg_t::X7,
-            CoreRegister::X8 => hv_reg_t::X8,
-            CoreRegister::X9 => hv_reg_t::X9,
-            CoreRegister::X10 => hv_reg_t::X10,
-            CoreRegister::X11 => hv_reg_t::X11,
-            CoreRegister::X12 => hv_reg_t::X12,
-            CoreRegister::X13 => hv_reg_t::X13,
-            CoreRegister::X14 => hv_reg_t::X14,
-            CoreRegister::X15 => hv_reg_t::X15,
-            CoreRegister::X16 => hv_reg_t::X16,
-            CoreRegister::X17 => hv_reg_t::X17,
-            CoreRegister::X18 => hv_reg_t::X18,
-            CoreRegister::X19 => hv_reg_t::X19,
-            CoreRegister::X20 => hv_reg_t::X20,
-            CoreRegister::X21 => hv_reg_t::X21,
-            CoreRegister::X22 => hv_reg_t::X22,
-            CoreRegister::X23 => hv_reg_t::X23,
-            CoreRegister::X24 => hv_reg_t::X24,
-            CoreRegister::X25 => hv_reg_t::X25,
-            CoreRegister::X26 => hv_reg_t::X26,
-            CoreRegister::X27 => hv_reg_t::X27,
-            CoreRegister::X28 => hv_reg_t::X28,
-            CoreRegister::X29 => hv_reg_t::X29,
-            CoreRegister::X30 => hv_reg_t::X30,
-            CoreRegister::PState => hv_reg_t::CPSR,
+            CoreRegister::X0 => HvpReg::CoreReg(hv_reg_t::X0),
+            CoreRegister::X1 => HvpReg::CoreReg(hv_reg_t::X1),
+            CoreRegister::X2 => HvpReg::CoreReg(hv_reg_t::X2),
+            CoreRegister::X3 => HvpReg::CoreReg(hv_reg_t::X3),
+            CoreRegister::X4 => HvpReg::CoreReg(hv_reg_t::X4),
+            CoreRegister::X5 => HvpReg::CoreReg(hv_reg_t::X5),
+            CoreRegister::X6 => HvpReg::CoreReg(hv_reg_t::X6),
+            CoreRegister::X7 => HvpReg::CoreReg(hv_reg_t::X7),
+            CoreRegister::X8 => HvpReg::CoreReg(hv_reg_t::X8),
+            CoreRegister::X9 => HvpReg::CoreReg(hv_reg_t::X9),
+            CoreRegister::X10 => HvpReg::CoreReg(hv_reg_t::X10),
+            CoreRegister::X11 => HvpReg::CoreReg(hv_reg_t::X11),
+            CoreRegister::X12 => HvpReg::CoreReg(hv_reg_t::X12),
+            CoreRegister::X13 => HvpReg::CoreReg(hv_reg_t::X13),
+            CoreRegister::X14 => HvpReg::CoreReg(hv_reg_t::X14),
+            CoreRegister::X15 => HvpReg::CoreReg(hv_reg_t::X15),
+            CoreRegister::X16 => HvpReg::CoreReg(hv_reg_t::X16),
+            CoreRegister::X17 => HvpReg::CoreReg(hv_reg_t::X17),
+            CoreRegister::X18 => HvpReg::CoreReg(hv_reg_t::X18),
+            CoreRegister::X19 => HvpReg::CoreReg(hv_reg_t::X19),
+            CoreRegister::X20 => HvpReg::CoreReg(hv_reg_t::X20),
+            CoreRegister::X21 => HvpReg::CoreReg(hv_reg_t::X21),
+            CoreRegister::X22 => HvpReg::CoreReg(hv_reg_t::X22),
+            CoreRegister::X23 => HvpReg::CoreReg(hv_reg_t::X23),
+            CoreRegister::X24 => HvpReg::CoreReg(hv_reg_t::X24),
+            CoreRegister::X25 => HvpReg::CoreReg(hv_reg_t::X25),
+            CoreRegister::X26 => HvpReg::CoreReg(hv_reg_t::X26),
+            CoreRegister::X27 => HvpReg::CoreReg(hv_reg_t::X27),
+            CoreRegister::X28 => HvpReg::CoreReg(hv_reg_t::X28),
+            CoreRegister::X29 => HvpReg::CoreReg(hv_reg_t::X29),
+            CoreRegister::X30 => HvpReg::CoreReg(hv_reg_t::X30),
+            CoreRegister::SP => HvpReg::SysReg(hv_sys_reg_t::SP_EL0),
+            CoreRegister::PC => HvpReg::CoreReg(hv_reg_t::PC),
+            CoreRegister::PState => HvpReg::CoreReg(hv_reg_t::CPSR),
         }
     }
 }
@@ -69,14 +76,18 @@ impl HvpVcpu {
 }
 
 impl AArch64Vcpu for HvpVcpu {
-    fn get_one_reg(&self, reg: CoreRegister) -> anyhow::Result<u64> {
-        Ok(self.vcpu.get_reg(reg.to_hvp_reg())?)
+    fn get_core_reg(&self, reg: CoreRegister) -> anyhow::Result<u64> {
+        match reg.to_hvp_reg() {
+            HvpReg::CoreReg(reg) => Ok(self.vcpu.get_reg(reg)?),
+            HvpReg::SysReg(reg) => Ok(self.vcpu.get_sys_reg(reg)?),
+        }
     }
 
-    fn set_one_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()> {
-        self.vcpu.set_reg(reg.to_hvp_reg(), value)?;
-
-        Ok(())
+    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()> {
+        match reg.to_hvp_reg() {
+            HvpReg::CoreReg(reg) => Ok(self.vcpu.set_reg(reg, value)?),
+            HvpReg::SysReg(reg) => Ok(self.vcpu.set_sys_reg(reg, value)?),
+        }
     }
 
     fn get_sys_reg(&self, reg: SysRegister) -> anyhow::Result<u64> {
