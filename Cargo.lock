@@ -467,6 +467,7 @@ name = "vm-bootloader"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "tracing",
  "vm-core",
  "zerocopy",
 ]
@@ -492,6 +493,7 @@ dependencies = [
  "anyhow",
  "applevisor",
  "applevisor-sys",
+ "bitflags 2.10.0",
  "kvm-bindings",
  "kvm-ioctls",
  "nix",

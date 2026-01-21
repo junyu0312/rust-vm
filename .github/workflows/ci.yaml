@@ -16,8 +16,8 @@ defaults:
     shell: bash
 
 jobs:
-  build_x86_64:
-    name: Build
+  build_x86_64_kvm:
+    name: Build(X86_64/Kvm)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -26,11 +26,24 @@ jobs:
         with:
           toolchain: ${{ env.RUST_STABLE }}
       - uses: Swatinem/rust-cache@v2
-      - name: build
+      - name: Build(X86_64/Kvm)
         run: cargo build --verbose
 
-  build_aarch64:
-    name: Build(AArch64)
+  build_arm64_kvm:
+    name: Build(Arm64/Kvm)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_STABLE }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build(Arm64/Kvm)
+        run: cargo build --verbose
+
+  build_arm64_hvp:
+    name: Build(Arm64/hvp)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,14 +52,8 @@ jobs:
         with:
           toolchain: ${{ env.RUST_STABLE }}
       - uses: Swatinem/rust-cache@v2
-      - name: Install cross
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cross
-      - name: build(MacOS/hvp)
+      - name: build(Arm64/hvp)
         run: cargo build --no-default-features --features hvp --verbose
-      - name: Build(Linux/kvm)
-        run: cross build --target aarch64-unknown-linux-gnu --verbose
 
   fmt:
     name: Fmt
