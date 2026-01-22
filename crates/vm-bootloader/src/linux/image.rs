@@ -5,11 +5,10 @@
 use std::fs;
 use std::path::Path;
 
-use anyhow::anyhow;
-use anyhow::ensure;
 use tracing::debug;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
+use vm_core::utils::fdt::DtbBuilder;
 use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
 use vm_core::vcpu::arch::aarch64::reg::CoreRegister;
 use vm_core::vcpu::arch::aarch64::reg::cnthctl_el2::CnthctlEl2;
@@ -18,6 +17,7 @@ use vm_core::virt::Virt;
 use zerocopy::FromBytes;
 
 use crate::BootLoader;
+use crate::Error;
 use crate::linux::image::layout::DEFAULT_TEXT_OFFSET;
 
 mod layout {
@@ -47,13 +47,12 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(
-        kernel: &Path,
-        initrd: Option<&Path>,
-        cmdline: Option<&str>,
-    ) -> anyhow::Result<Self> {
-        let image = fs::read(kernel)?;
-        let initrd = initrd.map(fs::read).transpose()?;
+    pub fn new(kernel: &Path, initrd: Option<&Path>, cmdline: Option<&str>) -> Result<Self, Error> {
+        let image = fs::read(kernel).map_err(|_| Error::ReadFailed)?;
+        let initrd = initrd
+            .map(fs::read)
+            .transpose()
+            .map_err(|_| Error::ReadFailed)?;
         let cmdline = cmdline.map(|s| s.to_string());
 
         Ok(Image {
@@ -63,41 +62,59 @@ impl Image {
         })
     }
 
-    fn get_header(&self) -> anyhow::Result<Header> {
+    fn get_header(&self) -> Result<Header, Error> {
         let len = size_of::<Header>();
 
-        let header = Header::read_from_bytes(&self.image[0..len])
-            .map_err(|_| anyhow!("Invalid image header"))?;
+        let header =
+            Header::read_from_bytes(&self.image[0..len]).map_err(|_| Error::InvalidKernelImage)?;
 
         debug!(?header);
 
         Ok(header)
     }
 
-    fn validate(&self) -> anyhow::Result<()> {
+    fn validate(&self) -> Result<(), Error> {
         let len = size_of::<Header>();
 
-        ensure!(self.image.len() >= len, "image too small");
+        if self.image.len() < len {
+            return Err(Error::InvalidKernelImage);
+        }
 
         let header = self.get_header()?;
 
-        ensure!(header.magic == 0x644d5241, "Invalid header magic");
+        if header.magic != 0x644d5241 {
+            return Err(Error::InvalidKernelImage);
+        }
 
         Ok(())
     }
 
-    fn setup_memory<C>(&self, memory: &mut MemoryAddressSpace<C>) -> anyhow::Result<()>
+    fn setup_memory<C>(
+        &self,
+        ram_base: u64,
+        memory: &mut MemoryAddressSpace<C>,
+    ) -> Result<(), Error>
     where
         C: MemoryContainer,
     {
         let header = self.get_header()?;
 
-        ensure!(header.image_size != 0, "Image version too old");
-        ensure!(header.text_offset == 0, "text_offset should be 0");
+        let text_offset = if header.image_size == 0 {
+            DEFAULT_TEXT_OFFSET
+        } else {
+            header.text_offset
+        };
 
-        let text_offset = DEFAULT_TEXT_OFFSET;
+        // check 2M align
+        if !ram_base.is_multiple_of(2 << 20) {
+            return Err(Error::InvalidAddressAlignment);
+        }
 
-        memory.copy_from_slice(text_offset, &self.image, self.image.len())?;
+        let offset = ram_base + text_offset;
+
+        memory
+            .copy_from_slice(offset, &self.image, self.image.len())
+            .map_err(|err| Error::CopyKernelFailed(err.to_string()))?;
 
         if let Some(_initrd) = &self.initrd {
             todo!()
@@ -110,70 +127,78 @@ impl Image {
         Ok(())
     }
 
-    fn setup_device_tree(&self) -> anyhow::Result<()> {
-        todo!()
+    fn setup_device_tree(&self) -> Result<(), Error> {
+        let _fdt = DtbBuilder::build_dtb().map_err(|err| Error::SetupDtbFailed(err.to_string()))?;
+
+        todo!();
     }
 
     #[allow(warnings)]
-    fn setup_primary_cpu<V>(&self, primary_cpu: &mut V) -> anyhow::Result<()>
+    fn setup_primary_cpu<V>(&self, primary_cpu: &mut V) -> Result<(), Error>
     where
         V: AArch64Vcpu,
     {
-        {
-            // Setup general-purpose register
+        let setup = || {
+            {
+                // Setup general-purpose register
 
-            let gpa_of_dtb = todo!();
-            primary_cpu.set_core_reg(CoreRegister::X0, gpa_of_dtb)?;
-            primary_cpu.set_core_reg(CoreRegister::X1, 0)?;
-            primary_cpu.set_core_reg(CoreRegister::X2, 0)?;
-            primary_cpu.set_core_reg(CoreRegister::X3, 0)?;
-        }
+                let gpa_of_dtb = todo!();
+                primary_cpu.set_core_reg(CoreRegister::X0, gpa_of_dtb)?;
+                primary_cpu.set_core_reg(CoreRegister::X1, 0)?;
+                primary_cpu.set_core_reg(CoreRegister::X2, 0)?;
+                primary_cpu.set_core_reg(CoreRegister::X3, 0)?;
+            }
 
-        {
-            // CPU mode
+            {
+                // CPU mode
 
-            let mut pstate = primary_cpu.get_core_reg(CoreRegister::PState)?;
-            pstate |= 0x03C0; // DAIF
-            pstate &= !0xf; // Clear low 4 bits
-            pstate |= 0x0005; // El1h
-            primary_cpu.set_core_reg(CoreRegister::PState, pstate)?;
+                let mut pstate = primary_cpu.get_core_reg(CoreRegister::PState)?;
+                pstate |= 0x03C0; // DAIF
+                pstate &= !0xf; // Clear low 4 bits
+                pstate |= 0x0005; // El1h
+                primary_cpu.set_core_reg(CoreRegister::PState, pstate)?;
 
-            // more, non secure el1
-            todo!()
-        }
+                // more, non secure el1
+                todo!()
+            }
 
-        {
-            // Caches, MMUs
+            {
+                // Caches, MMUs
 
-            let sctlr_el1 = primary_cpu.get_sctlr_el1()?;
-            sctlr_el1.remove(SctlrEl1::M); // Disable MMU
-            sctlr_el1.remove(SctlrEl1::I); // Disable I-cache
-            primary_cpu.set_sctlr_el1(sctlr_el1)?;
-        }
+                let sctlr_el1 = primary_cpu.get_sctlr_el1()?;
+                sctlr_el1.remove(SctlrEl1::M); // Disable MMU
+                sctlr_el1.remove(SctlrEl1::I); // Disable I-cache
+                primary_cpu.set_sctlr_el1(sctlr_el1)?;
+            }
 
-        {
-            // Architected timers
+            {
+                // Architected timers
 
-            todo!(
-                "CNTFRQ must be programmed with the timer frequency and CNTVOFF must be programmed with a consistent value on all CPUs."
-            );
+                todo!(
+                    "CNTFRQ must be programmed with the timer frequency and CNTVOFF must be programmed with a consistent value on all CPUs."
+                );
 
-            let cnthctl_el2 = primary_cpu.get_cnthctl_el2()?;
-            cnthctl_el2.insert(CnthctlEl2::EL1PCTEN); // TODO: or bit0?(https://www.kernel.org/doc/html/v5.3/arm64/booting.html)
-            primary_cpu.set_cnthctl_el2(cnthctl_el2)?;
-        }
+                let cnthctl_el2 = primary_cpu.get_cnthctl_el2()?;
+                cnthctl_el2.insert(CnthctlEl2::EL1PCTEN); // TODO: or bit0?(https://www.kernel.org/doc/html/v5.3/arm64/booting.html)
+                primary_cpu.set_cnthctl_el2(cnthctl_el2)?;
+            }
 
-        {
-            // Coherency
+            {
+                // Coherency
 
-            // Do nothing
-        }
+                // Do nothing
+            }
 
-        {
-            // System registers
+            {
+                // System registers
 
-            todo!()
-        }
+                todo!()
+            }
+
+            anyhow::Ok(())
+        };
+
+        setup().map_err(|_| Error::SetupBootcpuFailed)?;
 
         Ok(())
     }
@@ -186,13 +211,14 @@ where
 {
     fn install(
         &self,
+        ram_base: u64,
         memory: &mut MemoryAddressSpace<V::Memory>,
         _memory_size: usize,
         primary_cpu: &mut V::Vcpu,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), Error> {
         self.validate()?;
 
-        self.setup_memory(memory)?;
+        self.setup_memory(ram_base, memory)?;
 
         self.setup_device_tree()?;
 

@@ -13,6 +13,7 @@ kvm-ioctls = { workspace = true, optional = true }
 nix = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+vm-fdt = { workspace = true }
 
 [features]
 kvm = ["dep:kvm-bindings", "dep:kvm-ioctls"]

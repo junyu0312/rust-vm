@@ -102,12 +102,15 @@ where
 {
     pub fn install_bootloader(&mut self, bootloader: &dyn BootLoader<V>) -> anyhow::Result<()> {
         bootloader.install(
+            0,
             &mut self.memory,
             self.memory_size,
             self.virt
                 .get_vcpu_mut(0)?
                 .ok_or_else(|| anyhow!("vcpu0 is not exist"))?,
-        )
+        )?;
+
+        Ok(())
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
