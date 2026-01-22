@@ -1,0 +1,1 @@
+pub const BASE_ADDRESS: u64 = 0x8000_0000;

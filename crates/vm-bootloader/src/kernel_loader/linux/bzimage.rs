@@ -8,8 +8,8 @@ use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::arch::x86_64::X86Vcpu;
 use vm_core::virt::Virt;
 
-use crate::BootLoader;
 use crate::Error;
+use crate::KernelLoader;
 
 mod header {
     pub struct Header {
@@ -172,7 +172,7 @@ impl BzImage {
     }
 }
 
-impl<V> BootLoader<V> for BzImage
+impl<V> KernelLoader<V> for BzImage
 where
     V: Virt,
     V::Vcpu: X86Vcpu,

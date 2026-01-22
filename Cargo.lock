@@ -500,7 +500,6 @@ dependencies = [
  "nix",
  "thiserror",
  "tracing",
- "vm-fdt",
 ]
 
 [[package]]
@@ -538,6 +537,7 @@ dependencies = [
  "vm-bootloader",
  "vm-core",
  "vm-device",
+ "vm-fdt",
 ]
 
 [[package]]

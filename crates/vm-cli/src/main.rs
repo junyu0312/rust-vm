@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
         }
         #[cfg(feature = "hvp")]
         Accel::Hvp => {
-            use vm_bootloader::linux::image::Image;
+            use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
             use vm_core::virt::hvp::Hvp;
 
             let mut vm: Vm<Hvp> = VmBuilder {
@@ -53,13 +53,10 @@ fn main() -> anyhow::Result<()> {
             }
             .build()?;
 
-            let image = Image::new(
-                &args.kernel,
-                args.initramfs.as_deref(),
-                args.cmdline.as_deref(),
-            )?;
+            let dtb = vm.generate_dtb()?;
 
-            vm.install_bootloader(&image)?;
+            let bootloader = AArch64BootLoader::new(args.kernel, args.initramfs, args.cmdline, dtb);
+            vm.load(&bootloader)?;
 
             vm.run()?;
         }

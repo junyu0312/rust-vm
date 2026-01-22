@@ -103,12 +103,18 @@ impl AArch64Vcpu for HvpVcpu {
 
 impl Vcpu for HvpVcpu {
     fn run(&mut self, _device: &mut IoAddressSpace) -> anyhow::Result<()> {
-        loop {
-            self.vcpu.run()?;
+        // self.vcpu.set_trap_debug_exceptions(true).unwrap();
+        // self.vcpu.set_trap_debug_reg_accesses(true).unwrap();
 
+        loop {
+            println!("run");
+            self.vcpu.run()?;
+            println!("exit");
             let exit_info = self.vcpu.get_exit_info();
 
             trace!(self.vcpu_id, ?exit_info, "vm exit");
+            let pc = self.vcpu.get_reg(hv_reg_t::PC).unwrap();
+            println!("pc:{:x}", pc);
 
             match exit_info.reason {
                 hv_exit_reason_t::CANCELED => todo!(),

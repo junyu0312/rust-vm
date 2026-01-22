@@ -91,6 +91,24 @@ impl Virt for Hvp {
         Ok(vcpu)
     }
 
+    fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>> {
+        let vcpus = self
+            .vcpus
+            .get()
+            .ok_or_else(|| anyhow!("vcpu is not initialized"))?;
+
+        Ok(vcpus)
+    }
+
+    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<Self::Vcpu>> {
+        let vcpus = self
+            .vcpus
+            .get_mut()
+            .ok_or_else(|| anyhow!("vcpu is not initialized"))?;
+
+        Ok(vcpus)
+    }
+
     fn run(&mut self, _device: &mut IoAddressSpace) -> anyhow::Result<()> {
         self.get_vcpu_mut(0)?.unwrap().run(_device)
     }

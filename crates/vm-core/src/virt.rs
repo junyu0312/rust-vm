@@ -26,6 +26,8 @@ pub trait Virt: Sized {
     fn post_init(&mut self) -> anyhow::Result<()>;
 
     fn get_vcpu_mut(&mut self, vcpu: u64) -> anyhow::Result<Option<&mut Self::Vcpu>>;
+    fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>>;
+    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<Self::Vcpu>>;
 
     fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()>;
 }
