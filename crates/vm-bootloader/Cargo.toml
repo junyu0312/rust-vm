@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+thiserror.workspace = true
 vm-core.workspace = true
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
