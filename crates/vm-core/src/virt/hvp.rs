@@ -1,4 +1,6 @@
 use std::cell::OnceCell;
+use std::io;
+use std::io::Write;
 
 use anyhow::anyhow;
 use applevisor::memory::MemPerms;
@@ -6,7 +8,9 @@ use applevisor::memory::Memory;
 use applevisor::vm::GicDisabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineInstance;
+use tracing::debug;
 
+use crate::arch::aarch64::AArch64;
 use crate::device::pio::IoAddressSpace;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
@@ -15,6 +19,9 @@ use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
 use crate::virt::hvp::vcpu::HvpVcpu;
+use crate::virt::vm_exit;
+use crate::virt::vm_exit::HandleVmExitResult;
+use crate::virt::vm_exit::VmExitReason;
 
 mod irq_chip;
 mod mm;
@@ -26,6 +33,8 @@ pub struct Hvp {
 }
 
 impl Virt for Hvp {
+    type Arch = AArch64;
+
     type Vcpu = HvpVcpu;
 
     type Memory = Memory;
@@ -109,7 +118,38 @@ impl Virt for Hvp {
         Ok(vcpus)
     }
 
-    fn run(&mut self, _device: &mut IoAddressSpace) -> anyhow::Result<()> {
-        self.get_vcpu_mut(0)?.unwrap().run(_device)
+    fn handle_vm_exit(
+        &self,
+        exit_reason: VmExitReason,
+        _device: &mut IoAddressSpace,
+    ) -> Result<HandleVmExitResult, vm_exit::Error> {
+        debug!(?exit_reason);
+
+        match exit_reason {
+            VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
+            VmExitReason::MMIO { data, .. } => {
+                if let Some(data) = data {
+                    print!("{} ", data as u8);
+                    io::stdout().flush().unwrap();
+                }
+                Ok(HandleVmExitResult::NextInst)
+            }
+        }
+    }
+
+    fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()> {
+        // TODO: support smp, fork for per vcpu
+        {
+            loop {
+                let vm_exit_info = self.get_vcpu_mut(0)?.unwrap().run()?;
+
+                let r = self.handle_vm_exit(vm_exit_info, device)?;
+
+                match r {
+                    HandleVmExitResult::Continue => (),
+                    HandleVmExitResult::NextInst => (),
+                }
+            }
+        }
     }
 }

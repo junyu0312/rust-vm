@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
-use vm_core::arch::BASE_ADDRESS;
+use vm_core::arch::Arch;
 use vm_core::device::pio::IoAddressSpace;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
@@ -56,7 +56,7 @@ impl VmBuilder {
 
         virt.init_vcpus(self.vcpus)?;
 
-        let mut memory = self.init_mm(BASE_ADDRESS)?;
+        let mut memory = self.init_mm(<V::Arch as Arch>::BASE_ADDRESS)?;
         virt.init_memory(&mut memory)?;
 
         virt.post_init()?;
@@ -110,9 +110,13 @@ where
         fdt.property_u32("#size-cells", 2)?;
 
         {
-            let memory_node = fdt.begin_node(&format!("memory@{}", BASE_ADDRESS))?;
+            let memory_node =
+                fdt.begin_node(&format!("memory@{}", <V::Arch as Arch>::BASE_ADDRESS,))?;
             fdt.property_string("device_type", "memory")?;
-            fdt.property_array_u64("reg", &[BASE_ADDRESS, self.memory_size as u64])?;
+            fdt.property_array_u64(
+                "reg",
+                &[<V::Arch as Arch>::BASE_ADDRESS, self.memory_size as u64],
+            )?;
             fdt.end_node(memory_node)?;
         }
 
@@ -144,7 +148,11 @@ where
     }
 
     pub fn load(&mut self, boot_loader: &dyn BootLoader<V::Memory, V::Vcpu>) -> anyhow::Result<()> {
-        boot_loader.load(&mut self.memory, self.virt.get_vcpus_mut()?)?;
+        boot_loader.load(
+            <V::Arch as Arch>::BASE_ADDRESS,
+            &mut self.memory,
+            self.virt.get_vcpus_mut()?,
+        )?;
 
         Ok(())
     }

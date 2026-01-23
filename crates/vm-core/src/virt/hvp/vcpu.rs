@@ -3,11 +3,13 @@ use applevisor_sys::hv_reg_t;
 use applevisor_sys::hv_sys_reg_t;
 use tracing::trace;
 
-use crate::device::pio::IoAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
+use crate::vcpu::arch::aarch64::reg::esr_el2;
+use crate::vcpu::arch::aarch64::reg::esr_el2::EsrEl2;
+use crate::virt::vm_exit::VmExitReason;
 
 enum HvpReg {
     CoreReg(hv_reg_t),
@@ -102,26 +104,56 @@ impl AArch64Vcpu for HvpVcpu {
 }
 
 impl Vcpu for HvpVcpu {
-    fn run(&mut self, _device: &mut IoAddressSpace) -> anyhow::Result<()> {
-        // self.vcpu.set_trap_debug_exceptions(true).unwrap();
-        // self.vcpu.set_trap_debug_reg_accesses(true).unwrap();
+    fn run(&mut self) -> anyhow::Result<VmExitReason> {
+        self.vcpu.run()?;
 
-        loop {
-            println!("run");
-            self.vcpu.run()?;
-            println!("exit");
-            let exit_info = self.vcpu.get_exit_info();
+        let exit_info = self.vcpu.get_exit_info();
 
-            trace!(self.vcpu_id, ?exit_info, "vm exit");
-            let pc = self.vcpu.get_reg(hv_reg_t::PC).unwrap();
-            println!("pc:{:x}", pc);
+        trace!(self.vcpu_id, ?exit_info, "vm exit");
 
-            match exit_info.reason {
-                hv_exit_reason_t::CANCELED => todo!(),
-                hv_exit_reason_t::EXCEPTION => todo!(),
-                hv_exit_reason_t::VTIMER_ACTIVATED => todo!(),
-                hv_exit_reason_t::UNKNOWN => todo!(),
+        match exit_info.reason {
+            hv_exit_reason_t::CANCELED => todo!(),
+            hv_exit_reason_t::EXCEPTION => {
+                let esr_el2 = EsrEl2::from(exit_info.exception.syndrome);
+                match esr_el2.ec()? {
+                    esr_el2::Ec::Unknown => todo!(),
+                    esr_el2::Ec::DA => {
+                        let far_el2 = exit_info.exception.physical_address;
+                        let is_write = (esr_el2.iss() >> 6) & 0x1 != 0;
+                        let len = match (esr_el2.iss() >> 22) & 0x3 {
+                            0 => 1,
+                            1 => 2,
+                            2 => 4,
+                            3 => 8,
+                            _ => unreachable!(),
+                        };
+                        let isv = (esr_el2.iss() >> 24) & 0x1 != 0;
+                        let srt = if isv {
+                            (esr_el2.iss() >> 16) & 0x1f
+                        } else {
+                            todo!()
+                        };
+                        let data = match srt {
+                            0 => self.vcpu.get_reg(hv_reg_t::X0),
+                            1 => self.vcpu.get_reg(hv_reg_t::X1),
+                            2 => self.vcpu.get_reg(hv_reg_t::X2),
+                            _ => unimplemented!("{srt}"),
+                        }?;
+
+                        let data = if is_write { Some(data) } else { None };
+                        let il = esr_el2.il();
+                        Ok(VmExitReason::MMIO {
+                            gpa: far_el2,
+                            data,
+                            is_write,
+                            len,
+                            is_32bit_inst: il,
+                        })
+                    }
+                }
             }
+            hv_exit_reason_t::VTIMER_ACTIVATED => todo!(),
+            hv_exit_reason_t::UNKNOWN => Ok(VmExitReason::Unknown),
         }
     }
 }

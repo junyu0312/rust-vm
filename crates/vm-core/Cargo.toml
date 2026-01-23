@@ -11,6 +11,7 @@ bitflags = { workspace = true }
 kvm-bindings = { workspace = true, optional = true }
 kvm-ioctls = { workspace = true, optional = true }
 nix = { workspace = true }
+strum_macros = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 

@@ -23,5 +23,10 @@ where
     M: MemoryContainer,
     V: Vcpu,
 {
-    fn load(&self, memory: &mut MemoryAddressSpace<M>, vcpus: &mut Vec<V>) -> Result<()>;
+    fn load(
+        &self,
+        ram_base: u64,
+        memory: &mut MemoryAddressSpace<M>,
+        vcpus: &mut Vec<V>,
+    ) -> Result<()>;
 }

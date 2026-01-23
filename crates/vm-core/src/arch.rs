@@ -1,9 +1,9 @@
-#[cfg(target_arch = "x86_64")]
-#[path = "arch/x86_64.rs"]
-mod arch;
-
 #[cfg(target_arch = "aarch64")]
-#[path = "arch/aarch64.rs"]
-mod arch;
+pub mod aarch64;
 
-pub use arch::BASE_ADDRESS;
+#[cfg(target_arch = "x86_64")]
+pub mod x86_64;
+
+pub trait Arch {
+    const BASE_ADDRESS: u64;
+}

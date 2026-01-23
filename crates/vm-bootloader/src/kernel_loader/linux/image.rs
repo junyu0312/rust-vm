@@ -140,7 +140,7 @@ where
 
         Ok(LoadResult {
             start_pc: kernel_start,
-            kernel_start: kernel_start,
+            kernel_start,
             kernel_end,
         })
     }

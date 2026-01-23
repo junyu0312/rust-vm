@@ -1,3 +1,5 @@
+pub mod esr_el2;
+
 pub enum CoreRegister {
     X0,
     X1,

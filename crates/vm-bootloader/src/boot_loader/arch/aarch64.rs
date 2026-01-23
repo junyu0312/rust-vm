@@ -1,7 +1,6 @@
 use std::cell::OnceCell;
 use std::path::PathBuf;
 
-use vm_core::arch::BASE_ADDRESS;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
@@ -133,7 +132,7 @@ impl AArch64BootLoader {
         Ok(())
     }
 
-    fn setup_boot_cpu<C>(&self, layout: &mut AArch64Layout, vcpus: &mut Vec<C>) -> Result<()>
+    fn setup_boot_cpu<C>(&self, layout: &mut AArch64Layout, vcpus: &mut [C]) -> Result<()>
     where
         C: AArch64Vcpu,
     {
@@ -221,8 +220,13 @@ where
     M: MemoryContainer,
     V: AArch64Vcpu,
 {
-    fn load(&self, memory: &mut MemoryAddressSpace<M>, vcpus: &mut Vec<V>) -> Result<()> {
-        let mut layout = AArch64Layout::new(BASE_ADDRESS);
+    fn load(
+        &self,
+        ram_base: u64,
+        memory: &mut MemoryAddressSpace<M>,
+        vcpus: &mut Vec<V>,
+    ) -> Result<()> {
+        let mut layout = AArch64Layout::new(ram_base);
 
         self.load_kernel(&mut layout, memory)?;
         self.load_dtb(&mut layout, memory)?;
