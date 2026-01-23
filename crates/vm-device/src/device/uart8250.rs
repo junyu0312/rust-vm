@@ -2,7 +2,8 @@ use std::io::Write;
 use std::io::{self};
 use std::sync::Arc;
 
-use vm_core::device::pio::PioDevice;
+use vm_core::device::Device;
+use vm_core::device::PortRange;
 use vm_core::irq::InterruptController;
 
 use crate::device::uart8250::ier::IER;
@@ -344,17 +345,41 @@ impl<const BASE: u16, const IRQ: u32> Uart8250<BASE, IRQ> {
     }
 }
 
-impl<const BASE: u16, const IRQ: u32> PioDevice for Uart8250<BASE, IRQ> {
-    fn ports(&self) -> &[u16] {
+impl<const BASE: u16, const IRQ: u32> Device for Uart8250<BASE, IRQ> {
+    fn ports(&self) -> &[PortRange] {
         &[
-            BASE,
-            BASE + 1,
-            BASE + 2,
-            BASE + 3,
-            BASE + 4,
-            BASE + 5,
-            BASE + 6,
-            BASE + 7,
+            PortRange {
+                start: BASE,
+                len: 1,
+            },
+            PortRange {
+                start: BASE + 1,
+                len: 1,
+            },
+            PortRange {
+                start: BASE + 2,
+                len: 1,
+            },
+            PortRange {
+                start: BASE + 3,
+                len: 1,
+            },
+            PortRange {
+                start: BASE + 4,
+                len: 1,
+            },
+            PortRange {
+                start: BASE + 5,
+                len: 1,
+            },
+            PortRange {
+                start: BASE + 6,
+                len: 1,
+            },
+            PortRange {
+                start: BASE + 7,
+                len: 1,
+            },
         ]
     }
 
@@ -390,6 +415,43 @@ impl<const BASE: u16, const IRQ: u32> PioDevice for Uart8250<BASE, IRQ> {
             MSR => (), // Ignore
             SR => (),  // 8250 does not have sr
             _ => unreachable!(),
+        }
+
+        self.update_irq();
+    }
+
+    fn mmio_read(&mut self, offset: u64, _len: usize, data: &mut [u8]) {
+        match offset as u16 {
+            RBR if !self.lcr.is_dlab_set() => self.in_rbr(data),
+            DLL if self.lcr.is_dlab_set() => self.in_dll(data),
+            IER if !self.lcr.is_dlab_set() => self.in_ier(data),
+            DLH if self.lcr.is_dlab_set() => self.in_dlh(data),
+            IIR => self.in_iir(data),
+            LCR => self.in_lcr(data),
+            MCR => self.in_mcr(data),
+            LSR => self.in_lsr(data),
+            MSR => self.in_msr(data),
+            SR => self.in_sr(data),
+            _ => unreachable!(),
+        }
+
+        self.update_irq();
+    }
+
+    fn mmio_write(&mut self, offset: u64, _len: usize, data: &[u8]) {
+        match offset as u16 {
+            THR if !self.lcr.is_dlab_set() => self.out_thr(data),
+            DLL if self.lcr.is_dlab_set() => self.out_dll(data),
+            IER if !self.lcr.is_dlab_set() => self.out_ier(data),
+            DLH if self.lcr.is_dlab_set() => self.out_dlh(data),
+            // FCR => self.out_fcr(data),
+            FCR => (), // no fifo,
+            LCR => self.out_lcr(data),
+            MCR => self.out_mcr(data),
+            LSR => (), // Ignore
+            MSR => (), // Ignore
+            SR => (),  // 8250 does not have sr
+            _ => unimplemented!("{offset}"),
         }
 
         self.update_irq();

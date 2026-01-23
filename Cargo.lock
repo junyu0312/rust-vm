@@ -498,6 +498,7 @@ dependencies = [
  "kvm-bindings",
  "kvm-ioctls",
  "nix",
+ "strum_macros",
  "thiserror",
  "tracing",
 ]

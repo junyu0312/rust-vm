@@ -1,11 +1,21 @@
-use vm_core::device::pio::PioDevice;
+use vm_core::device::Device;
+use vm_core::device::PortRange;
 
 #[derive(Default)]
 pub struct Vga;
 
-impl PioDevice for Vga {
-    fn ports(&self) -> &[u16] {
-        &[0x3d4, 0x3d5]
+impl Device for Vga {
+    fn ports(&self) -> &[PortRange] {
+        &[
+            PortRange {
+                start: 0x3d4,
+                len: 1,
+            },
+            PortRange {
+                start: 0x3d5,
+                len: 1,
+            },
+        ]
     }
 
     fn io_in(&mut self, _port: u16, _data: &mut [u8]) {

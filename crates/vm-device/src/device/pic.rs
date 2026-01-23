@@ -1,11 +1,21 @@
-use vm_core::device::pio::PioDevice;
+use vm_core::device::Device;
+use vm_core::device::PortRange;
 
 #[derive(Default)]
 pub struct Pic;
 
-impl PioDevice for Pic {
-    fn ports(&self) -> &[u16] {
-        &[0xa1, 0x21]
+impl Device for Pic {
+    fn ports(&self) -> &[PortRange] {
+        &[
+            PortRange {
+                start: 0xa1,
+                len: 1,
+            },
+            PortRange {
+                start: 0x21,
+                len: 1,
+            },
+        ]
     }
 
     fn io_in(&mut self, port: u16, _data: &mut [u8]) {

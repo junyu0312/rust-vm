@@ -1,5 +1,8 @@
 #[derive(Debug, thiserror::Error)]
-pub enum Error {}
+pub enum Error {
+    #[error("Failed to handle mmio, err: {0}")]
+    MmioErr(String),
+}
 
 #[derive(Debug)]
 pub enum VmExitReason {
@@ -7,13 +10,12 @@ pub enum VmExitReason {
     MMIO {
         gpa: u64,
         data: Option<u64>,
-        len: u32,
+        len: usize,
         is_write: bool,
-        is_32bit_inst: bool,
     },
 }
 
 pub enum HandleVmExitResult {
     Continue,
-    NextInst,
+    AdvancePc,
 }

@@ -1,5 +1,5 @@
 use crate::arch::Arch;
-use crate::device::pio::IoAddressSpace;
+use crate::device::IoAddressSpace;
 use crate::irq::InterruptController;
 use crate::mm::allocator::MemoryContainer;
 use crate::mm::manager::MemoryAddressSpace;

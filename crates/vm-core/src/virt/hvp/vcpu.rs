@@ -108,8 +108,8 @@ impl Vcpu for HvpVcpu {
         self.vcpu.run()?;
 
         let exit_info = self.vcpu.get_exit_info();
-
-        trace!(self.vcpu_id, ?exit_info, "vm exit");
+        let pc = self.vcpu.get_reg(hv_reg_t::PC)?;
+        trace!(pc, self.vcpu_id, ?exit_info, "vm exit");
 
         match exit_info.reason {
             hv_exit_reason_t::CANCELED => todo!(),
@@ -141,13 +141,11 @@ impl Vcpu for HvpVcpu {
                         }?;
 
                         let data = if is_write { Some(data) } else { None };
-                        let il = esr_el2.il();
                         Ok(VmExitReason::MMIO {
                             gpa: far_el2,
                             data,
                             is_write,
                             len,
-                            is_32bit_inst: il,
                         })
                     }
                 }

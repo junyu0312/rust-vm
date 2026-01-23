@@ -1,6 +1,4 @@
 use std::cell::OnceCell;
-use std::io;
-use std::io::Write;
 
 use anyhow::anyhow;
 use applevisor::memory::MemPerms;
@@ -11,9 +9,11 @@ use applevisor::vm::VirtualMachineInstance;
 use tracing::debug;
 
 use crate::arch::aarch64::AArch64;
-use crate::device::pio::IoAddressSpace;
+use crate::device::IoAddressSpace;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
+use crate::vcpu::arch::aarch64::AArch64Vcpu;
+use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::virt::Virt;
 use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
@@ -121,18 +121,30 @@ impl Virt for Hvp {
     fn handle_vm_exit(
         &self,
         exit_reason: VmExitReason,
-        _device: &mut IoAddressSpace,
+        device: &mut IoAddressSpace,
     ) -> Result<HandleVmExitResult, vm_exit::Error> {
         debug!(?exit_reason);
 
         match exit_reason {
             VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
-            VmExitReason::MMIO { data, .. } => {
-                if let Some(data) = data {
-                    print!("{} ", data as u8);
-                    io::stdout().flush().unwrap();
+            VmExitReason::MMIO {
+                gpa,
+                data,
+                len,
+                is_write,
+            } => {
+                if is_write {
+                    let buf = &data.unwrap().to_le_bytes()[0..len];
+                    device
+                        .mmio_write(gpa, len, buf)
+                        .map_err(|err| vm_exit::Error::MmioErr(err.to_string()))?;
+                } else {
+                    let mut buf = [0; 8];
+                    device
+                        .mmio_read(gpa, len, &mut buf[0..len])
+                        .map_err(|err| vm_exit::Error::MmioErr(err.to_string()))?;
                 }
-                Ok(HandleVmExitResult::NextInst)
+                Ok(HandleVmExitResult::AdvancePc)
             }
         }
     }
@@ -147,7 +159,11 @@ impl Virt for Hvp {
 
                 match r {
                     HandleVmExitResult::Continue => (),
-                    HandleVmExitResult::NextInst => (),
+                    HandleVmExitResult::AdvancePc => {
+                        let vcpu = self.get_vcpu_mut(0)?.unwrap();
+                        let pc = vcpu.get_core_reg(CoreRegister::PC)?;
+                        vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
+                    }
                 }
             }
         }
