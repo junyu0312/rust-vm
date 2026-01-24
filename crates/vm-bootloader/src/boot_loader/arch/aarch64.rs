@@ -1,6 +1,7 @@
 use std::cell::OnceCell;
 use std::path::PathBuf;
 
+use vm_core::arch::aarch64::AArch64;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
@@ -215,7 +216,7 @@ impl AArch64BootLoader {
     }
 }
 
-impl<M, V> BootLoader<M, V> for AArch64BootLoader
+impl<M, V> BootLoader<M, AArch64, V> for AArch64BootLoader
 where
     M: MemoryContainer,
     V: AArch64Vcpu,

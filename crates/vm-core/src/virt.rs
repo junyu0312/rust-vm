@@ -6,8 +6,8 @@ use crate::mm::allocator::MemoryContainer;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::virt::error::VirtError;
+
 pub mod error;
-pub mod vm_exit;
 
 #[cfg(feature = "kvm")]
 pub mod kvm;
@@ -17,7 +17,7 @@ pub mod hvp;
 
 pub trait Virt: Sized {
     type Arch: Arch;
-    type Vcpu: Vcpu;
+    type Vcpu: Vcpu<Self::Arch>;
     type Memory: MemoryContainer;
     type Irq: InterruptController;
 

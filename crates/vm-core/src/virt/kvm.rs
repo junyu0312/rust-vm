@@ -1,11 +1,14 @@
 use std::cell::OnceCell;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use kvm_bindings::*;
 use kvm_ioctls::*;
 
-use crate::device::pio::IoAddressSpace;
+use crate::arch::Arch;
+use crate::device::IoAddressSpace;
+use crate::device::mmio::MmioLayout;
 use crate::mm::allocator::mmap_allocator::MmapAllocator;
 use crate::mm::allocator::mmap_allocator::MmapMemory;
 use crate::mm::manager::MemoryAddressSpace;
@@ -19,13 +22,21 @@ mod arch;
 mod irq_chip;
 mod vcpu;
 
-pub struct KvmVirt {
+pub trait KvmArch {
+    fn arch_post_init(&mut self) -> anyhow::Result<()>;
+}
+
+pub struct KvmVirt<A: Arch> {
     kvm: Kvm,
     vm_fd: Arc<VmFd>,
     vcpus: OnceCell<Vec<KvmVcpu>>,
+    _mark: PhantomData<A>,
 }
 
-impl KvmVirt {
+impl<A> KvmVirt<A>
+where
+    A: Arch,
+{
     fn create_vcpu(&self, vcpu_id: u64) -> anyhow::Result<KvmVcpu> {
         let vcpu_fd = self.vm_fd.create_vcpu(vcpu_id)?;
 
@@ -33,7 +44,13 @@ impl KvmVirt {
     }
 }
 
-impl Virt for KvmVirt {
+impl<A> Virt for KvmVirt<A>
+where
+    A: Arch,
+    KvmVcpu: Vcpu<A>,
+    Self: KvmArch,
+{
+    type Arch = A;
     type Vcpu = KvmVcpu;
     type Memory = MmapMemory;
     type Irq = KvmIRQ;
@@ -51,6 +68,7 @@ impl Virt for KvmVirt {
             kvm,
             vm_fd,
             vcpus: OnceCell::new(),
+            _mark: PhantomData,
         })
     }
 
@@ -76,7 +94,11 @@ impl Virt for KvmVirt {
         Ok(())
     }
 
-    fn init_memory(&mut self, memory: &mut MemoryAddressSpace<MmapMemory>) -> anyhow::Result<()> {
+    fn init_memory(
+        &mut self,
+        _mmio_layout: &MmioLayout,
+        memory: &mut MemoryAddressSpace<MmapMemory>,
+    ) -> anyhow::Result<()> {
         let allocator = MmapAllocator;
 
         for (slot, region) in memory.into_iter().enumerate() {
@@ -112,6 +134,20 @@ impl Virt for KvmVirt {
         Ok(vcpus.get_mut(vcpu as usize))
     }
 
+    fn get_vcpus(&self) -> anyhow::Result<&Vec<KvmVcpu>> {
+        Ok(self
+            .vcpus
+            .get()
+            .ok_or_else(|| anyhow!("vcpus is not init"))?)
+    }
+
+    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<KvmVcpu>> {
+        Ok(self
+            .vcpus
+            .get_mut()
+            .ok_or_else(|| anyhow!("vcpus is not init"))?)
+    }
+
     fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()> {
         let vcpus = self
             .vcpus
@@ -120,7 +156,7 @@ impl Virt for KvmVirt {
 
         assert_eq!(vcpus.len(), 1);
 
-        vcpus.get_mut(0).unwrap().run(device)?;
+        vcpus.get_mut(0).unwrap().run(device.mmio_layout())?;
 
         Ok(())
     }

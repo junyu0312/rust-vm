@@ -1,3 +1,4 @@
+use crate::arch::aarch64::AArch64;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
@@ -6,7 +7,7 @@ use crate::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
 
 pub mod reg;
 
-pub trait AArch64Vcpu: Vcpu {
+pub trait AArch64Vcpu: Vcpu<AArch64> {
     fn get_core_reg(&self, reg: CoreRegister) -> anyhow::Result<u64>;
 
     fn set_core_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()>;

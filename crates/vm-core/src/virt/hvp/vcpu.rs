@@ -4,6 +4,8 @@ use applevisor_sys::hv_sys_reg_t;
 use tracing::debug;
 use tracing::trace;
 
+use crate::arch::aarch64::AArch64;
+use crate::arch::vm_exit::aarch64::VmExitReason;
 use crate::device::mmio::MmioLayout;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
@@ -11,7 +13,6 @@ use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
 use crate::vcpu::arch::aarch64::reg::esr_el2;
 use crate::vcpu::arch::aarch64::reg::esr_el2::EsrEl2;
-use crate::virt::vm_exit::VmExitReason;
 
 enum HvpReg {
     CoreReg(hv_reg_t),
@@ -108,7 +109,7 @@ impl AArch64Vcpu for HvpVcpu {
     }
 }
 
-impl Vcpu for HvpVcpu {
+impl Vcpu<AArch64> for HvpVcpu {
     fn run(&mut self, mmio_layout: &MmioLayout) -> anyhow::Result<VmExitReason> {
         self.vcpu.run()?;
 

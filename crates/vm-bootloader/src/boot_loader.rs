@@ -1,3 +1,4 @@
+use vm_core::arch::Arch;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::Vcpu;
@@ -18,10 +19,11 @@ pub enum Error {
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub trait BootLoader<M, V>
+pub trait BootLoader<M, A, V>
 where
     M: MemoryContainer,
-    V: Vcpu,
+    A: Arch,
+    V: Vcpu<A>,
 {
     fn load(
         &self,

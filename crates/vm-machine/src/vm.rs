@@ -196,7 +196,10 @@ where
         anyhow::Ok(dtb)
     }
 
-    pub fn load(&mut self, boot_loader: &dyn BootLoader<V::Memory, V::Vcpu>) -> anyhow::Result<()> {
+    pub fn load(
+        &mut self,
+        boot_loader: &dyn BootLoader<V::Memory, V::Arch, V::Vcpu>,
+    ) -> anyhow::Result<()> {
         boot_loader.load(
             <V::Arch as Arch>::BASE_ADDRESS,
             &mut self.memory,

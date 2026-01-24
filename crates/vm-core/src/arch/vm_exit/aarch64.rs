@@ -4,18 +4,11 @@ use crate::device::IoAddressSpace;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
-use crate::virt::hvp::vcpu::HvpVcpu;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to handle mmio, err: {0}")]
     MmioErr(String),
-}
-
-#[derive(Debug)]
-pub enum Rw {
-    Write(u64), // Data
-    Read(u64),  // Register id
 }
 
 #[derive(Debug)]
@@ -48,7 +41,7 @@ pub enum HandleVmExitResult {
 }
 
 pub fn handle_vm_exit(
-    vcpu: &HvpVcpu,
+    vcpu: &dyn AArch64Vcpu,
     exit_reason: VmExitReason,
     device: &mut IoAddressSpace,
 ) -> Result<HandleVmExitResult, Error> {
