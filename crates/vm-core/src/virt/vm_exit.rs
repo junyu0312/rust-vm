@@ -34,6 +34,7 @@ pub enum VmExitReason {
 
 pub enum HandleVmExitResult {
     Continue,
+    NextInstruction,
 }
 
 pub fn handle_vm_exit(
@@ -52,13 +53,13 @@ pub fn handle_vm_exit(
                 .map_err(|err| Error::MmioErr(err.to_string()))?;
             vcpu.set_core_reg(srt, u64::from_le_bytes(buf))
                 .map_err(|err| Error::MmioErr(err.to_string()))?;
-            Ok(HandleVmExitResult::Continue)
+            Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMIOWrite { gpa, buf, len } => {
             device
                 .mmio_write(gpa, len, &buf)
                 .map_err(|err| Error::MmioErr(err.to_string()))?;
-            Ok(HandleVmExitResult::Continue)
+            Ok(HandleVmExitResult::NextInstruction)
         }
     }
 }

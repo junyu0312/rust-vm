@@ -132,7 +132,8 @@ impl Virt for Hvp {
                 let r = handle_vm_exit(vcpu, vm_exit_info, device)?;
 
                 match r {
-                    HandleVmExitResult::Continue => {
+                    HandleVmExitResult::Continue => (),
+                    HandleVmExitResult::NextInstruction => {
                         let pc = vcpu.get_core_reg(CoreRegister::PC)?;
                         vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
                     }
