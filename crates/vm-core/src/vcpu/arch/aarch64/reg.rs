@@ -49,9 +49,31 @@ impl CoreRegister {
     }
 }
 
+#[derive(Debug)]
 pub enum SysRegister {
     SctlrEl1,
     CnthctlEl2,
+    OslarEl1,
+    OslsrEl1,
+    OsdlrEl1,
+}
+
+impl SysRegister {
+    pub fn decode(op0: u8, op1: u8, crn: u8, crm: u8, op2: u8) -> Self {
+        if op0 == 0b10 {
+            /*
+             * Refer to `Table D23-1  Instruction encodings for debug System register access in the (op0==0b10) encoding space`
+             */
+            match (op1, crn, crm, op2) {
+                (0b000, 0b0001, 0b0000, 0b100) => SysRegister::OslarEl1,
+                (0b000, 0b0001, 0b0001, 0b100) => SysRegister::OslsrEl1,
+                (0b000, 0b0001, 0b0011, 0b100) => SysRegister::OsdlrEl1,
+                _ => unimplemented!(),
+            }
+        } else {
+            unimplemented!()
+        }
+    }
 }
 
 // mod pstate {

@@ -1,9 +1,9 @@
-use tracing::debug;
+use tracing::trace;
 
 use crate::device::IoAddressSpace;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
-use crate::virt::hvp::vcpu::HvpVcpu;
+use crate::vcpu::arch::aarch64::reg::SysRegister;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -12,14 +12,9 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub enum Rw {
-    Write(u64), // Data
-    Read(u64),  // Register id
-}
-
-#[derive(Debug)]
 pub enum VmExitReason {
     Unknown,
+    Wf,
     MMIORead {
         gpa: u64,
         srt: CoreRegister,
@@ -30,6 +25,14 @@ pub enum VmExitReason {
         buf: Vec<u8>,
         len: usize,
     },
+    TrappedRead {
+        reg: SysRegister,
+        rt: CoreRegister,
+    },
+    TrappedWrite {
+        reg: SysRegister,
+        data: u64,
+    },
 }
 
 pub enum HandleVmExitResult {
@@ -38,14 +41,15 @@ pub enum HandleVmExitResult {
 }
 
 pub fn handle_vm_exit(
-    vcpu: &HvpVcpu,
+    vcpu: &dyn AArch64Vcpu,
     exit_reason: VmExitReason,
     device: &mut IoAddressSpace,
 ) -> Result<HandleVmExitResult, Error> {
-    debug!(?exit_reason);
+    trace!(?exit_reason);
 
     match exit_reason {
         VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
+        VmExitReason::Wf => Ok(HandleVmExitResult::NextInstruction),
         VmExitReason::MMIORead { gpa, srt, len } => {
             let mut buf = [0; 8];
             device
@@ -59,6 +63,15 @@ pub fn handle_vm_exit(
             device
                 .mmio_write(gpa, len, &buf)
                 .map_err(|err| Error::MmioErr(err.to_string()))?;
+            Ok(HandleVmExitResult::NextInstruction)
+        }
+        VmExitReason::TrappedRead { .. } => Ok(HandleVmExitResult::NextInstruction),
+        VmExitReason::TrappedWrite { reg, .. } => {
+            match reg {
+                SysRegister::OslarEl1 => (),
+                SysRegister::OsdlrEl1 => (),
+                _ => unimplemented!(),
+            }
             Ok(HandleVmExitResult::NextInstruction)
         }
     }

@@ -26,18 +26,36 @@ fn main() -> anyhow::Result<()> {
     match args.accel {
         #[cfg(feature = "kvm")]
         Accel::Kvm => {
-            use vm_core::virt::kvm::KvmVirt;
+            #[cfg(target_arch = "aarch64")]
+            {
+                use vm_core::arch::aarch64::AArch64;
+                use vm_core::virt::kvm::KvmVirt;
 
-            let mut vm: Vm<KvmVirt> = VmBuilder {
-                memory_size: args.memory << 30,
-                vcpus: args.cpus,
-                kernel: args.kernel,
-                initramfs: args.initramfs,
-                cmdline: args.cmdline,
+                let mut vm: Vm<KvmVirt<AArch64>> = VmBuilder {
+                    memory_size: args.memory << 30,
+                    vcpus: args.cpus,
+                    kernel: args.kernel,
+                    initramfs: args.initramfs,
+                    cmdline: args.cmdline,
+                }
+                .build()?;
+
+                vm.run()?;
             }
-            .build()?;
 
-            vm.run()?;
+            #[cfg(target_arch = "x86_64")]
+            {
+                let mut vm: Vm<KvmVirt<X86_64>> = VmBuilder {
+                    memory_size: args.memory << 30,
+                    vcpus: args.cpus,
+                    kernel: args.kernel,
+                    initramfs: args.initramfs,
+                    cmdline: args.cmdline,
+                }
+                .build()?;
+
+                vm.run()?;
+            }
         }
         #[cfg(feature = "hvp")]
         Accel::Hvp => {

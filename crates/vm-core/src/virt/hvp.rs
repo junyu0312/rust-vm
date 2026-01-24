@@ -8,6 +8,8 @@ use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineInstance;
 
 use crate::arch::aarch64::AArch64;
+use crate::arch::vm_exit::aarch64::HandleVmExitResult;
+use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::IoAddressSpace;
 use crate::device::mmio::MmioLayout;
 use crate::mm::manager::MemoryAddressSpace;
@@ -19,8 +21,6 @@ use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
 use crate::virt::hvp::vcpu::HvpVcpu;
-use crate::virt::vm_exit::HandleVmExitResult;
-use crate::virt::vm_exit::handle_vm_exit;
 
 pub(crate) mod vcpu;
 
