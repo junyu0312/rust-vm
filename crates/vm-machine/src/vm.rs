@@ -2,12 +2,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use vm_bootloader::BootLoader;
-use vm_core::device::pio::IoAddressSpace;
+use vm_bootloader::boot_loader::BootLoader;
+use vm_core::arch::Arch;
+use vm_core::device::IoAddressSpace;
+use vm_core::device::mmio::MmioLayout;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::mm::region::MemoryRegion;
 use vm_core::virt::Virt;
+use vm_fdt::FdtWriter;
 
 use crate::device::init_device;
 
@@ -21,20 +24,20 @@ pub struct VmBuilder {
 
 #[allow(dead_code)]
 pub struct Vm<V: Virt> {
-    memory: MemoryAddressSpace<V::Memory>,
-    memory_size: usize,
+    pub(crate) memory: MemoryAddressSpace<V::Memory>,
+    pub(crate) memory_size: usize,
 
-    virt: V,
+    pub(crate) virt: V,
 
-    devices: IoAddressSpace,
+    pub(crate) devices: IoAddressSpace,
 }
 
 impl VmBuilder {
-    fn init_mm<C>(&self) -> anyhow::Result<MemoryAddressSpace<C>>
+    fn init_mm<C>(&self, ram_base: u64) -> anyhow::Result<MemoryAddressSpace<C>>
     where
         C: MemoryContainer,
     {
-        let memory_region = MemoryRegion::new(0, self.memory_size)?;
+        let memory_region = MemoryRegion::new(ram_base, self.memory_size)?;
 
         let mut memory_regions = MemoryAddressSpace::default();
         memory_regions
@@ -48,19 +51,21 @@ impl VmBuilder {
     where
         V: Virt,
     {
+        let mmio_layout =
+            MmioLayout::new(<V::Arch as Arch>::MMIO_START, <V::Arch as Arch>::MMIO_LEN);
+
         let mut virt = V::new()?;
 
         let kvm_irq = Arc::new(virt.init_irq()?);
 
         virt.init_vcpus(self.vcpus)?;
 
-        #[allow(unused_mut)]
-        let mut memory = self.init_mm()?;
-        virt.init_memory(&mut memory)?;
+        let mut memory = self.init_mm(<V::Arch as Arch>::BASE_ADDRESS)?;
+        virt.init_memory(&mmio_layout, &mut memory)?;
 
         virt.post_init()?;
 
-        let devices = init_device(kvm_irq)?;
+        let devices = init_device(mmio_layout, kvm_irq)?;
 
         /*
         #[cfg(target_arch = "x86_64")]
@@ -100,14 +105,66 @@ impl<V> Vm<V>
 where
     V: Virt,
 {
-    pub fn install_bootloader(&mut self, bootloader: &dyn BootLoader<V>) -> anyhow::Result<()> {
-        bootloader.install(
-            0,
+    pub fn generate_dtb(&self) -> anyhow::Result<Vec<u8>> {
+        let mut fdt = FdtWriter::new()?;
+        let root_node = fdt.begin_node("")?;
+
+        fdt.property_string("compatible", "linux,virt")?;
+        fdt.property_u32("#address-cells", 2)?;
+        fdt.property_u32("#size-cells", 2)?;
+
+        {
+            let memory_node =
+                fdt.begin_node(&format!("memory@{}", <V::Arch as Arch>::BASE_ADDRESS,))?;
+            fdt.property_string("device_type", "memory")?;
+            fdt.property_array_u64(
+                "reg",
+                &[<V::Arch as Arch>::BASE_ADDRESS, self.memory_size as u64],
+            )?;
+            fdt.end_node(memory_node)?;
+        }
+
+        {
+            let cpu_node = fdt.begin_node("cpus")?;
+            fdt.property_u32("#address-cells", 1)?;
+            fdt.property_u32("#size-cells", 0)?;
+            for (i, _vcpu) in self.virt.get_vcpus().iter().enumerate() {
+                let cpu_node = fdt.begin_node(&format!("cpu@{}", i))?;
+                fdt.property_string("device_type", "cpu")?;
+                fdt.property_string("compatible", "arm,cortex-a72")?;
+                fdt.property_u32("reg", i as u32)?;
+                fdt.end_node(cpu_node)?;
+            }
+            fdt.end_node(cpu_node)?;
+        }
+
+        {
+            let serial_node = fdt.begin_node("uart@09000000")?;
+            fdt.property_string("compatible", "ns16550a")?;
+            fdt.property_array_u64("reg", &[0x09000000, 0x1000])?;
+            fdt.property_u32("clock-frequency", 24000000)?;
+            fdt.property_u32("current-speed", 115200)?;
+            fdt.end_node(serial_node)?;
+        }
+
+        {
+            let chosen_node = fdt.begin_node("chosen")?;
+            let bootargs = "console=ttyS0,115200 earlycon=uart8250,mmio,0x09000000,115200";
+            fdt.property_string("bootargs", bootargs)?;
+            fdt.end_node(chosen_node)?;
+        }
+
+        fdt.end_node(root_node)?;
+        let dtb = fdt.finish()?;
+
+        anyhow::Ok(dtb)
+    }
+
+    pub fn load(&mut self, boot_loader: &dyn BootLoader<V::Memory, V::Vcpu>) -> anyhow::Result<()> {
+        boot_loader.load(
+            <V::Arch as Arch>::BASE_ADDRESS,
             &mut self.memory,
-            self.memory_size,
-            self.virt
-                .get_vcpu_mut(0)?
-                .ok_or_else(|| anyhow!("vcpu0 is not exist"))?,
+            self.virt.get_vcpus_mut()?,
         )?;
 
         Ok(())

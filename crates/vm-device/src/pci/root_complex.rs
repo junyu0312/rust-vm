@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use tracing::debug;
-use vm_core::device::pio::PioDevice;
+use vm_core::device::Device;
+use vm_core::device::PortRange;
 
 use crate::pci::bus::PciBus;
 use crate::pci::config_address::ConfigAddress;
@@ -96,17 +97,17 @@ impl PciRootComplex {
     }
 }
 
-impl PioDevice for PciRootComplex {
-    fn ports(&self) -> &[u16] {
+impl Device for PciRootComplex {
+    fn ports(&self) -> &[PortRange] {
         &[
-            CONFIG_ADDRESS,
-            CONFIG_ADDRESS + 1,
-            CONFIG_ADDRESS + 2,
-            CONFIG_ADDRESS + 3,
-            CONFIG_DATA,
-            CONFIG_DATA + 1,
-            CONFIG_DATA + 2,
-            CONFIG_DATA + 3,
+            PortRange {
+                start: CONFIG_ADDRESS,
+                len: 4,
+            },
+            PortRange {
+                start: CONFIG_DATA,
+                len: 4,
+            },
         ]
     }
 

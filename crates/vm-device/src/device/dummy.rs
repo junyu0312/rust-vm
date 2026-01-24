@@ -1,14 +1,28 @@
-use vm_core::device::pio::PioDevice;
+use vm_core::device::Device;
+use vm_core::device::PortRange;
 
 pub struct Dummy;
 
-impl PioDevice for Dummy {
-    fn ports(&self) -> &[u16] {
+impl Device for Dummy {
+    fn ports(&self) -> &[PortRange] {
         // 0x40, 0x42, 0x43: PIT
-        // 0xc00a, 0xc000: I dont know
         &[
-            0x40, 0x42, 0x43, 0xc00a, 0xc000, 0xc10a, 0xc100, 0xc20a, 0xc200, 0xc30a, 0xc300,
-            0xc40a, 0xc400, 0xc50a, 0x87,
+            // PortRange {
+            //     start: 0x40,
+            //     len: 1,
+            // },
+            // PortRange {
+            //     start: 0x42,
+            //     len: 1,
+            // },
+            // PortRange {
+            //     start: 0x43,
+            //     len: 1,
+            // },
+            // PortRange {
+            //     start: 0x87,
+            //     len: 1,
+            // },
         ]
     }
 

@@ -498,9 +498,9 @@ dependencies = [
  "kvm-bindings",
  "kvm-ioctls",
  "nix",
+ "strum_macros",
  "thiserror",
  "tracing",
- "vm-fdt",
 ]
 
 [[package]]
@@ -538,6 +538,7 @@ dependencies = [
  "vm-bootloader",
  "vm-core",
  "vm-device",
+ "vm-fdt",
 ]
 
 [[package]]
