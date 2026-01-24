@@ -147,6 +147,42 @@ where
             fdt.end_node(serial_node)?;
         }
 
+        // {
+        //     let gic_node = fdt.begin_node("interrupt-controller@8000000")?;
+        //     fdt.property_string("compatible", "arm,gic-v3")?;
+        //     fdt.property_null("interrupt-controller")?;
+        //     fdt.property_u32("#interrupt-cells", 3)?;
+        //     fdt.property_array_u64(
+        //         "reg",
+        //         &[
+        //             0x08000000, 0x10000, // GICD
+        //             0x080a0000, 0x200000, // GICR
+        //         ],
+        //     )?;
+        //     fdt.property_u32("#address-cells", 2)?;
+        //     fdt.property_u32("#size-cells", 2)?;
+        //     fdt.end_node(gic_node)?;
+        // }
+
+        {
+            let timer_node = fdt.begin_node("timer")?;
+            fdt.property_string("compatible", "arm,armv8-timer")?;
+            // fdt.property_string("interrupt-parent", "interrupt-controller@8000000")?;
+            // GIC PPI interrupts
+            // <type irq flags>
+            // type: 1 = PPI
+            // flags: 4 = IRQ_TYPE_LEVEL_HIGH
+            fdt.property_array_u32(
+                "interrupts",
+                &[
+                    1, 13, 4, // CNTPNS (EL1 physical timer)
+                    1, 14, 4, // CNTPS  (secure timer)
+                    1, 11, 4, 1, 10, 4, // CNTV   (virtual timer)
+                ],
+            )?;
+            fdt.end_node(timer_node)?;
+        }
+
         {
             let chosen_node = fdt.begin_node("chosen")?;
             let bootargs = "console=ttyS0,115200 earlycon=uart8250,mmio,0x09000000,115200";
