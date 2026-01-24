@@ -13,6 +13,8 @@ impl From<u64> for EsrEl2 {
 #[repr(u8)]
 pub enum Ec {
     Unknown = 0x00,
+    Wf = 0x01,
+    Trapped = 0x18,
     DA = 0x24,
 }
 

@@ -1,6 +1,7 @@
 use applevisor_sys::hv_exit_reason_t;
 use applevisor_sys::hv_reg_t;
 use applevisor_sys::hv_sys_reg_t;
+use tracing::debug;
 use tracing::trace;
 
 use crate::device::mmio::MmioLayout;
@@ -63,6 +64,9 @@ impl SysRegister {
         match self {
             SysRegister::SctlrEl1 => hv_sys_reg_t::SCTLR_EL1,
             SysRegister::CnthctlEl2 => hv_sys_reg_t::CNTHCTL_EL2,
+            SysRegister::OslarEl1 => todo!(),
+            SysRegister::OslsrEl1 => todo!(),
+            SysRegister::OsdlrEl1 => todo!(),
         }
     }
 }
@@ -116,14 +120,40 @@ impl Vcpu for HvpVcpu {
             hv_exit_reason_t::CANCELED => todo!(),
             hv_exit_reason_t::EXCEPTION => {
                 let esr_el2 = EsrEl2::from(exit_info.exception.syndrome);
+                let iss = esr_el2.iss();
+
                 match esr_el2.ec()? {
-                    esr_el2::Ec::Unknown => todo!(),
+                    esr_el2::Ec::Unknown => Ok(VmExitReason::Unknown),
+                    esr_el2::Ec::Wf => Ok(VmExitReason::Wf),
+                    esr_el2::Ec::Trapped => {
+                        let read = (iss & 0x1) != 0;
+                        let crm = (iss >> 1) & 0xf;
+                        let rt = (iss >> 5) & 0x1f;
+                        let crn = (iss >> 10) & 0xf;
+                        let op1 = (iss >> 14) & 0x7;
+                        let op2 = (iss >> 17) & 0x7;
+                        let op0 = (iss >> 20) & 0x3;
+                        debug!(read, crm, rt, crn, op1, op2, op0);
+                        let reg = SysRegister::decode(
+                            op0 as u8, op1 as u8, crn as u8, crm as u8, op2 as u8,
+                        );
+                        if read {
+                            todo!()
+                        } else {
+                            let data = if rt == 0b11111 {
+                                0
+                            } else {
+                                self.get_core_reg(CoreRegister::from_srt(rt))?
+                            };
+                            Ok(VmExitReason::TrappedWrite { reg, data })
+                        }
+                    }
                     esr_el2::Ec::DA => {
                         let far_el2 = exit_info.exception.physical_address;
 
                         if mmio_layout.contains(far_el2) {
-                            let is_write = (esr_el2.iss() >> 6) & 0x1 != 0;
-                            let len = match (esr_el2.iss() >> 22) & 0x3 {
+                            let is_write = (iss >> 6) & 0x1 != 0;
+                            let len = match (iss >> 22) & 0x3 {
                                 0 => 1,
                                 1 => 2,
                                 2 => 4,
