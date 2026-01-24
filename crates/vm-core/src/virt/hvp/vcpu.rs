@@ -3,6 +3,7 @@ use applevisor_sys::hv_reg_t;
 use applevisor_sys::hv_sys_reg_t;
 use tracing::trace;
 
+use crate::device::mmio::MmioLayout;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
@@ -104,7 +105,7 @@ impl AArch64Vcpu for HvpVcpu {
 }
 
 impl Vcpu for HvpVcpu {
-    fn run(&mut self) -> anyhow::Result<VmExitReason> {
+    fn run(&mut self, mmio_layout: &MmioLayout) -> anyhow::Result<VmExitReason> {
         self.vcpu.run()?;
 
         let exit_info = self.vcpu.get_exit_info();
@@ -119,34 +120,45 @@ impl Vcpu for HvpVcpu {
                     esr_el2::Ec::Unknown => todo!(),
                     esr_el2::Ec::DA => {
                         let far_el2 = exit_info.exception.physical_address;
-                        let is_write = (esr_el2.iss() >> 6) & 0x1 != 0;
-                        let len = match (esr_el2.iss() >> 22) & 0x3 {
-                            0 => 1,
-                            1 => 2,
-                            2 => 4,
-                            3 => 8,
-                            _ => unreachable!(),
-                        };
-                        let isv = (esr_el2.iss() >> 24) & 0x1 != 0;
-                        let srt = if isv {
-                            (esr_el2.iss() >> 16) & 0x1f
+
+                        if mmio_layout.contains(far_el2) {
+                            let is_write = (esr_el2.iss() >> 6) & 0x1 != 0;
+                            let len = match (esr_el2.iss() >> 22) & 0x3 {
+                                0 => 1,
+                                1 => 2,
+                                2 => 4,
+                                3 => 8,
+                                _ => unreachable!(),
+                            };
+                            let isv = (esr_el2.iss() >> 24) & 0x1 != 0;
+                            let srt = if isv {
+                                (esr_el2.iss() >> 16) & 0x1f
+                            } else {
+                                todo!()
+                            };
+                            let data = match srt {
+                                0 => self.vcpu.get_reg(hv_reg_t::X0),
+                                1 => self.vcpu.get_reg(hv_reg_t::X1),
+                                2 => self.vcpu.get_reg(hv_reg_t::X2),
+                                _ => unimplemented!("{srt}"),
+                            }?;
+
+                            if is_write {
+                                Ok(VmExitReason::MMIOWrite {
+                                    gpa: far_el2,
+                                    buf: (data.to_le_bytes()[0..len]).to_vec(),
+                                    len,
+                                })
+                            } else {
+                                Ok(VmExitReason::MMIORead {
+                                    gpa: far_el2,
+                                    srt: CoreRegister::from_srt(srt),
+                                    len,
+                                })
+                            }
                         } else {
                             todo!()
-                        };
-                        let data = match srt {
-                            0 => self.vcpu.get_reg(hv_reg_t::X0),
-                            1 => self.vcpu.get_reg(hv_reg_t::X1),
-                            2 => self.vcpu.get_reg(hv_reg_t::X2),
-                            _ => unimplemented!("{srt}"),
-                        }?;
-
-                        let data = if is_write { Some(data) } else { None };
-                        Ok(VmExitReason::MMIO {
-                            gpa: far_el2,
-                            data,
-                            is_write,
-                            len,
-                        })
+                        }
                     }
                 }
             }

@@ -1,5 +1,6 @@
 pub mod esr_el2;
 
+#[derive(Debug)]
 pub enum CoreRegister {
     X0,
     X1,
@@ -35,6 +36,17 @@ pub enum CoreRegister {
     SP,
     PC,
     PState,
+}
+
+impl CoreRegister {
+    pub fn from_srt(srt: u64) -> Self {
+        match srt {
+            0 => CoreRegister::X0,
+            1 => CoreRegister::X1,
+            2 => CoreRegister::X2,
+            _ => unimplemented!("{srt}"),
+        }
+    }
 }
 
 pub enum SysRegister {

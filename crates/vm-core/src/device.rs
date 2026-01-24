@@ -3,13 +3,17 @@ use std::fmt::Debug;
 
 use anyhow::bail;
 
+use crate::device::mmio::MmioLayout;
+use crate::device::mmio::MmioRange;
+
+pub mod mmio;
+
 pub struct Range<K> {
     pub start: K,
     pub len: usize,
 }
 
 pub type PortRange = Range<u16>;
-pub type MmioRange = Range<u64>;
 
 #[derive(Default)]
 pub struct AddressSpace<K: Debug>(BTreeMap<K, (usize, usize)>); // start |-> (len, device_id)
@@ -78,8 +82,8 @@ pub trait Device {
     }
 }
 
-#[derive(Default)]
 pub struct IoAddressSpace {
+    mmio_layout: MmioLayout,
     devices: Vec<Box<dyn Device>>,
     port: AddressSpace<u16>,
     mmio: AddressSpace<u64>,
@@ -106,6 +110,19 @@ pub enum Error {
 }
 
 impl IoAddressSpace {
+    pub fn new(mmio_layout: MmioLayout) -> Self {
+        IoAddressSpace {
+            mmio_layout,
+            devices: Default::default(),
+            port: Default::default(),
+            mmio: Default::default(),
+        }
+    }
+
+    pub fn mmio_layout(&self) -> &MmioLayout {
+        &self.mmio_layout
+    }
+
     pub fn register(
         &mut self,
         device: Box<dyn Device>,

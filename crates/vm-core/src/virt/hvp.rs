@@ -6,10 +6,10 @@ use applevisor::memory::Memory;
 use applevisor::vm::GicDisabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineInstance;
-use tracing::debug;
 
 use crate::arch::aarch64::AArch64;
 use crate::device::IoAddressSpace;
+use crate::device::mmio::MmioLayout;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
@@ -19,13 +19,13 @@ use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
 use crate::virt::hvp::vcpu::HvpVcpu;
-use crate::virt::vm_exit;
 use crate::virt::vm_exit::HandleVmExitResult;
-use crate::virt::vm_exit::VmExitReason;
+use crate::virt::vm_exit::handle_vm_exit;
+
+pub(crate) mod vcpu;
 
 mod irq_chip;
 mod mm;
-mod vcpu;
 
 pub struct Hvp {
     vm: VirtualMachineInstance<GicDisabled>,
@@ -73,7 +73,11 @@ impl Virt for Hvp {
         Ok(())
     }
 
-    fn init_memory(&mut self, memory: &mut MemoryAddressSpace<Memory>) -> anyhow::Result<()> {
+    fn init_memory(
+        &mut self,
+        _mmio_layout: &MmioLayout,
+        memory: &mut MemoryAddressSpace<Memory>,
+    ) -> anyhow::Result<()> {
         let allocator = HvpAllocator { vm: &self.vm };
 
         for region in memory {
@@ -118,49 +122,17 @@ impl Virt for Hvp {
         Ok(vcpus)
     }
 
-    fn handle_vm_exit(
-        &self,
-        exit_reason: VmExitReason,
-        device: &mut IoAddressSpace,
-    ) -> Result<HandleVmExitResult, vm_exit::Error> {
-        debug!(?exit_reason);
-
-        match exit_reason {
-            VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
-            VmExitReason::MMIO {
-                gpa,
-                data,
-                len,
-                is_write,
-            } => {
-                if is_write {
-                    let buf = &data.unwrap().to_le_bytes()[0..len];
-                    device
-                        .mmio_write(gpa, len, buf)
-                        .map_err(|err| vm_exit::Error::MmioErr(err.to_string()))?;
-                } else {
-                    let mut buf = [0; 8];
-                    device
-                        .mmio_read(gpa, len, &mut buf[0..len])
-                        .map_err(|err| vm_exit::Error::MmioErr(err.to_string()))?;
-                }
-                Ok(HandleVmExitResult::AdvancePc)
-            }
-        }
-    }
-
     fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()> {
         // TODO: support smp, fork for per vcpu
         {
             loop {
-                let vm_exit_info = self.get_vcpu_mut(0)?.unwrap().run()?;
+                let vcpu = self.get_vcpu_mut(0)?.unwrap();
+                let vm_exit_info = vcpu.run(device.mmio_layout())?;
 
-                let r = self.handle_vm_exit(vm_exit_info, device)?;
+                let r = handle_vm_exit(vcpu, vm_exit_info, device)?;
 
                 match r {
-                    HandleVmExitResult::Continue => (),
-                    HandleVmExitResult::AdvancePc => {
-                        let vcpu = self.get_vcpu_mut(0)?.unwrap();
+                    HandleVmExitResult::Continue => {
                         let pc = vcpu.get_core_reg(CoreRegister::PC)?;
                         vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
                     }

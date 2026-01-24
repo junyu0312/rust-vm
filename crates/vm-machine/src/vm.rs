@@ -5,6 +5,7 @@ use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
 use vm_core::arch::Arch;
 use vm_core::device::IoAddressSpace;
+use vm_core::device::mmio::MmioLayout;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::mm::region::MemoryRegion;
@@ -50,6 +51,9 @@ impl VmBuilder {
     where
         V: Virt,
     {
+        let mmio_layout =
+            MmioLayout::new(<V::Arch as Arch>::MMIO_START, <V::Arch as Arch>::MMIO_LEN);
+
         let mut virt = V::new()?;
 
         let kvm_irq = Arc::new(virt.init_irq()?);
@@ -57,11 +61,11 @@ impl VmBuilder {
         virt.init_vcpus(self.vcpus)?;
 
         let mut memory = self.init_mm(<V::Arch as Arch>::BASE_ADDRESS)?;
-        virt.init_memory(&mut memory)?;
+        virt.init_memory(&mmio_layout, &mut memory)?;
 
         virt.post_init()?;
 
-        let devices = init_device(kvm_irq)?;
+        let devices = init_device(mmio_layout, kvm_irq)?;
 
         /*
         #[cfg(target_arch = "x86_64")]
@@ -135,8 +139,17 @@ where
         }
 
         {
+            let serial_node = fdt.begin_node("uart@09000000")?;
+            fdt.property_string("compatible", "ns16550a")?;
+            fdt.property_array_u64("reg", &[0x09000000, 0x1000])?;
+            fdt.property_u32("clock-frequency", 24000000)?;
+            fdt.property_u32("current-speed", 115200)?;
+            fdt.end_node(serial_node)?;
+        }
+
+        {
             let chosen_node = fdt.begin_node("chosen")?;
-            let bootargs = "console=ttyAMA0,115200 earlycon=uart,mmio,0x09000000,115200";
+            let bootargs = "console=ttyS0,115200 earlycon=uart8250,mmio,0x09000000,115200";
             fdt.property_string("bootargs", bootargs)?;
             fdt.end_node(chosen_node)?;
         }
