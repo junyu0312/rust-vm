@@ -105,7 +105,7 @@ impl<V> Vm<V>
 where
     V: Virt,
 {
-    pub fn generate_dtb(&self) -> anyhow::Result<Vec<u8>> {
+    pub fn generate_dtb(&self, cmdline: Option<&str>) -> anyhow::Result<Vec<u8>> {
         let mut fdt = FdtWriter::new()?;
         let root_node = fdt.begin_node("")?;
 
@@ -185,8 +185,9 @@ where
 
         {
             let chosen_node = fdt.begin_node("chosen")?;
-            let bootargs = "console=ttyS0,115200 earlycon=uart8250,mmio,0x09000000,115200";
-            fdt.property_string("bootargs", bootargs)?;
+            if let Some(cmdline) = cmdline {
+                fdt.property_string("bootargs", cmdline)?;
+            }
             fdt.end_node(chosen_node)?;
         }
 
@@ -196,12 +197,10 @@ where
         anyhow::Ok(dtb)
     }
 
-    pub fn load(
-        &mut self,
-        boot_loader: &dyn BootLoader<V::Memory, V::Arch, V::Vcpu>,
-    ) -> anyhow::Result<()> {
+    pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> anyhow::Result<()> {
         boot_loader.load(
             <V::Arch as Arch>::BASE_ADDRESS,
+            self.memory_size as u64,
             &mut self.memory,
             self.virt.get_vcpus_mut()?,
         )?;

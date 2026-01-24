@@ -13,11 +13,9 @@ use zerocopy::FromBytes;
 use crate::kernel_loader::Error;
 use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::LoadResult;
-use crate::kernel_loader::linux::image::layout::DEFAULT_TEXT_OFFSET;
+use crate::kernel_loader::Result;
 
-mod layout {
-    pub const DEFAULT_TEXT_OFFSET: u64 = 0x80000;
-}
+const DEFAULT_TEXT_OFFSET: u64 = 0x80000;
 
 #[repr(C)]
 #[derive(Debug, FromBytes)]
@@ -34,34 +32,22 @@ struct Header {
     res5: u32,
 }
 
-#[allow(dead_code)]
 pub struct Image {
     kernel: Vec<u8>,
-    initrd: Option<Vec<u8>>,
-    cmdline: Option<String>,
 }
 
 impl Image {
-    pub fn new(kernel: &Path, initrd: Option<&Path>, cmdline: Option<&str>) -> Result<Self, Error> {
+    pub fn new(kernel: &Path) -> Result<Self> {
         let kernel = fs::read(kernel).map_err(|_| Error::ReadFailed)?;
-        let initrd = initrd
-            .map(fs::read)
-            .transpose()
-            .map_err(|_| Error::ReadFailed)?;
-        let cmdline = cmdline.map(|s| s.to_string());
 
-        let image = Image {
-            kernel,
-            initrd,
-            cmdline,
-        };
+        let image = Image { kernel };
 
         image.validate()?;
 
         Ok(image)
     }
 
-    fn get_header(&self) -> Result<Header, Error> {
+    fn get_header(&self) -> Result<Header> {
         let len = size_of::<Header>();
 
         let header =
@@ -72,7 +58,7 @@ impl Image {
         Ok(header)
     }
 
-    fn validate(&self) -> Result<(), Error> {
+    fn validate(&self) -> Result<()> {
         let len = size_of::<Header>();
 
         if self.kernel.len() < len {
@@ -91,6 +77,7 @@ impl Image {
 
 pub struct AArch64BootParams {
     pub ram_base: u64,
+    pub ram_size: u64,
 }
 
 impl<C> KernelLoader<C> for Image
@@ -103,7 +90,7 @@ where
         &self,
         boot_params: &AArch64BootParams,
         memory: &mut MemoryAddressSpace<C>,
-    ) -> Result<LoadResult, Error> {
+    ) -> Result<LoadResult> {
         let header = self.get_header()?;
 
         let text_offset = if header.image_size == 0 {
@@ -126,17 +113,20 @@ where
         let kernel_start = boot_params.ram_base + text_offset;
         let kernel_end = kernel_start + image_size;
 
+        let ram_base = boot_params.ram_base;
+        let ram_end = boot_params.ram_base + boot_params.ram_size;
+        if kernel_end > boot_params.ram_base + boot_params.ram_size {
+            return Err(Error::OutOfMemory {
+                kernel_end,
+                memory_end: ram_end,
+                memory_base: ram_base,
+                memory_size: boot_params.ram_size,
+            });
+        }
+
         memory
             .copy_from_slice(kernel_start, &self.kernel, self.kernel.len())
             .map_err(|err| Error::CopyKernelFailed(err.to_string()))?;
-
-        if let Some(_initrd) = &self.initrd {
-            todo!()
-        }
-
-        if let Some(_cmdline) = &self.cmdline {
-            todo!()
-        }
 
         Ok(LoadResult {
             start_pc: kernel_start,
