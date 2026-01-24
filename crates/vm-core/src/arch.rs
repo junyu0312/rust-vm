@@ -9,7 +9,7 @@ pub mod vm_exit;
 pub trait Arch {
     type VmExitReason;
 
-    const BASE_ADDRESS: u64;
     const MMIO_START: u64;
     const MMIO_LEN: usize;
+    const BASE_ADDRESS: u64;
 }

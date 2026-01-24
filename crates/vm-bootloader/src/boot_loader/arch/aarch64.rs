@@ -1,6 +1,7 @@
 use std::cell::OnceCell;
 use std::path::PathBuf;
 
+use vm_core::arch::Arch;
 use vm_core::arch::aarch64::AArch64;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
@@ -8,43 +9,50 @@ use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
 use vm_core::vcpu::arch::aarch64::reg::CoreRegister;
 use vm_core::vcpu::arch::aarch64::reg::cnthctl_el2::CnthctlEl2;
 use vm_core::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
+use vm_core::virt::Virt;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::Error;
 use crate::boot_loader::Result;
+use crate::initrd_loader::InitrdLoader;
 use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::linux::image::AArch64BootParams;
 use crate::kernel_loader::linux::image::Image;
 
+#[allow(dead_code)]
 struct AArch64Layout {
+    mmio_start: u64,
+    mmio_end: u64,
     ram_base: u64,
+    ram_size: u64,
     dtb_start: OnceCell<u64>,
     dtb_end: OnceCell<u64>,
     kernel_start: OnceCell<u64>,
     kernel_end: OnceCell<u64>,
+    initrd_start: OnceCell<u64>,
+    initrd_end: OnceCell<u64>,
     start_pc: OnceCell<u64>,
 }
 
 impl AArch64Layout {
-    fn new(ram_base: u64) -> AArch64Layout {
+    fn new(mmio_start: u64, mmio_end: u64, ram_base: u64, ram_size: u64) -> AArch64Layout {
         AArch64Layout {
+            mmio_start,
+            mmio_end,
             ram_base,
+            ram_size,
             dtb_start: OnceCell::new(),
             dtb_end: OnceCell::new(),
             kernel_start: OnceCell::new(),
             kernel_end: OnceCell::new(),
+            initrd_start: OnceCell::new(),
+            initrd_end: OnceCell::new(),
             start_pc: OnceCell::new(),
         }
     }
 
-    fn finalize(self) -> Result<()> {
-        let dtb_start = self.dtb_start.get().unwrap();
-        let kernel_end = self.kernel_end.get().unwrap();
-
-        if kernel_end > dtb_start {
-            return Err(Error::MemoryOverlap);
-        }
-
+    fn validate(self) -> Result<()> {
+        // TODO
         Ok(())
     }
 }
@@ -52,28 +60,21 @@ impl AArch64Layout {
 pub struct AArch64BootLoader {
     kernel: PathBuf,
     initrd: Option<PathBuf>,
-    cmdline: Option<String>,
     dtb: Vec<u8>,
 }
 
 impl AArch64BootLoader {
-    pub fn new(
-        kernel: PathBuf,
-        initrd: Option<PathBuf>,
-        cmdline: Option<String>,
-        dtb: Vec<u8>,
-    ) -> Self {
+    pub fn new(kernel: PathBuf, initrd: Option<PathBuf>, dtb: Vec<u8>) -> Self {
         AArch64BootLoader {
             kernel,
             initrd,
-            cmdline,
             dtb,
         }
     }
 }
 
 impl AArch64BootLoader {
-    fn load_kernel<C>(
+    fn load_image<C>(
         &self,
         layout: &mut AArch64Layout,
         memory: &mut MemoryAddressSpace<C>,
@@ -81,15 +82,12 @@ impl AArch64BootLoader {
     where
         C: MemoryContainer,
     {
-        let image = Image::new(
-            &self.kernel,
-            self.initrd.as_deref(),
-            self.cmdline.as_deref(),
-        )
-        .map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
+        let image =
+            Image::new(&self.kernel).map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
         let boot_params = AArch64BootParams {
             ram_base: layout.ram_base,
+            ram_size: layout.ram_size,
         };
         let load_result = image
             .load(&boot_params, memory)
@@ -102,6 +100,33 @@ impl AArch64BootLoader {
         Ok(())
     }
 
+    fn load_initrd<C>(
+        &self,
+        layout: &mut AArch64Layout,
+        memory: &mut MemoryAddressSpace<C>,
+    ) -> Result<()>
+    where
+        C: MemoryContainer,
+    {
+        let Some(initrd) = self.initrd.as_deref() else {
+            return Ok(());
+        };
+
+        let loader =
+            InitrdLoader::new(initrd).map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
+
+        let addr = layout.kernel_end.get().unwrap().next_multiple_of(4 << 10);
+
+        let result = loader
+            .load(addr, memory)
+            .map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
+
+        layout.initrd_start.set(result.initrd_start).unwrap();
+        layout.initrd_end.set(result.initrd_end).unwrap();
+
+        Ok(())
+    }
+
     fn load_dtb<C>(
         &self,
         layout: &mut AArch64Layout,
@@ -110,7 +135,13 @@ impl AArch64BootLoader {
     where
         C: MemoryContainer,
     {
-        let dtb_start = layout.kernel_end.get().unwrap().next_multiple_of(8);
+        let dtb_start = if let Some(initrd_end) = layout.initrd_end.get() {
+            initrd_end
+        } else {
+            layout.kernel_end.get().unwrap()
+        }
+        .next_multiple_of(8);
+
         let dtb_end = dtb_start + self.dtb.len() as u64;
 
         if !dtb_start.is_multiple_of(8) {
@@ -216,24 +247,31 @@ impl AArch64BootLoader {
     }
 }
 
-impl<M, V> BootLoader<M, AArch64, V> for AArch64BootLoader
+impl<V> BootLoader<V> for AArch64BootLoader
 where
-    M: MemoryContainer,
-    V: AArch64Vcpu,
+    V: Virt,
+    V::Vcpu: AArch64Vcpu,
 {
     fn load(
         &self,
         ram_base: u64,
-        memory: &mut MemoryAddressSpace<M>,
-        vcpus: &mut Vec<V>,
+        ram_size: u64,
+        memory: &mut MemoryAddressSpace<V::Memory>,
+        vcpus: &mut Vec<V::Vcpu>,
     ) -> Result<()> {
-        let mut layout = AArch64Layout::new(ram_base);
+        let mut layout = AArch64Layout::new(
+            AArch64::MMIO_START,
+            AArch64::MMIO_START + AArch64::MMIO_LEN as u64,
+            ram_base,
+            ram_size,
+        );
 
-        self.load_kernel(&mut layout, memory)?;
+        self.load_image(&mut layout, memory)?;
+        self.load_initrd(&mut layout, memory)?;
         self.load_dtb(&mut layout, memory)?;
         self.setup_boot_cpu(&mut layout, vcpus)?;
 
-        layout.finalize()?;
+        layout.validate()?;
 
         Ok(())
     }

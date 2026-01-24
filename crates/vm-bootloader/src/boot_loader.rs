@@ -1,7 +1,5 @@
-use vm_core::arch::Arch;
-use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
-use vm_core::vcpu::Vcpu;
+use vm_core::virt::Virt;
 
 pub mod arch;
 
@@ -11,6 +9,8 @@ pub enum Error {
     LoadDtbFailed(String),
     #[error("Setup kernel failed, reason: {0}")]
     LoadKernelFailed(String),
+    #[error("Load initd failed, reason: {0}")]
+    LoadInitrdFailed(String),
     #[error("Setup Boot cpu failed, reason: {0}")]
     SetupBootCpuFailed(String),
     #[error("Memory overlap")]
@@ -19,16 +19,15 @@ pub enum Error {
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub trait BootLoader<M, A, V>
+pub trait BootLoader<V>
 where
-    M: MemoryContainer,
-    A: Arch,
-    V: Vcpu<A>,
+    V: Virt,
 {
     fn load(
         &self,
         ram_base: u64,
-        memory: &mut MemoryAddressSpace<M>,
-        vcpus: &mut Vec<V>,
+        ram_size: u64,
+        memory: &mut MemoryAddressSpace<V::Memory>,
+        vcpus: &mut Vec<V::Vcpu>,
     ) -> Result<()>;
 }
