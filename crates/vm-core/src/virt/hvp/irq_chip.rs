@@ -65,13 +65,13 @@ impl AArch64IrqChip for HvpGicV3 {
         fdt.property_string("compatible", "arm,gic-v3")?;
         fdt.property_u32("#interrupt-cells", 3)?;
         fdt.property_null("interrupt-controller")?;
-        fdt.property_array_u32(
+        fdt.property_array_u64(
             "reg",
             &[
-                self.get_distributor_base()? as u32,
-                self.get_distributor_size()? as u32,
-                self.get_redistributor_base()? as u32,
-                self.get_redistributor_region_size()? as u32,
+                self.get_distributor_base()?,
+                self.get_distributor_size()? as u64,
+                self.get_redistributor_base()?,
+                self.get_redistributor_region_size()? as u64,
             ],
         )?;
         fdt.end_node(gic_node)?;

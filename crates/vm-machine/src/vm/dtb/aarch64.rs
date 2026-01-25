@@ -39,14 +39,14 @@ where
             fdt.end_node(cpu_node)?;
         }
 
+        self.irq_chip.write_device_tree(&mut fdt)?;
+
         {
             let soc_node = fdt.begin_node("soc")?;
             fdt.property_string("compatible", "simple-bus")?;
             fdt.property_u32("#address-cells", 1)?;
             fdt.property_u32("#size-cells", 1)?;
             fdt.property_null("ranges")?;
-
-            self.irq_chip.write_device_tree(&mut fdt)?;
 
             {
                 let timer_node = fdt.begin_node("timer")?;
