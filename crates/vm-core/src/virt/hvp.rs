@@ -1,13 +1,19 @@
 use std::cell::OnceCell;
+use std::sync::Arc;
 
 use anyhow::anyhow;
+use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
 use applevisor::memory::Memory;
-use applevisor::vm::GicDisabled;
+use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
+use applevisor::vm::VirtualMachineConfig;
 use applevisor::vm::VirtualMachineInstance;
+use applevisor_sys::hv_sys_reg_t;
 
 use crate::arch::aarch64::AArch64;
+use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
+use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
 use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::IoAddressSpace;
@@ -28,7 +34,8 @@ mod irq_chip;
 mod mm;
 
 pub struct Hvp {
-    vm: VirtualMachineInstance<GicDisabled>,
+    vm: Arc<VirtualMachineInstance<GicEnabled>>,
+    gic_chip: Arc<HvpGicV3>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
 }
 
@@ -42,20 +49,71 @@ impl Virt for Hvp {
     type Irq = HvpGicV3;
 
     fn new() -> Result<Self, VirtError> {
-        let vm = VirtualMachine::new().map_err(|err| {
+        let mut vm_config = VirtualMachineConfig::default();
+        vm_config
+            .set_el2_enabled(true)
+            .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+
+        let mut gic_config = GicConfig::default();
+        let gic_distributor_size = GicConfig::get_distributor_size().map_err(|err| {
+            VirtError::InterruptControllerFailed(format!(
+                "Failed to get the size of distributor, {:?}",
+                err
+            ))
+        })?;
+        let distributor_base_alignment = GicConfig::get_distributor_base_alignment()
+            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+        let redistributor_base_alignment = GicConfig::get_redistributor_base_alignment()
+            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+
+        {
+            // Setup distributor
+            if !GIC_DISTRIBUTOR.is_multiple_of(distributor_base_alignment as u64) {
+                return Err(VirtError::InterruptControllerFailed(
+                    "The base address of gic distributor is not aligned".to_string(),
+                ));
+            }
+            gic_config
+                .set_distributor_base(GIC_DISTRIBUTOR)
+                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+        }
+
+        {
+            // Setup redistributor
+            if !GIC_REDISTRIBUTOR.is_multiple_of(redistributor_base_alignment as u64) {
+                return Err(VirtError::InterruptControllerFailed(
+                    "The base address of gic redistributor is not aligned".to_string(),
+                ));
+            }
+            if GIC_DISTRIBUTOR + gic_distributor_size as u64 > GIC_REDISTRIBUTOR {
+                return Err(VirtError::InterruptControllerFailed(
+                    "distributor too large".to_string(),
+                ));
+            }
+            gic_config
+                .set_redistributor_base(GIC_REDISTRIBUTOR)
+                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+        }
+
+        let vm = VirtualMachine::with_gic(vm_config, gic_config).map_err(|err| {
             VirtError::FailedInitialize(
                 format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
             )
         })?;
+        let vm = Arc::new(vm);
+
+        let gic_chip = HvpGicV3::new(GIC_DISTRIBUTOR, GIC_REDISTRIBUTOR, vm.clone());
+        let gic_chip = Arc::new(gic_chip);
 
         Ok(Hvp {
             vm,
+            gic_chip,
             vcpus: OnceCell::default(),
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<Self::Irq> {
-        Ok(HvpGicV3)
+    fn init_irq(&mut self) -> anyhow::Result<Arc<Self::Irq>> {
+        Ok(self.gic_chip.clone())
     }
 
     fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
@@ -63,6 +121,7 @@ impl Virt for Hvp {
 
         for vcpu_id in 0..num_vcpus {
             let vcpu = self.vm.vcpu_create()?;
+            vcpu.set_sys_reg(hv_sys_reg_t::MPIDR_EL1, vcpu_id as u64)?;
             vcpus.push(HvpVcpu::new(vcpu_id as u64, vcpu));
         }
 
@@ -78,7 +137,9 @@ impl Virt for Hvp {
         _mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<Memory>,
     ) -> anyhow::Result<()> {
-        let allocator = HvpAllocator { vm: &self.vm };
+        let allocator = HvpAllocator {
+            vm: self.vm.as_ref(),
+        };
 
         for region in memory {
             region.alloc(&allocator)?;

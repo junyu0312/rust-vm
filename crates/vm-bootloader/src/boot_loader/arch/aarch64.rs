@@ -1,8 +1,9 @@
 use std::cell::OnceCell;
 use std::path::PathBuf;
 
-use vm_core::arch::Arch;
-use vm_core::arch::aarch64::AArch64;
+use vm_core::arch::aarch64::layout::MMIO_LEN;
+use vm_core::arch::aarch64::layout::MMIO_START;
+use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
@@ -254,17 +255,12 @@ where
 {
     fn load(
         &self,
-        ram_base: u64,
         ram_size: u64,
         memory: &mut MemoryAddressSpace<V::Memory>,
         vcpus: &mut Vec<V::Vcpu>,
     ) -> Result<()> {
-        let mut layout = AArch64Layout::new(
-            AArch64::MMIO_START,
-            AArch64::MMIO_START + AArch64::MMIO_LEN as u64,
-            ram_base,
-            ram_size,
-        );
+        let mut layout =
+            AArch64Layout::new(MMIO_START, MMIO_START + MMIO_LEN as u64, RAM_BASE, ram_size);
 
         self.load_image(&mut layout, memory)?;
         self.load_initrd(&mut layout, memory)?;

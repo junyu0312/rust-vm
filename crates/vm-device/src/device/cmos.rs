@@ -1,12 +1,27 @@
 use vm_core::device::Device;
-use vm_core::device::PortRange;
+use vm_core::device::pio::PioDevice;
+use vm_core::device::pio::PortRange;
 
 #[derive(Default)]
 pub struct Cmos;
 
 impl Device for Cmos {
-    fn ports(&self) -> &[PortRange] {
-        &[
+    fn name(&self) -> &str {
+        "cmos"
+    }
+
+    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
+        Some(self)
+    }
+
+    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        Some(self)
+    }
+}
+
+impl PioDevice for Cmos {
+    fn ports(&self) -> Vec<PortRange> {
+        vec![
             PortRange {
                 start: 0x70,
                 len: 1,

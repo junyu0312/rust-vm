@@ -1,18 +1,24 @@
 use std::sync::Arc;
 
 use vm_core::device::IoAddressSpace;
-use vm_core::device::mmio::MmioLayout;
+use vm_core::device::mmio::MmioRange;
 use vm_core::irq::InterruptController;
 use vm_device::device::uart8250::Uart8250;
 
 pub fn init_device(
-    mmio_layout: MmioLayout,
+    io_address_space: &mut IoAddressSpace,
     irq_chip: Arc<dyn InterruptController>,
-) -> anyhow::Result<IoAddressSpace> {
-    let uart8250 = Uart8250::<0x3f8, 33>::new(irq_chip);
+) -> anyhow::Result<()> {
+    let uart8250 = Uart8250::<33>::new(
+        None,
+        Some(MmioRange {
+            start: 0x01000000,
+            len: 0x1000,
+        }),
+        irq_chip,
+    );
 
-    let mut io_address_space = IoAddressSpace::new(mmio_layout);
-    io_address_space.register(Box::new(uart8250), Some((0x0900_0000, 0x1000)))?;
+    io_address_space.register(Box::new(uart8250))?;
 
-    Ok(io_address_space)
+    Ok(())
 }

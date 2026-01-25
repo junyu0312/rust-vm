@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::arch::Arch;
 use crate::device::IoAddressSpace;
 use crate::device::mmio::MmioLayout;
@@ -23,7 +25,7 @@ pub trait Virt: Sized {
 
     fn new() -> Result<Self, VirtError>;
 
-    fn init_irq(&mut self) -> anyhow::Result<Self::Irq>;
+    fn init_irq(&mut self) -> anyhow::Result<Arc<Self::Irq>>;
     fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()>;
     fn init_memory(
         &mut self,

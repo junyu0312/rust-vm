@@ -1,19 +1,22 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::slice::Iter;
 
 use anyhow::bail;
 
+use crate::device::mmio::MmioDevice;
 use crate::device::mmio::MmioLayout;
 use crate::device::mmio::MmioRange;
+use crate::device::pio::PioDevice;
 
 pub mod mmio;
+pub mod pio;
 
+#[derive(Clone, Copy)]
 pub struct Range<K> {
     pub start: K,
     pub len: usize,
 }
-
-pub type PortRange = Range<u16>;
 
 #[derive(Default)]
 pub struct AddressSpace<K: Debug>(BTreeMap<K, (usize, usize)>); // start |-> (len, device_id)
@@ -71,14 +74,22 @@ where
 }
 
 pub trait Device {
-    fn ports(&self) -> &[PortRange];
-    fn io_in(&mut self, port: u16, data: &mut [u8]);
-    fn io_out(&mut self, port: u16, data: &[u8]);
-    fn mmio_read(&mut self, _offset: u64, _len: usize, _data: &mut [u8]) {
-        unimplemented!()
+    fn name(&self) -> &str;
+
+    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
+        None
     }
-    fn mmio_write(&mut self, _offset: u64, _len: usize, _data: &[u8]) {
-        unimplemented!()
+
+    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        None
+    }
+
+    fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
+        None
+    }
+
+    fn as_mmio_device_mut(&mut self) -> Option<&mut dyn MmioDevice> {
+        None
     }
 }
 
@@ -119,39 +130,55 @@ impl IoAddressSpace {
         }
     }
 
+    pub fn devices(&self) -> Iter<'_, Box<dyn Device>> {
+        self.devices.iter()
+    }
+
     pub fn mmio_layout(&self) -> &MmioLayout {
         &self.mmio_layout
     }
 
-    pub fn register(
-        &mut self,
-        device: Box<dyn Device>,
-        mmio: Option<(u64, usize)>,
-    ) -> Result<(), Error> {
+    pub fn register(&mut self, device: Box<dyn Device>) -> Result<(), Error> {
         let id = self.devices.len();
-        for port_range in device.ports() {
-            if self.port.is_overlap(port_range.start, port_range.len) {
-                return Err(Error::PortIsAlreadyRegistered(
-                    port_range.start,
-                    port_range.len,
-                ));
+
+        if let Some(device) = device.as_pio_device() {
+            for port_range in device.ports() {
+                if self.port.is_overlap(port_range.start, port_range.len) {
+                    return Err(Error::PortIsAlreadyRegistered(
+                        port_range.start,
+                        port_range.len,
+                    ));
+                }
             }
         }
 
-        if let Some((start, len)) = &mmio
-            && self.mmio.is_overlap(*start, *len)
-        {
-            return Err(Error::MmioIsAlreadyRegistered(*start, *len));
+        if let Some(device) = device.as_mmio_device() {
+            for mmio_range in device.mmio_ranges() {
+                if self.mmio.is_overlap(mmio_range.start, mmio_range.len) {
+                    return Err(Error::MmioIsAlreadyRegistered(
+                        mmio_range.start,
+                        mmio_range.len,
+                    ));
+                }
+            }
         }
 
-        for port_range in device.ports() {
-            self.port
-                .try_insert(port_range.start, port_range.len, id)
-                .unwrap();
+        if let Some(device) = device.as_pio_device() {
+            for port_range in device.ports() {
+                self.port
+                    .try_insert(port_range.start, port_range.len, id)
+                    .unwrap();
+            }
         }
-        if let Some((start, len)) = &mmio {
-            self.mmio.try_insert(*start, *len, id).unwrap();
+
+        if let Some(device) = device.as_mmio_device() {
+            for mmio_range in device.mmio_ranges() {
+                self.mmio
+                    .try_insert(mmio_range.start, mmio_range.len, id)
+                    .unwrap();
+            }
         }
+
         self.devices.insert(id, device);
 
         Ok(())
@@ -169,7 +196,7 @@ impl IoAddressSpace {
             return Err(Error::NoDeviceForPort(port));
         };
 
-        device.io_in(port, data);
+        device.as_pio_device_mut().unwrap().io_in(port, data);
 
         Ok(())
     }
@@ -179,7 +206,7 @@ impl IoAddressSpace {
             return Err(Error::NoDeviceForPort(port));
         };
 
-        device.io_out(port, data);
+        device.as_pio_device_mut().unwrap().io_out(port, data);
 
         Ok(())
     }
@@ -209,7 +236,10 @@ impl IoAddressSpace {
 
         let offset = addr - range.start;
 
-        device.mmio_read(offset, len, data);
+        device
+            .as_mmio_device_mut()
+            .unwrap()
+            .mmio_read(offset, len, data);
 
         Ok(())
     }
@@ -229,7 +259,10 @@ impl IoAddressSpace {
 
         let offset = addr - range.start;
 
-        device.mmio_write(offset, len, data);
+        device
+            .as_mmio_device_mut()
+            .unwrap()
+            .mmio_write(offset, len, data);
 
         Ok(())
     }

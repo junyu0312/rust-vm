@@ -25,7 +25,6 @@ where
 {
     fn load(
         &self,
-        ram_base: u64,
         ram_size: u64,
         memory: &mut MemoryAddressSpace<V::Memory>,
         vcpus: &mut Vec<V::Vcpu>,
