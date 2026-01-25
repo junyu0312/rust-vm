@@ -3,8 +3,12 @@ use std::io::{self};
 use std::sync::Arc;
 
 use vm_core::device::Device;
-use vm_core::device::PortRange;
+use vm_core::device::mmio::MmioDevice;
+use vm_core::device::mmio::MmioRange;
+use vm_core::device::pio::PioDevice;
+use vm_core::device::pio::PortRange;
 use vm_core::irq::InterruptController;
+use vm_fdt::FdtWriter;
 
 use crate::device::uart8250::ier::IER;
 use crate::device::uart8250::iir::IIR;
@@ -162,7 +166,10 @@ mod msr {
     }
 }
 
-pub struct Uart8250<const BASE: u16, const IRQ: u32> {
+pub struct Uart8250<const IRQ: u32> {
+    port_base: Option<u16>,
+    mmio_range: Option<MmioRange>,
+
     txr: u8,
     rbr: Option<u8>,
     dll: u8,
@@ -178,9 +185,15 @@ pub struct Uart8250<const BASE: u16, const IRQ: u32> {
     irq_state: bool,
 }
 
-impl<const BASE: u16, const IRQ: u32> Uart8250<BASE, IRQ> {
-    pub fn new(irq_controller: Arc<dyn InterruptController>) -> Self {
+impl<const IRQ: u32> Uart8250<IRQ> {
+    pub fn new(
+        port_base: Option<u16>,
+        mmio_range: Option<MmioRange>,
+        irq_controller: Arc<dyn InterruptController>,
+    ) -> Self {
         Uart8250 {
+            port_base,
+            mmio_range,
             txr: Default::default(),
             rbr: Default::default(),
             dll: Default::default(),
@@ -197,7 +210,7 @@ impl<const BASE: u16, const IRQ: u32> Uart8250<BASE, IRQ> {
     }
 }
 
-impl<const BASE: u16, const IRQ: u32> Uart8250<BASE, IRQ> {
+impl<const IRQ: u32> Uart8250<IRQ> {
     // Transmitter holding register
     fn out_thr(&mut self, data: &[u8]) {
         assert_eq!(data.len(), 1);
@@ -345,46 +358,88 @@ impl<const BASE: u16, const IRQ: u32> Uart8250<BASE, IRQ> {
     }
 }
 
-impl<const BASE: u16, const IRQ: u32> Device for Uart8250<BASE, IRQ> {
-    fn ports(&self) -> &[PortRange] {
-        &[
+impl<const IRQ: u32> Device for Uart8250<IRQ> {
+    fn name(&self) -> &str {
+        "uart8250"
+    }
+
+    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
+        if self.port_base.is_some() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        if self.port_base.is_some() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
+        if self.mmio_range.is_some() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn as_mmio_device_mut(&mut self) -> Option<&mut dyn MmioDevice> {
+        if self.mmio_range.is_some() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+}
+
+impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
+    fn ports(&self) -> Vec<PortRange> {
+        let base = *self.port_base.as_ref().unwrap();
+
+        vec![
             PortRange {
-                start: BASE,
+                start: base,
                 len: 1,
             },
             PortRange {
-                start: BASE + 1,
+                start: base + 1,
                 len: 1,
             },
             PortRange {
-                start: BASE + 2,
+                start: base + 2,
                 len: 1,
             },
             PortRange {
-                start: BASE + 3,
+                start: base + 3,
                 len: 1,
             },
             PortRange {
-                start: BASE + 4,
+                start: base + 4,
                 len: 1,
             },
             PortRange {
-                start: BASE + 5,
+                start: base + 5,
                 len: 1,
             },
             PortRange {
-                start: BASE + 6,
+                start: base + 6,
                 len: 1,
             },
             PortRange {
-                start: BASE + 7,
+                start: base + 7,
                 len: 1,
             },
         ]
     }
 
     fn io_in(&mut self, port: u16, data: &mut [u8]) {
-        match port - BASE {
+        let base = self.port_base.as_ref().unwrap();
+
+        match port - base {
             RBR if !self.lcr.is_dlab_set() => self.in_rbr(data),
             DLL if self.lcr.is_dlab_set() => self.in_dll(data),
             IER if !self.lcr.is_dlab_set() => self.in_ier(data),
@@ -402,7 +457,9 @@ impl<const BASE: u16, const IRQ: u32> Device for Uart8250<BASE, IRQ> {
     }
 
     fn io_out(&mut self, port: u16, data: &[u8]) {
-        match port - BASE {
+        let base = self.port_base.as_ref().unwrap();
+
+        match port - base {
             THR if !self.lcr.is_dlab_set() => self.out_thr(data),
             DLL if self.lcr.is_dlab_set() => self.out_dll(data),
             IER if !self.lcr.is_dlab_set() => self.out_ier(data),
@@ -418,6 +475,16 @@ impl<const BASE: u16, const IRQ: u32> Device for Uart8250<BASE, IRQ> {
         }
 
         self.update_irq();
+    }
+}
+
+impl<const IRQ: u32> MmioDevice for Uart8250<IRQ> {
+    fn mmio_ranges(&self) -> Vec<MmioRange> {
+        if let Some(mmio_range) = self.mmio_range {
+            vec![mmio_range]
+        } else {
+            vec![]
+        }
     }
 
     fn mmio_read(&mut self, offset: u64, _len: usize, data: &mut [u8]) {
@@ -455,5 +522,20 @@ impl<const BASE: u16, const IRQ: u32> Device for Uart8250<BASE, IRQ> {
         }
 
         self.update_irq();
+    }
+
+    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
+        let Some(mmio_range) = self.mmio_range else {
+            return Ok(());
+        };
+
+        let serial_node = fdt.begin_node(&format!("uart@{:x}", mmio_range.start))?;
+        fdt.property_string("compatible", "ns16550a")?;
+        fdt.property_array_u64("reg", &[mmio_range.start, mmio_range.len as u64])?;
+        fdt.property_u32("clock-frequency", 24000000)?;
+        fdt.property_u32("current-speed", 115200)?;
+        fdt.end_node(serial_node)?;
+
+        Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use vm_core::device::Device;
-use vm_core::device::PortRange;
+use vm_core::device::pio::PioDevice;
+use vm_core::device::pio::PortRange;
 
 const PORT: u16 = 0x80;
 
@@ -7,8 +8,22 @@ const PORT: u16 = 0x80;
 pub struct PostDebug;
 
 impl Device for PostDebug {
-    fn ports(&self) -> &[PortRange] {
-        &[PortRange {
+    fn name(&self) -> &str {
+        "post_debug"
+    }
+
+    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
+        Some(self)
+    }
+
+    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        Some(self)
+    }
+}
+
+impl PioDevice for PostDebug {
+    fn ports(&self) -> Vec<PortRange> {
+        vec![PortRange {
             start: PORT,
             len: 1,
         }]

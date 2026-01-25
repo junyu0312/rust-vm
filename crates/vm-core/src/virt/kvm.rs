@@ -72,8 +72,8 @@ where
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<KvmIRQ> {
-        KvmIRQ::new(self.vm_fd.clone())
+    fn init_irq(&mut self) -> anyhow::Result<Arc<KvmIRQ>> {
+        Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
     }
 
     fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {

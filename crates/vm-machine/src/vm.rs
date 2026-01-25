@@ -3,9 +3,12 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
-use vm_core::arch::Arch;
+use vm_core::arch::aarch64::layout::MMIO_LEN;
+use vm_core::arch::aarch64::layout::MMIO_START;
+use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::device::IoAddressSpace;
 use vm_core::device::mmio::MmioLayout;
+use vm_core::device::mmio::MmioRange;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::mm::region::MemoryRegion;
@@ -29,6 +32,7 @@ pub struct Vm<V: Virt> {
     pub(crate) memory_size: usize,
 
     pub(crate) virt: V,
+    pub(crate) irq_chip: Arc<V::Irq>,
 
     pub(crate) devices: IoAddressSpace,
 }
@@ -52,21 +56,28 @@ impl VmBuilder {
     where
         V: Virt,
     {
-        let mmio_layout =
-            MmioLayout::new(<V::Arch as Arch>::MMIO_START, <V::Arch as Arch>::MMIO_LEN);
+        let mut mmio_layout = MmioLayout::default();
+        mmio_layout.try_insert(MmioRange {
+            start: MMIO_START,
+            len: MMIO_LEN,
+        })?;
+        // mmio_layout.try_insert(MmioRange {
+        //     start: GIC_DISTRIBUTOR
+        // })?;
 
         let mut virt = V::new()?;
 
-        let kvm_irq = Arc::new(virt.init_irq()?);
+        let irq_chip = virt.init_irq()?;
 
         virt.init_vcpus(self.vcpus)?;
 
-        let mut memory = self.init_mm(<V::Arch as Arch>::BASE_ADDRESS)?;
+        let mut memory = self.init_mm(RAM_BASE)?;
         virt.init_memory(&mmio_layout, &mut memory)?;
 
         virt.post_init()?;
 
-        let devices = init_device(mmio_layout, kvm_irq)?;
+        let mut devices = IoAddressSpace::new(mmio_layout);
+        init_device(&mut devices, irq_chip.clone())?;
 
         /*
         #[cfg(target_arch = "x86_64")]
@@ -95,6 +106,7 @@ impl VmBuilder {
             memory,
             memory_size: self.memory_size,
             virt,
+            irq_chip,
             devices,
         };
 
@@ -108,7 +120,6 @@ where
 {
     pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> anyhow::Result<()> {
         boot_loader.load(
-            <V::Arch as Arch>::BASE_ADDRESS,
             self.memory_size as u64,
             &mut self.memory,
             self.virt.get_vcpus_mut()?,

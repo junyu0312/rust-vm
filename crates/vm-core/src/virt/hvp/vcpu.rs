@@ -2,6 +2,7 @@ use applevisor_sys::hv_exit_reason_t;
 use applevisor_sys::hv_reg_t;
 use applevisor_sys::hv_sys_reg_t;
 use tracing::debug;
+use tracing::error;
 use tracing::trace;
 
 use crate::arch::aarch64::AArch64;
@@ -188,7 +189,8 @@ impl Vcpu<AArch64> for HvpVcpu {
                                 })
                             }
                         } else {
-                            todo!()
+                            error!(?far_el2, "gpa not catched");
+                            todo!();
                         }
                     }
                 }

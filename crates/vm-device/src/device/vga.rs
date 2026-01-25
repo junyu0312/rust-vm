@@ -1,12 +1,27 @@
 use vm_core::device::Device;
-use vm_core::device::PortRange;
+use vm_core::device::pio::PioDevice;
+use vm_core::device::pio::PortRange;
 
 #[derive(Default)]
 pub struct Vga;
 
 impl Device for Vga {
-    fn ports(&self) -> &[PortRange] {
-        &[
+    fn name(&self) -> &str {
+        "vga"
+    }
+
+    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
+        Some(self)
+    }
+
+    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        Some(self)
+    }
+}
+
+impl PioDevice for Vga {
+    fn ports(&self) -> Vec<PortRange> {
+        vec![
             PortRange {
                 start: 0x3d4,
                 len: 1,

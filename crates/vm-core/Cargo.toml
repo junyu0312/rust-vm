@@ -14,6 +14,7 @@ nix = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+vm-fdt = { workspace = true }
 
 [features]
 kvm = ["dep:kvm-bindings", "dep:kvm-ioctls"]

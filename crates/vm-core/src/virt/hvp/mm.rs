@@ -1,5 +1,4 @@
 use applevisor::memory::Memory;
-use applevisor::vm::GicDisabled;
 use applevisor::vm::VirtualMachineInstance;
 
 use crate::mm::allocator::Allocator;
@@ -11,11 +10,11 @@ impl MemoryContainer for Memory {
     }
 }
 
-pub struct HvpAllocator<'a> {
-    pub vm: &'a VirtualMachineInstance<GicDisabled>,
+pub struct HvpAllocator<'a, Gic> {
+    pub vm: &'a VirtualMachineInstance<Gic>,
 }
 
-impl<'a> Allocator for HvpAllocator<'a> {
+impl<'a, Gic> Allocator for HvpAllocator<'a, Gic> {
     type Contrainer = Memory;
 
     fn alloc(&self, len: usize, align: Option<usize>) -> anyhow::Result<Memory> {

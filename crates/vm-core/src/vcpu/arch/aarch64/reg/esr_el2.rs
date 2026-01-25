@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use strum_macros::FromRepr;
 
+#[derive(Debug)]
 pub struct EsrEl2(u64);
 
 impl From<u64> for EsrEl2 {

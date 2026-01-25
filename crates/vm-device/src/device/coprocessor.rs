@@ -1,12 +1,27 @@
 use vm_core::device::Device;
-use vm_core::device::PortRange;
+use vm_core::device::pio::PioDevice;
+use vm_core::device::pio::PortRange;
 
 #[derive(Default)]
 pub struct Coprocessor;
 
 impl Device for Coprocessor {
-    fn ports(&self) -> &[PortRange] {
-        &[
+    fn name(&self) -> &str {
+        "coprocessor"
+    }
+
+    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
+        Some(self)
+    }
+
+    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        Some(self)
+    }
+}
+
+impl PioDevice for Coprocessor {
+    fn ports(&self) -> Vec<PortRange> {
+        vec![
             PortRange {
                 start: 0xf0,
                 len: 1,

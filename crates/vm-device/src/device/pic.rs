@@ -1,12 +1,27 @@
 use vm_core::device::Device;
-use vm_core::device::PortRange;
+use vm_core::device::pio::PioDevice;
+use vm_core::device::pio::PortRange;
 
 #[derive(Default)]
 pub struct Pic;
 
 impl Device for Pic {
-    fn ports(&self) -> &[PortRange] {
-        &[
+    fn name(&self) -> &str {
+        "pic"
+    }
+
+    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
+        Some(self)
+    }
+
+    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        Some(self)
+    }
+}
+
+impl PioDevice for Pic {
+    fn ports(&self) -> Vec<PortRange> {
+        vec![
             PortRange {
                 start: 0xa1,
                 len: 1,
