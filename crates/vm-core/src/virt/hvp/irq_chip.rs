@@ -8,6 +8,8 @@ use tracing::warn;
 use crate::irq::InterruptController;
 use crate::irq::arch::aarch64::AArch64IrqChip;
 
+const PHANDLE: u32 = 0x1;
+
 pub struct HvpGicV3 {
     distributor_base: u64,
     redistributor_base: u64,
@@ -57,7 +59,7 @@ impl AArch64IrqChip for HvpGicV3 {
         Ok(size)
     }
 
-    fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<()> {
+    fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<u32> {
         let gic_node = fdt.begin_node(&format!(
             "interrupt-controller@{:016x}",
             self.get_distributor_base()?
@@ -65,6 +67,7 @@ impl AArch64IrqChip for HvpGicV3 {
         fdt.property_string("compatible", "arm,gic-v3")?;
         fdt.property_u32("#interrupt-cells", 3)?;
         fdt.property_null("interrupt-controller")?;
+        fdt.property_phandle(PHANDLE)?;
         fdt.property_array_u64(
             "reg",
             &[
@@ -76,6 +79,6 @@ impl AArch64IrqChip for HvpGicV3 {
         )?;
         fdt.end_node(gic_node)?;
 
-        Ok(())
+        Ok(PHANDLE)
     }
 }
