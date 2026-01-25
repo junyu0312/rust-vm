@@ -39,6 +39,8 @@ where
             fdt.end_node(cpu_node)?;
         }
 
+        let irq_phandle = self.irq_chip.write_device_tree(&mut fdt)?;
+
         {
             let soc_node = fdt.begin_node("soc")?;
             fdt.property_string("compatible", "simple-bus")?;
@@ -46,12 +48,10 @@ where
             fdt.property_u32("#size-cells", 1)?;
             fdt.property_null("ranges")?;
 
-            self.irq_chip.write_device_tree(&mut fdt)?;
-
             {
                 let timer_node = fdt.begin_node("timer")?;
                 fdt.property_string("compatible", "arm,armv8-timer")?;
-                // fdt.property_string("interrupt-parent", "interrupt-controller@8000000")?;
+                fdt.property_u32("interrupt-parent", irq_phandle)?;
                 // GIC PPI interrupts
                 // <type irq flags>
                 // type: 1 = PPI

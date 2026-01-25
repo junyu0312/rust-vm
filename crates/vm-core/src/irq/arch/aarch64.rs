@@ -11,5 +11,5 @@ pub trait AArch64IrqChip: InterruptController {
 
     fn get_redistributor_region_size(&self) -> anyhow::Result<usize>;
 
-    fn write_device_tree(&self, fdt: &mut FdtWriter) -> anyhow::Result<()>;
+    fn write_device_tree(&self, fdt: &mut FdtWriter) -> anyhow::Result<u32>;
 }
