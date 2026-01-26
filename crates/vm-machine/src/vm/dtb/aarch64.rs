@@ -5,6 +5,8 @@ use vm_fdt::FdtWriter;
 
 use crate::vm::Vm;
 
+const IRQ_TYPE_LEVEL_LOW: u32 = 0x00000008;
+
 impl<V> Vm<V>
 where
     V: Virt,
@@ -52,16 +54,21 @@ where
                 let timer_node = fdt.begin_node("timer")?;
                 fdt.property_string("compatible", "arm,armv8-timer")?;
                 fdt.property_u32("interrupt-parent", irq_phandle)?;
-                // GIC PPI interrupts
-                // <type irq flags>
-                // type: 1 = PPI
-                // flags: 4 = IRQ_TYPE_LEVEL_HIGH
                 fdt.property_array_u32(
                     "interrupts",
                     &[
-                        1, 13, 4, // CNTPNS (EL1 physical timer)
-                        1, 14, 4, // CNTPS  (secure timer)
-                        1, 11, 4, 1, 10, 4, // CNTV   (virtual timer)
+                        1,
+                        13,
+                        IRQ_TYPE_LEVEL_LOW,
+                        1,
+                        14,
+                        IRQ_TYPE_LEVEL_LOW,
+                        1,
+                        11,
+                        IRQ_TYPE_LEVEL_LOW,
+                        1,
+                        10,
+                        IRQ_TYPE_LEVEL_LOW,
                     ],
                 )?;
                 fdt.end_node(timer_node)?;
