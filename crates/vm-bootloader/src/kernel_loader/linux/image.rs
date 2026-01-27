@@ -99,10 +99,13 @@ where
             header.text_offset
         };
 
-        let image_size = if header.image_size == 0 {
-            self.kernel.len() as u64
+        let kernel_len = if header.image_size == 0 {
+            self.kernel.len()
         } else {
-            header.image_size
+            header
+                .image_size
+                .try_into()
+                .map_err(|_| Error::InvalidKernelImage)?
         };
 
         // Check 2MB alignment
@@ -111,7 +114,7 @@ where
         }
 
         let kernel_start = boot_params.ram_base + text_offset;
-        let kernel_end = kernel_start + image_size;
+        let kernel_end = kernel_start + kernel_len as u64;
 
         let ram_base = boot_params.ram_base;
         let ram_end = boot_params.ram_base + boot_params.ram_size;
@@ -131,7 +134,7 @@ where
         Ok(LoadResult {
             start_pc: kernel_start,
             kernel_start,
-            kernel_end,
+            kernel_len,
         })
     }
 }

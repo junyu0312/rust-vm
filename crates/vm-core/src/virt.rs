@@ -31,8 +31,12 @@ pub trait Virt: Sized {
         &mut self,
         mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<Self::Memory>,
+        memory_size: u64,
     ) -> anyhow::Result<()>;
     fn post_init(&mut self) -> anyhow::Result<()>;
+
+    fn get_layout(&self) -> &<Self::Arch as Arch>::Layout;
+    fn get_layout_mut(&mut self) -> &mut <Self::Arch as Arch>::Layout;
 
     fn get_vcpu_mut(&mut self, vcpu: u64) -> anyhow::Result<Option<&mut Self::Vcpu>>;
     fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>>;

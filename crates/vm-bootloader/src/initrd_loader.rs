@@ -14,7 +14,7 @@ pub enum Error {
 
 pub struct LoadResult {
     pub initrd_start: u64,
-    pub initrd_end: u64,
+    pub initrd_len: usize,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -40,7 +40,7 @@ impl InitrdLoader {
 
         Ok(LoadResult {
             initrd_start: addr,
-            initrd_end: addr + self.initrd.len() as u64,
+            initrd_len: self.initrd.len(),
         })
     }
 }

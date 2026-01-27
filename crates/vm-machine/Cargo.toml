@@ -16,4 +16,3 @@ tracing = { workspace = true }
 vm-bootloader = { workspace = true }
 vm-core = { workspace = true }
 vm-device = { workspace = true }
-vm-fdt = { workspace = true }

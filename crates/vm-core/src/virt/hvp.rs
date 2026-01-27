@@ -11,13 +11,14 @@ use applevisor::vm::VirtualMachineConfig;
 use applevisor::vm::VirtualMachineInstance;
 use applevisor_sys::hv_sys_reg_t;
 
+use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
-use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
-use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
 use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::IoAddressSpace;
 use crate::device::mmio::MmioLayout;
+use crate::layout::MemoryLayout;
+use crate::layout::aarch64::AArch64Layout;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
@@ -34,6 +35,7 @@ mod irq_chip;
 mod mm;
 
 pub struct Hvp {
+    arch: AArch64,
     vm: Arc<VirtualMachineInstance<GicEnabled>>,
     gic_chip: Arc<HvpGicV3>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
@@ -41,57 +43,72 @@ pub struct Hvp {
 
 impl Virt for Hvp {
     type Arch = AArch64;
-
     type Vcpu = HvpVcpu;
-
     type Memory = Memory;
-
     type Irq = HvpGicV3;
 
     fn new() -> Result<Self, VirtError> {
+        let layout = AArch64Layout::default();
+
         let mut vm_config = VirtualMachineConfig::default();
         vm_config
             .set_el2_enabled(true)
             .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
 
         let mut gic_config = GicConfig::default();
+
+        let distributor_base = layout.get_distributor_start();
+        let redistributor_base = layout.get_redistributor_start();
+        let distributor_base_alignment = GicConfig::get_distributor_base_alignment()
+            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+        let redistributor_base_alignment = GicConfig::get_redistributor_base_alignment()
+            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+
         let gic_distributor_size = GicConfig::get_distributor_size().map_err(|err| {
             VirtError::InterruptControllerFailed(format!(
                 "Failed to get the size of distributor, {:?}",
                 err
             ))
         })?;
-        let distributor_base_alignment = GicConfig::get_distributor_base_alignment()
-            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
-        let redistributor_base_alignment = GicConfig::get_redistributor_base_alignment()
-            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+        layout.set_distributor_len(gic_distributor_size).unwrap();
+
+        let gic_redistributor_region_size =
+            GicConfig::get_redistributor_region_size().map_err(|err| {
+                VirtError::InterruptControllerFailed(format!(
+                    "Failed to get the size of redistributor region, {:?}",
+                    err
+                ))
+            })?;
+        layout
+            .set_redistributor_region_len(gic_redistributor_region_size)
+            .unwrap();
 
         {
             // Setup distributor
-            if !GIC_DISTRIBUTOR.is_multiple_of(distributor_base_alignment as u64) {
+            if !distributor_base.is_multiple_of(distributor_base_alignment as u64) {
                 return Err(VirtError::InterruptControllerFailed(
                     "The base address of gic distributor is not aligned".to_string(),
                 ));
             }
             gic_config
-                .set_distributor_base(GIC_DISTRIBUTOR)
+                .set_distributor_base(distributor_base)
                 .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
         }
 
         {
             // Setup redistributor
-            if !GIC_REDISTRIBUTOR.is_multiple_of(redistributor_base_alignment as u64) {
+            if !redistributor_base.is_multiple_of(redistributor_base_alignment as u64) {
                 return Err(VirtError::InterruptControllerFailed(
                     "The base address of gic redistributor is not aligned".to_string(),
                 ));
             }
-            if GIC_DISTRIBUTOR + gic_distributor_size as u64 > GIC_REDISTRIBUTOR {
+            if distributor_base + gic_distributor_size as u64 > redistributor_base {
                 return Err(VirtError::InterruptControllerFailed(
                     "distributor too large".to_string(),
                 ));
             }
             gic_config
-                .set_redistributor_base(GIC_REDISTRIBUTOR)
+                .set_redistributor_base(redistributor_base)
                 .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
         }
 
@@ -102,10 +119,11 @@ impl Virt for Hvp {
         })?;
         let vm = Arc::new(vm);
 
-        let gic_chip = HvpGicV3::new(GIC_DISTRIBUTOR, GIC_REDISTRIBUTOR, vm.clone());
+        let gic_chip = HvpGicV3::new(distributor_base, redistributor_base, vm.clone());
         let gic_chip = Arc::new(gic_chip);
 
         Ok(Hvp {
+            arch: AArch64 { layout },
             vm,
             gic_chip,
             vcpus: OnceCell::default(),
@@ -136,6 +154,7 @@ impl Virt for Hvp {
         &mut self,
         _mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<Memory>,
+        memory_size: u64,
     ) -> anyhow::Result<()> {
         let allocator = HvpAllocator {
             vm: self.vm.as_ref(),
@@ -148,11 +167,21 @@ impl Virt for Hvp {
             memory.map(region.gpa, MemPerms::ReadWriteExec)?;
         }
 
+        self.get_layout_mut().set_ram_size(memory_size)?;
+
         Ok(())
     }
 
     fn post_init(&mut self) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    fn get_layout(&self) -> &AArch64Layout {
+        self.arch.get_layout()
+    }
+
+    fn get_layout_mut(&mut self) -> &mut AArch64Layout {
+        self.arch.get_layout_mut()
     }
 
     fn get_vcpu_mut(&mut self, vcpu_id: u64) -> anyhow::Result<Option<&mut HvpVcpu>> {

@@ -1,9 +1,11 @@
-use std::cell::OnceCell;
 use std::path::PathBuf;
+use std::slice::Iter;
 
-use vm_core::arch::aarch64::layout::MMIO_LEN;
-use vm_core::arch::aarch64::layout::MMIO_START;
-use vm_core::arch::aarch64::layout::RAM_BASE;
+use vm_core::arch::Arch;
+use vm_core::device::Device;
+use vm_core::irq::arch::aarch64::AArch64IrqChip;
+use vm_core::layout::MemoryLayout;
+use vm_core::layout::aarch64::AArch64Layout;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
@@ -11,6 +13,7 @@ use vm_core::vcpu::arch::aarch64::reg::CoreRegister;
 use vm_core::vcpu::arch::aarch64::reg::cnthctl_el2::CnthctlEl2;
 use vm_core::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
 use vm_core::virt::Virt;
+use vm_fdt::FdtWriter;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::Error;
@@ -20,56 +23,20 @@ use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::linux::image::AArch64BootParams;
 use crate::kernel_loader::linux::image::Image;
 
-#[allow(dead_code)]
-struct AArch64Layout {
-    mmio_start: u64,
-    mmio_end: u64,
-    ram_base: u64,
-    ram_size: u64,
-    dtb_start: OnceCell<u64>,
-    dtb_end: OnceCell<u64>,
-    kernel_start: OnceCell<u64>,
-    kernel_end: OnceCell<u64>,
-    initrd_start: OnceCell<u64>,
-    initrd_end: OnceCell<u64>,
-    start_pc: OnceCell<u64>,
-}
-
-impl AArch64Layout {
-    fn new(mmio_start: u64, mmio_end: u64, ram_base: u64, ram_size: u64) -> AArch64Layout {
-        AArch64Layout {
-            mmio_start,
-            mmio_end,
-            ram_base,
-            ram_size,
-            dtb_start: OnceCell::new(),
-            dtb_end: OnceCell::new(),
-            kernel_start: OnceCell::new(),
-            kernel_end: OnceCell::new(),
-            initrd_start: OnceCell::new(),
-            initrd_end: OnceCell::new(),
-            start_pc: OnceCell::new(),
-        }
-    }
-
-    fn validate(self) -> Result<()> {
-        // TODO
-        Ok(())
-    }
-}
+const IRQ_TYPE_LEVEL_LOW: u32 = 0x00000008;
 
 pub struct AArch64BootLoader {
     kernel: PathBuf,
     initrd: Option<PathBuf>,
-    dtb: Vec<u8>,
+    cmdline: Option<String>,
 }
 
 impl AArch64BootLoader {
-    pub fn new(kernel: PathBuf, initrd: Option<PathBuf>, dtb: Vec<u8>) -> Self {
+    pub fn new(kernel: PathBuf, initrd: Option<PathBuf>, cmdline: Option<String>) -> Self {
         AArch64BootLoader {
             kernel,
             initrd,
-            dtb,
+            cmdline,
         }
     }
 }
@@ -87,16 +54,18 @@ impl AArch64BootLoader {
             Image::new(&self.kernel).map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
         let boot_params = AArch64BootParams {
-            ram_base: layout.ram_base,
-            ram_size: layout.ram_size,
+            ram_base: layout.get_ram_base(),
+            ram_size: layout.get_ram_size()?,
         };
         let load_result = image
             .load(&boot_params, memory)
             .map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
-        layout.kernel_start.set(load_result.kernel_start).unwrap();
-        layout.kernel_end.set(load_result.kernel_end).unwrap();
-        layout.start_pc.set(load_result.start_pc).unwrap();
+        layout.set_kernel(
+            load_result.kernel_start,
+            load_result.kernel_len,
+            load_result.start_pc,
+        )?;
 
         Ok(())
     }
@@ -116,14 +85,14 @@ impl AArch64BootLoader {
         let loader =
             InitrdLoader::new(initrd).map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
 
-        let addr = layout.kernel_end.get().unwrap().next_multiple_of(4 << 10);
+        let addr = layout.get_initrd_start();
 
         let result = loader
             .load(addr, memory)
             .map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
 
-        layout.initrd_start.set(result.initrd_start).unwrap();
-        layout.initrd_end.set(result.initrd_end).unwrap();
+        assert_eq!(result.initrd_start, addr);
+        layout.set_initrd_len(result.initrd_len)?;
 
         Ok(())
     }
@@ -132,18 +101,12 @@ impl AArch64BootLoader {
         &self,
         layout: &mut AArch64Layout,
         memory: &mut MemoryAddressSpace<C>,
+        dtb: Vec<u8>,
     ) -> Result<()>
     where
         C: MemoryContainer,
     {
-        let dtb_start = if let Some(initrd_end) = layout.initrd_end.get() {
-            initrd_end
-        } else {
-            layout.kernel_end.get().unwrap()
-        }
-        .next_multiple_of(8);
-
-        let dtb_end = dtb_start + self.dtb.len() as u64;
+        let dtb_start = layout.get_dtb_start();
 
         if !dtb_start.is_multiple_of(8) {
             return Err(Error::LoadDtbFailed(
@@ -151,21 +114,20 @@ impl AArch64BootLoader {
             ));
         }
 
-        if self.dtb.len() >= (2 << 20) {
+        if dtb.len() >= (2 << 20) {
             return Err(Error::LoadDtbFailed("dtb too large".to_string()));
         }
 
         memory
-            .copy_from_slice(dtb_start, &self.dtb, self.dtb.len())
+            .copy_from_slice(dtb_start, &dtb, dtb.len())
             .map_err(|_| Error::LoadDtbFailed("failed to copy".to_string()))?;
 
-        layout.dtb_start.set(dtb_start).unwrap();
-        layout.dtb_end.set(dtb_end).unwrap();
+        layout.set_dtb_len(dtb.len())?;
 
         Ok(())
     }
 
-    fn setup_boot_cpu<C>(&self, layout: &mut AArch64Layout, vcpus: &mut [C]) -> Result<()>
+    fn setup_boot_cpu<C>(&self, dtb_start: u64, start_pc: u64, vcpus: &mut [C]) -> Result<()>
     where
         C: AArch64Vcpu,
     {
@@ -174,14 +136,11 @@ impl AArch64BootLoader {
 
             {
                 // Setup general-purpose register
-
-                let dtb_start = layout.dtb_start.get().unwrap();
-                let kernel_start = layout.kernel_start.get().unwrap();
-                boot_cpu.set_core_reg(CoreRegister::X0, *dtb_start)?;
+                boot_cpu.set_core_reg(CoreRegister::X0, dtb_start)?;
                 boot_cpu.set_core_reg(CoreRegister::X1, 0)?;
                 boot_cpu.set_core_reg(CoreRegister::X2, 0)?;
                 boot_cpu.set_core_reg(CoreRegister::X3, 0)?;
-                boot_cpu.set_core_reg(CoreRegister::PC, *kernel_start)?;
+                boot_cpu.set_core_reg(CoreRegister::PC, start_pc)?;
             }
 
             {
@@ -246,27 +205,152 @@ impl AArch64BootLoader {
 
         Ok(())
     }
+
+    fn generate_dtb(
+        &self,
+        layout: &AArch64Layout,
+        vcpus: usize,
+        irq_chip: &dyn AArch64IrqChip,
+        devices: Iter<'_, Box<dyn Device>>,
+    ) -> Result<Vec<u8>> {
+        let mut fdt = FdtWriter::new()?;
+        let root_node = fdt.begin_node("")?;
+
+        fdt.property_string("compatible", "linux,virt")?;
+        fdt.property_u32("#address-cells", 2)?;
+        fdt.property_u32("#size-cells", 2)?;
+
+        {
+            let memory_node = fdt.begin_node(&format!("memory@{:08x}", layout.get_ram_base()))?;
+            fdt.property_string("device_type", "memory")?;
+            fdt.property_array_u64("reg", &[layout.get_ram_base(), layout.get_ram_size()?])?;
+            fdt.end_node(memory_node)?;
+        }
+
+        {
+            let cpu_node = fdt.begin_node("cpus")?;
+            fdt.property_u32("#address-cells", 1)?;
+            fdt.property_u32("#size-cells", 0)?;
+            for i in 0..vcpus {
+                let cpu_node = fdt.begin_node(&format!("cpu@{}", i))?;
+                fdt.property_string("device_type", "cpu")?;
+                fdt.property_string("compatible", "arm,cortex-a72")?;
+                fdt.property_u32("reg", i as u32)?;
+                fdt.end_node(cpu_node)?;
+            }
+            fdt.end_node(cpu_node)?;
+        }
+
+        let irq_phandle = irq_chip.write_device_tree(&mut fdt).unwrap();
+
+        {
+            let soc_node = fdt.begin_node("soc")?;
+            fdt.property_string("compatible", "simple-bus")?;
+            fdt.property_u32("#address-cells", 1)?;
+            fdt.property_u32("#size-cells", 1)?;
+            fdt.property_u32("interrupt-parent", irq_phandle)?;
+            fdt.property_null("ranges")?;
+
+            {
+                let timer_node = fdt.begin_node("timer")?;
+                fdt.property_string("compatible", "arm,armv8-timer")?;
+                fdt.property_array_u32(
+                    "interrupts",
+                    &[
+                        1,
+                        13,
+                        IRQ_TYPE_LEVEL_LOW,
+                        1,
+                        14,
+                        IRQ_TYPE_LEVEL_LOW,
+                        1,
+                        11,
+                        IRQ_TYPE_LEVEL_LOW,
+                        1,
+                        10,
+                        IRQ_TYPE_LEVEL_LOW,
+                    ],
+                )?;
+                fdt.end_node(timer_node)?;
+            }
+
+            for device in devices {
+                if let Some(mmio_device) = device.as_mmio_device() {
+                    mmio_device.generate_dt(&mut fdt)?;
+                }
+            }
+
+            fdt.end_node(soc_node)?;
+        }
+
+        {
+            let chosen_node = fdt.begin_node("chosen")?;
+            fdt.property_u32("stdout-path", 2)?;
+            if let Some(cmdline) = &self.cmdline {
+                fdt.property_string("bootargs", cmdline)?;
+            }
+            if self.initrd.is_some() {
+                fdt.property_u64("linux,initrd-start", layout.get_initrd_start())?;
+                fdt.property_u64(
+                    "linux,initrd-end",
+                    layout.get_initrd_start() + layout.get_initrd_len()? as u64,
+                )?;
+            }
+
+            fdt.end_node(chosen_node)?;
+        }
+
+        fdt.end_node(root_node)?;
+
+        Ok(fdt.finish()?)
+    }
 }
 
 impl<V> BootLoader<V> for AArch64BootLoader
 where
     V: Virt,
     V::Vcpu: AArch64Vcpu,
+    V::Irq: AArch64IrqChip,
+    V::Arch: Arch<Layout = AArch64Layout>,
 {
     fn load(
         &self,
-        ram_size: u64,
+        virt: &mut V,
         memory: &mut MemoryAddressSpace<V::Memory>,
-        vcpus: &mut Vec<V::Vcpu>,
+        irq_chip: &V::Irq,
+        devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<()> {
-        let mut layout =
-            AArch64Layout::new(MMIO_START, MMIO_START + MMIO_LEN as u64, RAM_BASE, ram_size);
+        {
+            let layout = virt.get_layout_mut();
 
-        self.load_image(&mut layout, memory)?;
-        self.load_initrd(&mut layout, memory)?;
-        self.load_dtb(&mut layout, memory)?;
-        self.setup_boot_cpu(&mut layout, vcpus)?;
+            self.load_image(layout, memory)?;
+            self.load_initrd(layout, memory)?;
+        }
 
+        {
+            let vcpus = virt
+                .get_vcpus()
+                .map_err(|err| Error::SetupBootCpuFailed(err.to_string()))?
+                .len();
+
+            let layout = virt.get_layout_mut();
+
+            let dtb = self.generate_dtb(layout, vcpus, irq_chip, devices)?;
+            self.load_dtb(layout, memory, dtb)?;
+        }
+
+        {
+            let dtb_start = virt.get_layout().get_dtb_start();
+            let start_pc = virt.get_layout().get_start_pc()?;
+
+            let vcpus = virt
+                .get_vcpus_mut()
+                .map_err(|err| Error::SetupBootCpuFailed(err.to_string()))?;
+
+            self.setup_boot_cpu(dtb_start, start_pc, vcpus)?;
+        }
+
+        let layout = virt.get_layout();
         layout.validate()?;
 
         Ok(())

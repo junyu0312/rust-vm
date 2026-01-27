@@ -12,6 +12,15 @@ pub struct MmioLayout {
 }
 
 impl MmioLayout {
+    pub fn new(mmio_start: u64, mmio_len: usize) -> Self {
+        MmioLayout {
+            address_space: vec![MmioRange {
+                start: mmio_start,
+                len: mmio_len,
+            }],
+        }
+    }
+
     fn is_overlap(&self, range: &MmioRange) -> bool {
         let left = range.start;
         let right = range.start + range.len as u64;

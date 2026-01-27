@@ -3,20 +3,15 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
-use vm_core::arch::aarch64::layout::MMIO_LEN;
-use vm_core::arch::aarch64::layout::MMIO_START;
-use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::device::IoAddressSpace;
 use vm_core::device::mmio::MmioLayout;
-use vm_core::device::mmio::MmioRange;
+use vm_core::layout::MemoryLayout;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::mm::region::MemoryRegion;
 use vm_core::virt::Virt;
 
 use crate::device::init_device;
-
-pub mod dtb;
 
 pub struct VmBuilder {
     pub memory_size: usize,
@@ -26,14 +21,10 @@ pub struct VmBuilder {
     pub cmdline: Option<String>,
 }
 
-#[allow(dead_code)]
 pub struct Vm<V: Virt> {
     pub(crate) memory: MemoryAddressSpace<V::Memory>,
-    pub(crate) memory_size: usize,
-
     pub(crate) virt: V,
     pub(crate) irq_chip: Arc<V::Irq>,
-
     pub(crate) devices: IoAddressSpace,
 }
 
@@ -56,23 +47,17 @@ impl VmBuilder {
     where
         V: Virt,
     {
-        let mut mmio_layout = MmioLayout::default();
-        mmio_layout.try_insert(MmioRange {
-            start: MMIO_START,
-            len: MMIO_LEN,
-        })?;
-        // mmio_layout.try_insert(MmioRange {
-        //     start: GIC_DISTRIBUTOR
-        // })?;
-
         let mut virt = V::new()?;
 
         let irq_chip = virt.init_irq()?;
 
         virt.init_vcpus(self.vcpus)?;
 
-        let mut memory = self.init_mm(RAM_BASE)?;
-        virt.init_memory(&mmio_layout, &mut memory)?;
+        let layout = virt.get_layout();
+        let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
+
+        let mut memory = self.init_mm(layout.get_ram_base())?;
+        virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)?;
 
         virt.post_init()?;
 
@@ -104,7 +89,6 @@ impl VmBuilder {
 
         let vm = Vm {
             memory,
-            memory_size: self.memory_size,
             virt,
             irq_chip,
             devices,
@@ -120,9 +104,10 @@ where
 {
     pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> anyhow::Result<()> {
         boot_loader.load(
-            self.memory_size as u64,
+            &mut self.virt,
             &mut self.memory,
-            self.virt.get_vcpus_mut()?,
+            &self.irq_chip,
+            self.devices.devices(),
         )?;
 
         Ok(())

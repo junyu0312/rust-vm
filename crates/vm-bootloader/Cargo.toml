@@ -10,4 +10,5 @@ vm-core.workspace = true
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 tracing.workspace = true
+vm-fdt = { workspace = true }
 zerocopy.workspace = true

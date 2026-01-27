@@ -534,6 +534,7 @@ impl<const IRQ: u32> MmioDevice for Uart8250<IRQ> {
         fdt.property_array_u64("reg", &[mmio_range.start, mmio_range.len as u64])?;
         fdt.property_u32("clock-frequency", 24000000)?;
         fdt.property_u32("current-speed", 115200)?;
+        fdt.property_phandle(2)?;
         fdt.end_node(serial_node)?;
 
         Ok(())

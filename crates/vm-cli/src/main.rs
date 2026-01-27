@@ -71,9 +71,7 @@ fn main() -> anyhow::Result<()> {
             }
             .build()?;
 
-            let dtb = vm.generate_dtb(args.cmdline.as_deref())?;
-
-            let bootloader = AArch64BootLoader::new(args.kernel, args.initramfs, dtb);
+            let bootloader = AArch64BootLoader::new(args.kernel, args.initramfs, args.cmdline);
             vm.load(&bootloader)?;
 
             vm.run()?;

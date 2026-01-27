@@ -29,7 +29,7 @@ pub enum Error {
 pub struct LoadResult {
     pub start_pc: u64,
     pub kernel_start: u64,
-    pub kernel_end: u64,
+    pub kernel_len: usize,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
