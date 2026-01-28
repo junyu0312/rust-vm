@@ -12,7 +12,7 @@ pub fn init_device(
     let uart8250 = Uart8250::<33>::new(
         None,
         Some(MmioRange {
-            start: 0x01000000,
+            start: 0x09000000,
             len: 0x1000,
         }),
         irq_chip,
