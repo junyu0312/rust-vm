@@ -12,8 +12,8 @@ use crate::device::pio::PioDevice;
 pub mod mmio;
 pub mod pio;
 
-#[derive(Clone, Copy)]
-pub struct Range<K> {
+#[derive(Clone, Copy, Debug)]
+pub struct Range<K: Debug> {
     pub start: K,
     pub len: usize,
 }

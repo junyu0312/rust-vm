@@ -246,8 +246,8 @@ impl AArch64BootLoader {
         {
             let soc_node = fdt.begin_node("soc")?;
             fdt.property_string("compatible", "simple-bus")?;
-            fdt.property_u32("#address-cells", 1)?;
-            fdt.property_u32("#size-cells", 1)?;
+            fdt.property_u32("#address-cells", 2)?;
+            fdt.property_u32("#size-cells", 2)?;
             fdt.property_u32("interrupt-parent", irq_phandle)?;
             fdt.property_null("ranges")?;
 

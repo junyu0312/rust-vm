@@ -44,6 +44,7 @@ impl CoreRegister {
             0 => CoreRegister::X0,
             1 => CoreRegister::X1,
             2 => CoreRegister::X2,
+            3 => CoreRegister::X3,
             _ => unimplemented!("{srt}"),
         }
     }
