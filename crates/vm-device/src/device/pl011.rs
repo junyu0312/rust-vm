@@ -244,8 +244,7 @@ impl Pl011 {
             rx_w_cursor: Default::default(),
         }
     }
-}
-impl Pl011 {
+
     fn fifo_enabled(&self) -> bool {
         self.lcr_h.fen()
     }
