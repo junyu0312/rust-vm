@@ -2,6 +2,9 @@ use vm_fdt::FdtWriter;
 
 use crate::irq::InterruptController;
 
+pub const GIC_SPI: u32 = 0;
+pub const IRQ_TYPE_LEVEL_HIGH: u32 = 0x04;
+
 pub trait AArch64IrqChip: InterruptController {
     fn get_distributor_base(&self) -> anyhow::Result<u64>;
 

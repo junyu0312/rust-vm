@@ -172,6 +172,13 @@ impl Vcpu<AArch64> for HvpVcpu {
                                 0 => self.vcpu.get_reg(hv_reg_t::X0),
                                 1 => self.vcpu.get_reg(hv_reg_t::X1),
                                 2 => self.vcpu.get_reg(hv_reg_t::X2),
+                                3 => self.vcpu.get_reg(hv_reg_t::X3),
+                                4 => self.vcpu.get_reg(hv_reg_t::X4),
+                                5 => self.vcpu.get_reg(hv_reg_t::X5),
+                                6 => self.vcpu.get_reg(hv_reg_t::X6),
+                                21 => self.vcpu.get_reg(hv_reg_t::X21),
+                                22 => self.vcpu.get_reg(hv_reg_t::X22),
+                                31 => Ok(0), // xzr
                                 _ => unimplemented!("{srt}"),
                             }?;
 

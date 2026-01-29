@@ -6,7 +6,7 @@ use crate::device::Range;
 
 pub type MmioRange = Range<u64>;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MmioLayout {
     address_space: Vec<MmioRange>,
 }
