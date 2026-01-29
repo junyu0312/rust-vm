@@ -2,7 +2,9 @@ use std::cell::OnceCell;
 
 use static_assertions::const_assert_eq;
 
-use crate::layout::{Error, MemoryLayout, Result};
+use crate::layout::Error;
+use crate::layout::MemoryLayout;
+use crate::layout::Result;
 
 const MMIO_START: u64 = 0x0900_0000;
 const MMIO_LEN: usize = 0x0100_0000;

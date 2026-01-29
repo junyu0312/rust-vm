@@ -6,8 +6,13 @@ use vm_core::irq::arch::aarch64::GIC_SPI;
 use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
 use vm_fdt::FdtWriter;
 
+use crate::device::pl011::cr::Cr;
 use crate::device::pl011::dr::Dr;
+use crate::device::pl011::fbrd::Fbrd;
 use crate::device::pl011::fr::Fr;
+use crate::device::pl011::ibrd::Ibrd;
+use crate::device::pl011::ifls::Ifls;
+use crate::device::pl011::imsc::Imsc;
 use crate::device::pl011::lcrh::LcrH;
 
 mod dr {
@@ -53,13 +58,121 @@ mod fr {
     }
 }
 
-mod lcrh {
+mod ibrd {
     #[derive(Default)]
-    pub struct LcrH(u32);
+    pub struct Ibrd(u16);
+
+    impl Ibrd {
+        pub fn write(&mut self, val: u16) {
+            self.0 = val;
+        }
+
+        pub fn read(&self) -> u16 {
+            self.0
+        }
+    }
+}
+
+mod fbrd {
+    #[derive(Default)]
+    pub struct Fbrd(u8);
+
+    impl Fbrd {
+        pub fn write(&mut self, val: u8) {
+            self.0 = val;
+        }
+
+        pub fn read(&self) -> u8 {
+            self.0
+        }
+    }
+}
+
+mod lcrh {
+    const MASK: u16 = 0x7f;
+
+    #[derive(Default)]
+    pub struct LcrH(u16);
 
     impl LcrH {
+        pub fn write(&mut self, val: u16) {
+            self.0 = val & MASK;
+        }
+
+        pub fn read(&self) -> u16 {
+            self.0
+        }
+
         pub fn fen(&self) -> bool {
             self.0 & 0x8 != 0
+        }
+    }
+}
+
+mod cr {
+    use bitflags::bitflags;
+
+    bitflags! {
+        pub struct Cr: u16 {
+            const CTSEn = 1 << 15;
+            const RTSEn = 1 << 14;
+            const Out2 = 1 << 13;
+            const Out1 = 1 << 12;
+            const RTS = 1 << 11;
+            const DTR = 1 << 10;
+            const RXE = 1 << 9;
+            const TXE = 1 << 8;
+            const LBE = 1 << 7;
+            const SIRLP = 1 << 2;
+            const SIREN = 1 << 1;
+            const UARTEN = 1 << 0;
+        }
+    }
+
+    impl Default for Cr {
+        fn default() -> Self {
+            Cr::TXE | Cr::RXE
+        }
+    }
+}
+
+mod ifls {
+    pub struct Ifls(u16);
+
+    impl Default for Ifls {
+        fn default() -> Self {
+            Ifls(0x12)
+        }
+    }
+
+    impl Ifls {
+        pub fn write(&mut self, val: u16) {
+            self.0 = val;
+        }
+
+        pub fn read(&self) -> u16 {
+            self.0
+        }
+    }
+}
+
+mod imsc {
+    use bitflags::bitflags;
+
+    bitflags! {
+        #[derive(Default)]
+        pub struct Imsc: u16 {
+            const OEIM = 1 << 10;
+            const BEIM = 1 << 9;
+            const PEIM = 1 << 8;
+            const FEIM = 1 << 7;
+            const RTIM = 1 << 6;
+            const TXIM = 1 << 5;
+            const RXIM = 1 << 4;
+            const DSRMIM = 1 << 3;
+            const DCDMIM = 1 << 2;
+            const CTSMIM = 1 << 1;
+            const RIMIM = 1 << 0;
         }
     }
 }
@@ -73,7 +186,9 @@ enum Register {
     Fbrd = 0x28,
     LcrH = 0x2c,
     Cr = 0x30,
-    Msc = 0x38,
+    Ifls = 0x34,
+    Imsc = 0x38,
+    Icr = 0x44,
     Macr = 0x48,
     PeriphID0 = 0xfe0,
     PeriphID1 = 0xfe4,
@@ -85,12 +200,18 @@ enum Register {
     CellId3 = 0xffc,
 }
 
+#[allow(dead_code)]
 pub struct Pl011 {
     mmio_range: MmioRange,
 
     dr: Dr,
     fr: Fr,
+    ibrd: Ibrd,
+    fbrd: Fbrd,
     lcr_h: LcrH,
+    cr: Cr,
+    ifls: Ifls,
+    imsc: Imsc,
 
     tx_fifo: [u8; 32],
     tx_r_cursor: usize,
@@ -106,7 +227,12 @@ impl Pl011 {
             mmio_range,
             dr: Dr::default(),
             fr: Fr::default(),
+            ibrd: Ibrd::default(),
+            fbrd: Fbrd::default(),
             lcr_h: LcrH::default(),
+            cr: Cr::default(),
+            ifls: Ifls::default(),
+            imsc: Imsc::default(),
             tx_fifo: Default::default(),
             tx_r_cursor: Default::default(),
             tx_w_cursor: Default::default(),
@@ -121,11 +247,7 @@ impl Pl011 {
         self.lcr_h.fen()
     }
 
-    fn update_state(&mut self) {}
-
-    fn write_dr(&mut self, len: usize, data: &[u8]) {
-        assert!(len == 1 && data.len() == 1);
-
+    fn write_dr(&mut self, _len: usize, data: &[u8]) {
         /*
          For words to be transmitted:
          • if the FIFOs are enabled, data written to this location is
@@ -143,10 +265,73 @@ impl Pl011 {
         }
     }
 
-    fn read_fr(&self, len: usize, data: &mut [u8]) {
-        assert_eq!(len, 4);
-        assert_eq!(data.len(), 4);
+    fn read_fr(&self, _len: usize, data: &mut [u8]) {
         data[0..2].copy_from_slice(&self.fr.bits().to_le_bytes());
+    }
+
+    fn read_ibrd(&self, _len: usize, data: &mut [u8]) {
+        data[0..2].copy_from_slice(&self.ibrd.read().to_le_bytes());
+    }
+
+    fn write_ibrd(&mut self, len: usize, data: &[u8]) {
+        assert_eq!(len, 2);
+        assert_eq!(data.len(), 2);
+        self.ibrd
+            .write(u16::from_le_bytes(data.try_into().unwrap()));
+    }
+
+    fn read_fbrd(&self, _len: usize, data: &mut [u8]) {
+        data[0] = self.fbrd.read();
+    }
+
+    fn write_fbrd(&mut self, _len: usize, data: &[u8]) {
+        self.fbrd.write(data[0]);
+    }
+
+    fn read_lcr_h(&self, _len: usize, data: &mut [u8]) {
+        data[0..2].copy_from_slice(&self.lcr_h.read().to_le_bytes());
+    }
+
+    fn write_lcr_h(&mut self, len: usize, data: &[u8]) {
+        assert_eq!(len, 2);
+        assert_eq!(data.len(), 2);
+        self.lcr_h
+            .write(u16::from_le_bytes(data.try_into().unwrap()));
+    }
+
+    fn read_cr(&self, len: usize, data: &mut [u8]) {
+        assert_eq!(len, 2);
+        assert_eq!(data.len(), 2);
+        data.copy_from_slice(&self.cr.bits().to_le_bytes());
+    }
+
+    fn write_cr(&mut self, len: usize, data: &[u8]) {
+        assert_eq!(len, 2);
+        assert_eq!(data.len(), 2);
+        self.cr = Cr::from_bits_truncate(u16::from_le_bytes(data.try_into().unwrap()));
+    }
+
+    fn read_ifls(&self, _len: usize, data: &mut [u8]) {
+        data[0..2].copy_from_slice(&self.ifls.read().to_le_bytes());
+    }
+
+    fn write_ifls(&mut self, _len: usize, data: &[u8]) {
+        self.ifls
+            .write(u16::from_le_bytes(data.try_into().unwrap()));
+    }
+
+    fn read_imsc(&self, _len: usize, data: &mut [u8]) {
+        data[0..2].copy_from_slice(&self.imsc.bits().to_le_bytes());
+    }
+
+    fn write_imsc(&mut self, len: usize, data: &[u8]) {
+        let mut buf = [0; 2];
+        buf[0..len].copy_from_slice(data);
+        self.imsc = Imsc::from_bits_truncate(u16::from_le_bytes(buf));
+    }
+
+    fn write_icr(&mut self, _len: usize, _data: &[u8]) {
+        // TODO: clear interrupt
     }
 
     fn read_periph_id0(&self, data: &mut [u8]) {
@@ -215,11 +400,13 @@ impl MmioDevice for Pl011 {
         match reg {
             Register::Dr => todo!(),
             Register::Fr => self.read_fr(len, data),
-            Register::Ibrd => todo!(),
-            Register::Fbrd => todo!(),
-            Register::LcrH => todo!(),
-            Register::Cr => todo!(),
-            Register::Msc => todo!(),
+            Register::Ibrd => self.read_ibrd(len, data),
+            Register::Fbrd => self.read_fbrd(len, data),
+            Register::LcrH => self.read_lcr_h(len, data),
+            Register::Cr => self.read_cr(len, data),
+            Register::Ifls => self.read_ifls(len, data),
+            Register::Imsc => self.read_imsc(len, data),
+            Register::Icr => unreachable!("WO"),
             Register::Macr => todo!(),
             Register::PeriphID0 => self.read_periph_id0(data),
             Register::PeriphID1 => self.read_periph_id1(data),
@@ -238,36 +425,27 @@ impl MmioDevice for Pl011 {
         let reg = Register::from_repr(offset).unwrap();
         match reg {
             Register::Dr => self.write_dr(len, data),
-            Register::Fr => unreachable!(),
-            Register::Ibrd => todo!(),
-            Register::Fbrd => todo!(),
-            Register::LcrH => todo!(),
-            Register::Cr => todo!(),
-            Register::Msc => todo!(),
+            Register::Fr => unreachable!("RO"),
+            Register::Ibrd => self.write_ibrd(len, data),
+            Register::Fbrd => self.write_fbrd(len, data),
+            Register::LcrH => self.write_lcr_h(len, data),
+            Register::Cr => self.write_cr(len, data),
+            Register::Ifls => self.write_ifls(len, data),
+            Register::Imsc => self.write_imsc(len, data),
+            Register::Icr => self.write_icr(len, data),
             Register::Macr => todo!(),
-            Register::PeriphID0 => unreachable!(),
-            Register::PeriphID1 => unreachable!(),
-            Register::PeriphID2 => unreachable!(),
-            Register::PeriphID3 => unreachable!(),
-            Register::CellID0 => unreachable!(),
-            Register::CellId1 => unreachable!(),
-            Register::CellId2 => unreachable!(),
-            Register::CellId3 => unreachable!(),
+            Register::PeriphID0 => unreachable!("RO"),
+            Register::PeriphID1 => unreachable!("RO"),
+            Register::PeriphID2 => unreachable!("RO"),
+            Register::PeriphID3 => unreachable!("RO"),
+            Register::CellID0 => unreachable!("RO"),
+            Register::CellId1 => unreachable!("RO"),
+            Register::CellId2 => unreachable!("RO"),
+            Register::CellId3 => unreachable!("RO"),
         }
     }
 
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
-        /*
-        uart0: serial@12100000 {
-            compatible = "arm,pl011", "arm,primecell";
-            reg = <0x12100000 0x1000>;
-            interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
-            clocks = <&crg HI3519_UART0_CLK>, <&crg HI3519_UART0_CLK>;
-            clock-names = "uartclk", "apb_pclk";
-            status = "disabled";
-        };
-         */
-
         let node = fdt.begin_node("uartclk")?;
         fdt.property_string("compatible", "fixed-clock")?;
         fdt.property_u32("#clock-cells", 0)?;
@@ -287,7 +465,6 @@ impl MmioDevice for Pl011 {
             "compatible",
             vec!["arm,pl011".to_string(), "arm,primecell".to_string()],
         )?;
-        println!("{:?}", self.mmio_range);
         fdt.property_array_u64("reg", &[self.mmio_range.start, self.mmio_range.len as u64])?;
         fdt.property_array_u32("interrupts", &[GIC_SPI, 1, IRQ_TYPE_LEVEL_HIGH])?;
         fdt.property_array_u32("clocks", &[3, 3])?;
