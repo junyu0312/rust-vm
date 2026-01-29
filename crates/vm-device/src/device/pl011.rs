@@ -393,8 +393,8 @@ impl Device for Pl011 {
 }
 
 impl MmioDevice for Pl011 {
-    fn mmio_ranges(&self) -> Vec<MmioRange> {
-        vec![self.mmio_range]
+    fn mmio_range(&self) -> &MmioRange {
+        &self.mmio_range
     }
 
     fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]) {

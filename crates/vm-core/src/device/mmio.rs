@@ -57,7 +57,7 @@ impl MmioLayout {
 }
 
 pub trait MmioDevice: Device {
-    fn mmio_ranges(&self) -> Vec<MmioRange>;
+    fn mmio_range(&self) -> &MmioRange;
 
     fn mmio_read(&mut self, _offset: u64, _len: usize, _data: &mut [u8]);
 

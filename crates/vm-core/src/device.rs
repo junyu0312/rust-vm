@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::slice::Iter;
 
 use anyhow::bail;
+use tracing::debug;
 
 use crate::device::mmio::MmioDevice;
 use crate::device::mmio::MmioLayout;
@@ -152,18 +153,19 @@ impl IoAddressSpace {
             }
         }
 
-        if let Some(device) = device.as_mmio_device() {
-            for mmio_range in device.mmio_ranges() {
-                if self.mmio.is_overlap(mmio_range.start, mmio_range.len) {
-                    return Err(Error::MmioIsAlreadyRegistered(
-                        mmio_range.start,
-                        mmio_range.len,
-                    ));
-                }
-            }
+        if let Some(device) = device.as_mmio_device()
+            && self
+                .mmio
+                .is_overlap(device.mmio_range().start, device.mmio_range().len)
+        {
+            return Err(Error::MmioIsAlreadyRegistered(
+                device.mmio_range().start,
+                device.mmio_range().len,
+            ));
         }
 
         if let Some(device) = device.as_pio_device() {
+            debug!("register {} as pio device", device.name());
             for port_range in device.ports() {
                 self.port
                     .try_insert(port_range.start, port_range.len, id)
@@ -172,11 +174,10 @@ impl IoAddressSpace {
         }
 
         if let Some(device) = device.as_mmio_device() {
-            for mmio_range in device.mmio_ranges() {
-                self.mmio
-                    .try_insert(mmio_range.start, mmio_range.len, id)
-                    .unwrap();
-            }
+            debug!("register {} as mmio device", device.name());
+            self.mmio
+                .try_insert(device.mmio_range().start, device.mmio_range().len, id)
+                .unwrap();
         }
 
         self.devices.insert(id, device);
