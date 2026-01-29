@@ -1,15 +1,14 @@
-use std::ffi::CString;
 use std::fs;
 use std::path::Path;
-use std::str::FromStr;
 
 use header::*;
+use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
-use vm_core::vcpu::arch::x86_64::X86Vcpu;
-use vm_core::virt::Virt;
 
-use crate::Error;
-use crate::KernelLoader;
+use crate::kernel_loader::Error;
+use crate::kernel_loader::KernelLoader;
+use crate::kernel_loader::LoadResult;
+use crate::kernel_loader::Result;
 
 mod header {
     pub struct Header {
@@ -115,7 +114,7 @@ pub struct BzImage {
 }
 
 impl BzImage {
-    fn read_header(&self, header: &Header) -> Result<Value, Error> {
+    fn read_header(&self, header: &Header) -> Result<Value> {
         let bytes = &self.bzimage[header.offset..header.offset + header.size];
 
         match header.size {
@@ -132,31 +131,31 @@ impl BzImage {
         }
     }
 
-    fn get_setup_sects(&self) -> Result<u8, Error> {
+    fn get_setup_sects(&self) -> Result<u8> {
         Ok(self.read_header(&SETUP_SECTS)?.as_u8())
     }
 
-    fn get_boot_flag(&self) -> Result<u16, Error> {
+    fn get_boot_flag(&self) -> Result<u16> {
         Ok(self.read_header(&BOOT_FLAG)?.as_u16())
     }
 
-    fn get_header(&self) -> Result<u32, Error> {
+    fn get_header(&self) -> Result<u32> {
         Ok(self.read_header(&HEADER)?.as_u32())
     }
 
-    fn get_version(&self) -> Result<u16, Error> {
+    fn get_version(&self) -> Result<u16> {
         Ok(self.read_header(&VERSION)?.as_u16())
     }
 
-    fn get_initrd_addr_max(&self) -> Result<u32, Error> {
+    fn get_initrd_addr_max(&self) -> Result<u32> {
         Ok(self.read_header(&INITRD_ADDR_MAX)?.as_u32())
     }
 
-    fn get_cmdline_size(&self) -> Result<u32, Error> {
+    fn get_cmdline_size(&self) -> Result<u32> {
         Ok(self.read_header(&CMDLINE_SIZE)?.as_u32())
     }
 
-    pub fn new(path: &Path, initrd: Option<&Path>, cmdline: Option<&str>) -> Result<Self, Error> {
+    pub fn new(path: &Path, initrd: Option<&Path>, cmdline: Option<&str>) -> Result<Self> {
         let bzimage = fs::read(path).map_err(|_| Error::ReadFailed)?;
         let initrd = initrd
             .map(fs::read)
@@ -172,11 +171,21 @@ impl BzImage {
     }
 }
 
-impl<V> KernelLoader<V> for BzImage
+impl<C> KernelLoader<C> for BzImage
 where
-    V: Virt,
-    V::Vcpu: X86Vcpu,
+    C: MemoryContainer,
 {
+    type BootParams = ();
+
+    fn load(
+        &self,
+        _boot_params: &Self::BootParams,
+        _memory: &mut MemoryAddressSpace<C>,
+    ) -> Result<LoadResult> {
+        todo!()
+    }
+
+    /*
     fn install(
         &self,
         _ram_base: u64,
@@ -364,4 +373,5 @@ where
 
         Ok(())
     }
+     */
 }

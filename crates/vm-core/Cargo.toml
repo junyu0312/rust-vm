@@ -11,11 +11,13 @@ bitflags = { workspace = true }
 kvm-bindings = { workspace = true, optional = true }
 kvm-ioctls = { workspace = true, optional = true }
 nix = { workspace = true }
-static_assertions = { workspace = true }
-strum_macros = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 vm-fdt = { workspace = true }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+static_assertions = { workspace = true }
+strum_macros = { workspace = true }
 
 [features]
 kvm = ["dep:kvm-bindings", "dep:kvm-ioctls"]

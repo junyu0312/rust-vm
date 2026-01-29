@@ -1,3 +1,6 @@
+use std::io;
+use std::io::Write;
+
 use strum_macros::FromRepr;
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioDevice;
@@ -241,8 +244,7 @@ impl Pl011 {
             rx_w_cursor: Default::default(),
         }
     }
-}
-impl Pl011 {
+
     fn fifo_enabled(&self) -> bool {
         self.lcr_h.fen()
     }
@@ -256,6 +258,7 @@ impl Pl011 {
            holding register (the bottom word of the transmit FIFO).
         */
         print!("{}", data[0] as char);
+        io::stdout().flush().unwrap();
 
         if self.fifo_enabled() {
             self.tx_fifo[self.tx_w_cursor] = data[0];

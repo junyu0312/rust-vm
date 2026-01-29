@@ -3,7 +3,9 @@ use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
 use std::thread;
 
+use vm_core::device::Device;
 use vm_core::device::pio::PioDevice;
+use vm_core::device::pio::PortRange;
 use vm_core::irq::InterruptController;
 
 use crate::device::i8042::command::I8042Cmd;
@@ -195,9 +197,24 @@ impl I8042 {
     }
 }
 
+impl Device for I8042 {
+    fn name(&self) -> &str {
+        "i8042"
+    }
+}
+
 impl PioDevice for I8042 {
-    fn ports(&self) -> &[u16] {
-        &[DATA_PORT, REGISTER_PORT]
+    fn ports(&self) -> Vec<PortRange> {
+        vec![
+            PortRange {
+                start: DATA_PORT,
+                len: 1,
+            },
+            PortRange {
+                start: REGISTER_PORT,
+                len: 1,
+            },
+        ]
     }
 
     fn io_in(&mut self, port: u16, data: &mut [u8]) {
