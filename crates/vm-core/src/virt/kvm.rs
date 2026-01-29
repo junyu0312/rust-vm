@@ -98,6 +98,7 @@ where
         &mut self,
         _mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<MmapMemory>,
+        _memory_size: u64,
     ) -> anyhow::Result<()> {
         let allocator = MmapAllocator;
 
@@ -123,6 +124,14 @@ where
         self.arch_post_init()?;
 
         Ok(())
+    }
+
+    fn get_layout(&self) -> &<Self::Arch as Arch>::Layout {
+        todo!()
+    }
+
+    fn get_layout_mut(&mut self) -> &mut <Self::Arch as Arch>::Layout {
+        todo!()
     }
 
     fn get_vcpu_mut(&mut self, vcpu: u64) -> anyhow::Result<Option<&mut KvmVcpu>> {
