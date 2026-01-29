@@ -15,11 +15,14 @@ use vm_device::pci::root_complex::PciRootComplex;
 
 use crate::utils::stdin::init_stdin;
 
-pub fn init_device(irq_chip: Arc<dyn InterruptController>) -> anyhow::Result<IoAddressSpace> {
-    let uart8250_com0 = Uart8250::<0x3f8, 4>::new(irq_chip.clone());
-    let uart8250_com1 = Uart8250::<0x2f8, 3>::new(irq_chip.clone());
-    let uart8250_com2 = Uart8250::<0x3e8, 4>::new(irq_chip.clone());
-    let uart8250_com3 = Uart8250::<0x2e8, 3>::new(irq_chip.clone());
+pub fn init_device(
+    io_address_space: &mut IoAddressSpace,
+    irq_chip: Arc<dyn InterruptController>,
+) -> anyhow::Result<()> {
+    let uart8250_com0 = Uart8250::<4>::new(Some(0x3f8), None, irq_chip.clone());
+    let uart8250_com1 = Uart8250::<3>::new(Some(0x2f8), None, irq_chip.clone());
+    let uart8250_com2 = Uart8250::<4>::new(Some(0x3e8), None, irq_chip.clone());
+    let uart8250_com3 = Uart8250::<3>::new(Some(0x2e8), None, irq_chip.clone());
 
     let cmos = Cmos;
 
@@ -37,19 +40,18 @@ pub fn init_device(irq_chip: Arc<dyn InterruptController>) -> anyhow::Result<IoA
     init_stdin(tx)?;
     let i8042 = I8042::new(irq_chip, rx);
 
-    let mut io_address_space = IoAddressSpace::default();
-    io_address_space.register(Box::new(uart8250_com0), None)?;
-    io_address_space.register(Box::new(uart8250_com1), None)?;
-    io_address_space.register(Box::new(uart8250_com2), None)?;
-    io_address_space.register(Box::new(uart8250_com3), None)?;
-    io_address_space.register(Box::new(cmos), None)?;
-    io_address_space.register(Box::new(post_debug), None)?;
-    io_address_space.register(Box::new(coprocessor), None)?;
-    io_address_space.register(Box::new(pic), None)?;
-    io_address_space.register(Box::new(vga), None)?;
-    io_address_space.register(Box::new(pci), None)?;
+    io_address_space.register(Box::new(uart8250_com0))?;
+    io_address_space.register(Box::new(uart8250_com1))?;
+    io_address_space.register(Box::new(uart8250_com2))?;
+    io_address_space.register(Box::new(uart8250_com3))?;
+    io_address_space.register(Box::new(cmos))?;
+    io_address_space.register(Box::new(post_debug))?;
+    io_address_space.register(Box::new(coprocessor))?;
+    io_address_space.register(Box::new(pic))?;
+    io_address_space.register(Box::new(vga))?;
+    io_address_space.register(Box::new(pci))?;
     io_address_space.register(Box::new(i8042))?;
     io_address_space.register(Box::new(Dummy))?;
 
-    Ok(io_address_space)
+    Ok(())
 }

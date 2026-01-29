@@ -144,17 +144,13 @@ where
     }
 
     fn get_vcpus(&self) -> anyhow::Result<&Vec<KvmVcpu>> {
-        Ok(self
-            .vcpus
-            .get()
-            .ok_or_else(|| anyhow!("vcpus is not init"))?)
+        self.vcpus.get().ok_or_else(|| anyhow!("vcpus is not init"))
     }
 
     fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<KvmVcpu>> {
-        Ok(self
-            .vcpus
+        self.vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpus is not init"))?)
+            .ok_or_else(|| anyhow!("vcpus is not init"))
     }
 
     fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()> {

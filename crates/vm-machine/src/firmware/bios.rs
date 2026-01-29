@@ -1,4 +1,3 @@
-use vm_bootloader::linux::bzimage::KERNEL_START;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 
@@ -115,55 +114,58 @@ const BIOS_OFFSET: usize = 0xf000;
 impl Bios {
     pub fn init<C>(
         &self,
-        memory: &mut MemoryAddressSpace<C>,
-        memory_size: usize,
+        _memory: &mut MemoryAddressSpace<C>,
+        _memory_size: usize,
     ) -> anyhow::Result<()>
     where
         C: MemoryContainer,
     {
-        let bios_bin = include_bytes!("../../../../bios.bin");
-        {
-            memory.copy_from_slice(BIOS_OFFSET as u64, bios_bin, bios_bin.len())?;
-        }
+        todo!()
+        /*
+                let bios_bin = include_bytes!("../../../../bios.bin");
+                {
+                    memory.copy_from_slice(BIOS_OFFSET as u64, bios_bin, bios_bin.len())?;
+                }
 
-        {
-            let mut ivt = InterruptVectorTable::default();
-            for i in 0..256 {
-                ivt.set_entry(i, (BIOS_OFFSET + 0x30) as u32);
-            }
-            ivt.set_entry(0x10, (BIOS_OFFSET + 0x40) as u32);
-            ivt.set_entry(0x15, (BIOS_OFFSET + 0x80) as u32);
+                {
+                    let mut ivt = InterruptVectorTable::default();
+                    for i in 0..256 {
+                        ivt.set_entry(i, (BIOS_OFFSET + 0x30) as u32);
+                    }
+                    ivt.set_entry(0x10, (BIOS_OFFSET + 0x40) as u32);
+                    ivt.set_entry(0x15, (BIOS_OFFSET + 0x80) as u32);
 
-            memory.copy_from_slice(0, ivt.as_bytes(), ivt.len())?;
-        }
+                    memory.copy_from_slice(0, ivt.as_bytes(), ivt.len())?;
+                }
 
-        {
-            let mut e820 = E820Map::default();
-            e820.insert(E820Entry {
-                addr: 0,
-                size: 4 * 256,
-                typ: E820Type::Ram as u32,
-            });
-            e820.insert(E820Entry {
-                addr: BIOS_OFFSET as u64,
-                size: bios_bin.len() as u64,
-                typ: E820Type::Reserved as u32,
-            });
-            // trampoline
-            e820.insert(E820Entry {
-                addr: 0x70000u64,
-                size: 0x8000,
-                typ: E820Type::Ram as u32,
-            });
-            e820.insert(E820Entry {
-                addr: KERNEL_START as u64,
-                size: memory_size as u64 - KERNEL_START as u64,
-                typ: E820Type::Ram as u32,
-            });
+                {
+                    let mut e820 = E820Map::default();
+                    e820.insert(E820Entry {
+                        addr: 0,
+                        size: 4 * 256,
+                        typ: E820Type::Ram as u32,
+                    });
+                    e820.insert(E820Entry {
+                        addr: BIOS_OFFSET as u64,
+                        size: bios_bin.len() as u64,
+                        typ: E820Type::Reserved as u32,
+                    });
+                    // trampoline
+                    e820.insert(E820Entry {
+                        addr: 0x70000u64,
+                        size: 0x8000,
+                        typ: E820Type::Ram as u32,
+                    });
+                    e820.insert(E820Entry {
+                        addr: KERNEL_START as u64,
+                        size: memory_size as u64 - KERNEL_START as u64,
+                        typ: E820Type::Ram as u32,
+                    });
 
-            memory.copy_from_slice(0x0009fc00, e820.as_bytes(), std::mem::size_of::<E820Map>())?;
-        }
+                    memory.copy_from_slice(0x0009fc00, e820.as_bytes(), std::mem::size_of::<E820Map>())?;
+                }
 
-        Ok(())
+                Ok(())
+        */
     }
 }

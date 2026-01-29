@@ -45,6 +45,9 @@ fn main() -> anyhow::Result<()> {
 
             #[cfg(target_arch = "x86_64")]
             {
+                use vm_core::arch::x86_64::X86_64;
+                use vm_core::virt::kvm::KvmVirt;
+
                 let mut vm: Vm<KvmVirt<X86_64>> = VmBuilder {
                     memory_size: args.memory << 30,
                     vcpus: args.cpus,
