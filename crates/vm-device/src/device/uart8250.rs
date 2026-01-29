@@ -479,12 +479,8 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
 }
 
 impl<const IRQ: u32> MmioDevice for Uart8250<IRQ> {
-    fn mmio_ranges(&self) -> Vec<MmioRange> {
-        if let Some(mmio_range) = self.mmio_range {
-            vec![mmio_range]
-        } else {
-            vec![]
-        }
+    fn mmio_range(&self) -> &MmioRange {
+        self.mmio_range.as_ref().unwrap()
     }
 
     fn mmio_read(&mut self, offset: u64, _len: usize, data: &mut [u8]) {
