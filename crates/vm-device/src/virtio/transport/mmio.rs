@@ -1,12 +1,20 @@
 use strum_macros::FromRepr;
+use tracing::debug;
+use tracing::error;
+use tracing::warn;
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
 use vm_fdt::FdtWriter;
 
 use crate::virtio::device::Subsystem;
+use crate::virtio::transport::Result as VirtIoResult;
+use crate::virtio::transport::VirtIo;
+use crate::virtio::transport::VirtIoError;
 
-#[derive(FromRepr)]
+const DEVICE_SPECIFIC_CONFIGURATION_OFFSET: usize = 0x100;
+
+#[derive(Debug, FromRepr)]
 #[repr(u16)]
 pub enum ControlRegister {
     /* Control registers */
@@ -38,10 +46,10 @@ pub enum ControlRegister {
     QueueSel = 0x030,
 
     /// Maximum queue size - Read Only
-    QueueNumMax = 0x034,
+    QueueSizeMax = 0x034,
 
     /// Queue size - Write Only
-    QueueNum = 0x038,
+    QueueSize = 0x038,
 
     /// Queue ready - Read Write
     QueueReady = 0x044,
@@ -95,83 +103,63 @@ pub enum ControlRegister {
     ConfigGeneration = 0x0fc,
 }
 
-pub trait VirtIoMmio {
-    type Subsystem: Subsystem;
-
-    const NAME: &str;
-
+pub trait VirtIoMmio: VirtIo {
     fn mmio_range(&self) -> &MmioRange;
 
     fn interrupts(&self) -> Option<&[u32]>;
 
-    fn write_control_register(&mut self, reg: ControlRegister, len: usize, data: &[u8]) {
-        assert_eq!(len, 4);
-        assert_eq!(data.len(), 4);
-        let _val = u32::from_le_bytes(data.try_into().unwrap());
+    fn write_control_register(&mut self, reg: ControlRegister, val: u32) -> VirtIoResult<()> {
+        debug!(name = Self::NAME, ?reg, val, "write");
 
         match reg {
-            ControlRegister::MagicValue => unreachable!("RO"),
-            ControlRegister::Version => unreachable!("RO"),
-            ControlRegister::DeviceId => unreachable!("RO"),
-            ControlRegister::VendorId => unreachable!("RO"),
-            ControlRegister::DeviceFeatures => unreachable!("RO"),
-            ControlRegister::DeviceFeaturesSel => todo!(),
-            ControlRegister::DriverFeatures => todo!(),
-            ControlRegister::DriverFeaturesSel => todo!(),
-            ControlRegister::QueueSel => todo!(),
-            ControlRegister::QueueNumMax => unreachable!("RO"),
-            ControlRegister::QueueNum => todo!(),
-            ControlRegister::QueueReady => todo!(),
+            ControlRegister::DeviceFeaturesSel => self.write_device_feature_sel(val),
+            ControlRegister::DriverFeatures => self.write_driver_features(val),
+            ControlRegister::DriverFeaturesSel => self.write_driver_feature_sel(val),
+            ControlRegister::QueueSel => self.write_queue_sel(val),
+            ControlRegister::QueueSize => self.write_queue_size(val),
+            ControlRegister::QueueReady => self.write_queue_ready(val != 0),
             ControlRegister::QueueNotify => todo!(),
-            ControlRegister::InterruptStatus => unreachable!("RO"),
             ControlRegister::InterruptAck => todo!(),
-            ControlRegister::Status => todo!(),
-            ControlRegister::QueueDescLow => todo!(),
-            ControlRegister::QueueDescHigh => todo!(),
-            ControlRegister::QueueAvailLow => todo!(),
-            ControlRegister::QueueAvailHigh => todo!(),
-            ControlRegister::QueueUsedLow => todo!(),
-            ControlRegister::QueueUsedHigh => todo!(),
+            ControlRegister::Status => {
+                self.write_status(val.try_into().map_err(|_| VirtIoError::InvalidFlagLen)?)
+            }
+            ControlRegister::QueueDescLow => self.write_queue_desc_low(val),
+            ControlRegister::QueueDescHigh => self.write_queue_desc_high(val),
+            ControlRegister::QueueAvailLow => self.write_queue_avail_low(val),
+            ControlRegister::QueueAvailHigh => self.write_queue_avail_high(val),
+            ControlRegister::QueueUsedLow => self.write_queue_used_low(val),
+            ControlRegister::QueueUsedHigh => self.write_queue_used_high(val),
             ControlRegister::ShmSel => todo!(),
-            ControlRegister::ShmLenLow => unreachable!("RO"),
-            ControlRegister::ShmLenHigh => unreachable!("RO"),
             ControlRegister::ShmBaseLow => todo!(),
             ControlRegister::ShmBaseHigh => todo!(),
-            ControlRegister::ConfigGeneration => unreachable!("RO"),
+            _ => unreachable!("Try to write a read-only register {reg:?}"),
         }
+
+        Ok(())
     }
 
-    fn read_control_register(&mut self, reg: ControlRegister, _len: usize, _data: &mut [u8]) {
-        match reg {
-            ControlRegister::MagicValue => todo!(),
-            ControlRegister::Version => todo!(),
-            ControlRegister::DeviceId => todo!(),
-            ControlRegister::VendorId => todo!(),
-            ControlRegister::DeviceFeatures => todo!(),
-            ControlRegister::DeviceFeaturesSel => todo!(),
-            ControlRegister::DriverFeatures => todo!(),
-            ControlRegister::DriverFeaturesSel => todo!(),
-            ControlRegister::QueueSel => todo!(),
-            ControlRegister::QueueNumMax => todo!(),
-            ControlRegister::QueueNum => todo!(),
-            ControlRegister::QueueReady => todo!(),
-            ControlRegister::QueueNotify => todo!(),
+    fn read_control_register(&mut self, reg: ControlRegister) -> VirtIoResult<u32> {
+        let v = match reg {
+            ControlRegister::MagicValue => 0x74726976, // string `virt`
+            ControlRegister::Version => 0x2,           // only support new version
+            ControlRegister::DeviceId => Self::Subsystem::DEVICE_ID,
+            ControlRegister::VendorId => 0x554d4551, // string `QEMU`
+            ControlRegister::DeviceFeatures => self.read_device_features(),
+            ControlRegister::QueueSizeMax => self.read_queue_size_max(),
+            ControlRegister::QueueReady => self.read_queue_ready() as u32,
             ControlRegister::InterruptStatus => todo!(),
-            ControlRegister::InterruptAck => todo!(),
-            ControlRegister::Status => todo!(),
-            ControlRegister::QueueDescLow => todo!(),
-            ControlRegister::QueueDescHigh => todo!(),
-            ControlRegister::QueueAvailLow => todo!(),
-            ControlRegister::QueueAvailHigh => todo!(),
-            ControlRegister::QueueUsedLow => todo!(),
-            ControlRegister::QueueUsedHigh => todo!(),
-            ControlRegister::ShmSel => todo!(),
+            ControlRegister::Status => self.read_status().as_u32(),
             ControlRegister::ShmLenLow => todo!(),
             ControlRegister::ShmLenHigh => todo!(),
             ControlRegister::ShmBaseLow => todo!(),
             ControlRegister::ShmBaseHigh => todo!(),
-            ControlRegister::ConfigGeneration => todo!(),
-        }
+            ControlRegister::ConfigGeneration => self.read_config_generation(),
+            _ => unreachable!("Try to read a write-only register {reg:?}"),
+        };
+
+        debug!(name = Self::NAME, ?reg, v, "read");
+
+        Ok(v)
     }
 
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
@@ -205,7 +193,7 @@ where
 
 impl<T> Device for VirtIoMmioAdaptor<T>
 where
-    T: VirtIoMmio,
+    T: VirtIoMmio + Subsystem,
 {
     fn name(&self) -> &str {
         T::NAME
@@ -222,18 +210,73 @@ where
 
 impl<T> MmioDevice for VirtIoMmioAdaptor<T>
 where
-    T: VirtIoMmio,
+    T: VirtIoMmio + Subsystem,
 {
     fn mmio_range(&self) -> &MmioRange {
         self.0.mmio_range()
     }
 
-    fn mmio_read(&mut self, _offset: u64, _len: usize, _data: &mut [u8]) {
-        todo!()
+    fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]) {
+        let offset: usize = offset.try_into().unwrap();
+        if offset < DEVICE_SPECIFIC_CONFIGURATION_OFFSET {
+            if let Some(reg) = ControlRegister::from_repr(offset as u16) {
+                assert_eq!(len, 4);
+                assert_eq!(data.len(), 4);
+
+                let val = self.0.read_control_register(reg).unwrap();
+                data.copy_from_slice(&val.to_le_bytes());
+            } else {
+                warn!(
+                    device = self.name(),
+                    offset,
+                    len,
+                    ?data,
+                    "read from invalid offset of virtio-mmio device"
+                );
+            }
+        } else if let Err(err) = self.0.read_device_configuration(
+            offset - DEVICE_SPECIFIC_CONFIGURATION_OFFSET,
+            len,
+            data,
+        ) {
+            error!(
+                name = self.name(),
+                ?err,
+                "Failed to read device configuration"
+            );
+        }
     }
 
-    fn mmio_write(&mut self, _offset: u64, _len: usize, _data: &[u8]) {
-        todo!()
+    fn mmio_write(&mut self, offset: u64, len: usize, data: &[u8]) {
+        let offset: usize = offset.try_into().unwrap();
+        if offset < DEVICE_SPECIFIC_CONFIGURATION_OFFSET {
+            if let Some(reg) = ControlRegister::from_repr(offset as u16) {
+                assert_eq!(len, 4);
+                assert_eq!(data.len(), 4);
+
+                self.0
+                    .write_control_register(reg, u32::from_le_bytes(data.try_into().unwrap()))
+                    .unwrap();
+            } else {
+                warn!(
+                    device = self.name(),
+                    offset,
+                    len,
+                    ?data,
+                    "write from invalid offset of virtio-mmio device"
+                );
+            }
+        } else if let Err(err) = self.0.write_device_configuration(
+            offset - DEVICE_SPECIFIC_CONFIGURATION_OFFSET,
+            len,
+            data,
+        ) {
+            error!(
+                name = self.name(),
+                ?err,
+                "Failed to write device configuration"
+            );
+        }
     }
 
     fn generate_dt(&self, fdt: &mut vm_fdt::FdtWriter) -> Result<(), vm_fdt::Error> {
