@@ -526,7 +526,6 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
- "zerocopy",
 ]
 
 [[package]]
@@ -545,7 +544,6 @@ dependencies = [
  "lazy_static",
  "maplit",
  "nix",
- "termios",
  "thiserror",
  "tracing",
  "vm-bootloader",
