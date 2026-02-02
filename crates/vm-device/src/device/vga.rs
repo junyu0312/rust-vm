@@ -6,8 +6,8 @@ use vm_core::device::pio::PortRange;
 pub struct Vga;
 
 impl Device for Vga {
-    fn name(&self) -> &str {
-        "vga"
+    fn name(&self) -> String {
+        "vga".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {

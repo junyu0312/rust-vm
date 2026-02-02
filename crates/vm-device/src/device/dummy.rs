@@ -5,8 +5,8 @@ use vm_core::device::pio::PortRange;
 pub struct Dummy;
 
 impl Device for Dummy {
-    fn name(&self) -> &str {
-        "dummy"
+    fn name(&self) -> String {
+        "dummy".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {

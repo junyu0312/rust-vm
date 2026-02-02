@@ -17,6 +17,9 @@ pub struct MmapMemory {
     len: usize,
 }
 
+unsafe impl Send for MmapMemory {}
+unsafe impl Sync for MmapMemory {}
+
 impl Drop for MmapMemory {
     fn drop(&mut self) {
         let _ = unsafe { munmap(self.ptr as *mut c_void, self.len) };

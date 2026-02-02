@@ -1,10 +1,16 @@
 use std::io;
 use std::io::Write;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::mpsc::Receiver;
+use std::thread;
 
+use bitflags::Flags;
 use strum_macros::FromRepr;
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
+use vm_core::irq::InterruptController;
 use vm_core::irq::arch::aarch64::GIC_SPI;
 use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
 use vm_fdt::FdtWriter;
@@ -17,6 +23,7 @@ use crate::device::pl011::ibrd::Ibrd;
 use crate::device::pl011::ifls::Ifls;
 use crate::device::pl011::imsc::Imsc;
 use crate::device::pl011::lcrh::LcrH;
+use crate::device::pl011::ris::Ris;
 
 mod dr {
     use bitflags::bitflags;
@@ -180,6 +187,48 @@ mod imsc {
     }
 }
 
+mod ris {
+    use bitflags::bitflags;
+
+    bitflags! {
+        #[derive(Default)]
+        pub struct Ris: u16 {
+            const OERIS = 1 << 10;
+            const BERIS = 1 << 9;
+            const PERIS = 1 << 8;
+            const FERIS = 1 << 7;
+            const RTRIS = 1 << 6;
+            const TXRIS = 1 << 5;
+            const RXRIS = 1 << 4;
+            const DSRRMIS = 1 << 3;
+            const DCDRMIS = 1 << 2;
+            const CTSRMIS = 1 << 1;
+            const RIRMIS = 1 << 0;
+        }
+    }
+}
+
+mod icr {
+    use bitflags::bitflags;
+
+    bitflags! {
+        #[derive(Default)]
+        pub struct Icr: u16 {
+            const OEIC = 1 << 10;
+            const BEIC = 1 << 9;
+            const PEIC = 1 << 8;
+            const FEIC = 1 << 7;
+            const RTIC = 1 << 6;
+            const TXIC = 1 << 5;
+            const RXIC = 1 << 4;
+            const DSRMIC = 1 << 3;
+            const DCDMIC = 1 << 2;
+            const CTSMIC = 1 << 1;
+            const RIMIC = 1 << 0;
+        }
+    }
+}
+
 #[derive(Debug, FromRepr)]
 #[repr(u16)]
 enum Register {
@@ -191,6 +240,8 @@ enum Register {
     Cr = 0x30,
     Ifls = 0x34,
     Imsc = 0x38,
+    Ris = 0x3c,
+    Mis = 0x40,
     Icr = 0x44,
     Macr = 0x48,
     PeriphID0 = 0xfe0,
@@ -203,9 +254,9 @@ enum Register {
     CellId3 = 0xffc,
 }
 
-#[allow(dead_code)]
-pub struct Pl011 {
+struct Pl011Internal<const IRQ: u32> {
     mmio_range: MmioRange,
+    irq_chip: Arc<dyn InterruptController>,
 
     dr: Dr,
     fr: Fr,
@@ -215,19 +266,21 @@ pub struct Pl011 {
     cr: Cr,
     ifls: Ifls,
     imsc: Imsc,
+    ris: Ris,
 
     tx_fifo: [u8; 32],
     tx_r_cursor: usize,
     tx_w_cursor: usize,
-    rx_fifo: [u16; 32], // 12bit-wide(data and error bits)
+    rx_fifo: [Option<u16>; 32], // 12bit-wide(data and error bits), option to indicate thr's status
     rx_r_cursor: usize,
     rx_w_cursor: usize,
 }
 
-impl Pl011 {
-    pub fn new(mmio_range: MmioRange) -> Self {
-        Pl011 {
+impl<const IRQ: u32> Pl011Internal<IRQ> {
+    fn new(mmio_range: MmioRange, irq_chip: Arc<dyn InterruptController>) -> Self {
+        Pl011Internal {
             mmio_range,
+            irq_chip,
             dr: Dr::default(),
             fr: Fr::default(),
             ibrd: Ibrd::default(),
@@ -236,6 +289,7 @@ impl Pl011 {
             cr: Cr::default(),
             ifls: Ifls::default(),
             imsc: Imsc::default(),
+            ris: Ris::default(),
             tx_fifo: Default::default(),
             tx_r_cursor: Default::default(),
             tx_w_cursor: Default::default(),
@@ -249,6 +303,21 @@ impl Pl011 {
         self.lcr_h.fen()
     }
 
+    fn read_dr(&mut self, len: usize, data: &mut [u8]) {
+        assert_eq!(len, 2);
+        if self.fifo_enabled() {
+            let d = self.rx_fifo[self.rx_r_cursor].unwrap_or_default();
+            self.rx_r_cursor = (self.rx_r_cursor + 1) % 32;
+            data.copy_from_slice(&d.to_le_bytes());
+        } else {
+            let d = self.rx_fifo[0].unwrap_or_default();
+            self.rx_fifo[0] = None;
+            data.copy_from_slice(&d.to_le_bytes());
+        }
+
+        self.update();
+    }
+
     fn write_dr(&mut self, _len: usize, data: &[u8]) {
         /*
          For words to be transmitted:
@@ -260,12 +329,12 @@ impl Pl011 {
         print!("{}", data[0] as char);
         io::stdout().flush().unwrap();
 
-        if self.fifo_enabled() {
-            self.tx_fifo[self.tx_w_cursor] = data[0];
-            self.tx_w_cursor += 1;
-        } else {
-            self.tx_fifo[0] = data[0];
-        }
+        // if self.fifo_enabled() {
+        //     self.tx_fifo[self.tx_w_cursor] = data[0];
+        //     self.tx_w_cursor += 1;
+        // } else {
+        //     self.tx_fifo[0] = data[0];
+        // }
     }
 
     fn read_fr(&self, _len: usize, data: &mut [u8]) {
@@ -327,14 +396,26 @@ impl Pl011 {
         data[0..2].copy_from_slice(&self.imsc.bits().to_le_bytes());
     }
 
+    fn read_ris(&self, _len: usize, data: &mut [u8]) {
+        data[0..2].copy_from_slice(&self.ris.bits().to_le_bytes());
+    }
+
     fn write_imsc(&mut self, len: usize, data: &[u8]) {
         let mut buf = [0; 2];
         buf[0..len].copy_from_slice(data);
         self.imsc = Imsc::from_bits_truncate(u16::from_le_bytes(buf));
     }
 
-    fn write_icr(&mut self, _len: usize, _data: &[u8]) {
-        // TODO: clear interrupt
+    fn write_icr(&mut self, len: usize, data: &[u8]) {
+        assert_eq!(len, 2);
+        assert_eq!(data.len(), 2);
+
+        let _icr = u16::from_le_bytes(data.try_into().unwrap());
+
+        // I dont know why, the Linux kernel always write 0
+        // self.ris.remove(Ris::from_bits_truncate(icr));
+        self.ris.clear();
+        self.update();
     }
 
     fn read_periph_id0(&self, data: &mut [u8]) {
@@ -376,11 +457,68 @@ impl Pl011 {
         // data.fill(0);
         data[0] = 0xb1;
     }
+
+    fn stdio(&mut self, e: u8) {
+        if self.fr.contains(Fr::RXFF) {
+            return;
+        }
+
+        if self.fifo_enabled() {
+            self.rx_fifo[self.rx_w_cursor] = Some(e as u16);
+            self.rx_w_cursor = (self.rx_w_cursor + 1) % 32;
+        } else {
+            self.rx_fifo[0] = Some(e as u16);
+        }
+
+        self.update();
+    }
+
+    fn update(&mut self) {
+        if self.fifo_enabled() {
+            if (self.rx_w_cursor + 1) % 32 == self.rx_r_cursor {
+                self.fr.insert(Fr::RXFF);
+            } else {
+                self.fr.remove(Fr::RXFF);
+            }
+
+            if self.rx_w_cursor == self.rx_r_cursor {
+                self.fr.insert(Fr::RXFE);
+            } else {
+                self.fr.remove(Fr::RXFE);
+            }
+        } else {
+            if self.rx_fifo[0].is_some() {
+                self.fr.insert(Fr::RXFF);
+            } else {
+                self.fr.remove(Fr::RXFF);
+            }
+
+            if self.rx_fifo[0].is_none() {
+                self.fr.insert(Fr::RXFE);
+            } else {
+                self.fr.remove(Fr::RXFE);
+            }
+        }
+
+        if !self.fr.contains(Fr::RXFE) {
+            self.ris.insert(Ris::RXRIS);
+        }
+
+        if self.imsc.contains(Imsc::RXIM) && self.ris.contains(Ris::RXRIS) {
+            self.trigger_irq(true);
+        } else {
+            self.trigger_irq(false);
+        }
+    }
+
+    fn trigger_irq(&self, active: bool) {
+        self.irq_chip.trigger_irq(32 + IRQ, active);
+    }
 }
 
-impl Device for Pl011 {
-    fn name(&self) -> &str {
-        "pl011"
+impl<const IRQ: u32> Device for Pl011Internal<IRQ> {
+    fn name(&self) -> String {
+        "pl011".to_string()
     }
 
     fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
@@ -392,16 +530,17 @@ impl Device for Pl011 {
     }
 }
 
-impl MmioDevice for Pl011 {
-    fn mmio_range(&self) -> &MmioRange {
-        &self.mmio_range
+impl<const IRQ: u32> MmioDevice for Pl011Internal<IRQ> {
+    fn mmio_range(&self) -> MmioRange {
+        self.mmio_range
     }
 
     fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]) {
         let offset: u16 = offset.try_into().unwrap();
         let reg = Register::from_repr(offset).unwrap();
+
         match reg {
-            Register::Dr => todo!(),
+            Register::Dr => self.read_dr(len, data),
             Register::Fr => self.read_fr(len, data),
             Register::Ibrd => self.read_ibrd(len, data),
             Register::Fbrd => self.read_fbrd(len, data),
@@ -409,6 +548,8 @@ impl MmioDevice for Pl011 {
             Register::Cr => self.read_cr(len, data),
             Register::Ifls => self.read_ifls(len, data),
             Register::Imsc => self.read_imsc(len, data),
+            Register::Ris => self.read_ris(len, data),
+            Register::Mis => todo!(),
             Register::Icr => unreachable!("WO"),
             Register::Macr => todo!(),
             Register::PeriphID0 => self.read_periph_id0(data),
@@ -435,6 +576,8 @@ impl MmioDevice for Pl011 {
             Register::Cr => self.write_cr(len, data),
             Register::Ifls => self.write_ifls(len, data),
             Register::Imsc => self.write_imsc(len, data),
+            Register::Ris => (), // A write has no effect
+            Register::Mis => (), // A write has no effect
             Register::Icr => self.write_icr(len, data),
             Register::Macr => todo!(),
             Register::PeriphID0 => unreachable!("RO"),
@@ -469,7 +612,7 @@ impl MmioDevice for Pl011 {
             vec!["arm,pl011".to_string(), "arm,primecell".to_string()],
         )?;
         fdt.property_array_u64("reg", &[self.mmio_range.start, self.mmio_range.len as u64])?;
-        fdt.property_array_u32("interrupts", &[GIC_SPI, 1, IRQ_TYPE_LEVEL_HIGH])?;
+        fdt.property_array_u32("interrupts", &[GIC_SPI, IRQ, IRQ_TYPE_LEVEL_HIGH])?;
         fdt.property_array_u32("clocks", &[3, 3])?;
         fdt.property_string_list(
             "clock-names",
@@ -478,5 +621,81 @@ impl MmioDevice for Pl011 {
         fdt.end_node(node)?;
 
         Ok(())
+    }
+}
+
+pub struct Pl011<const IRQ: u32>(Arc<Mutex<Pl011Internal<IRQ>>>);
+
+impl<const IRQ: u32> Pl011<IRQ> {
+    pub fn new(
+        mmio_range: MmioRange,
+        irq_chip: Arc<dyn InterruptController>,
+        rx: Receiver<u8>,
+    ) -> Self {
+        let pl011 = Pl011Internal {
+            mmio_range,
+            irq_chip,
+            dr: Dr::default(),
+            fr: Fr::default(),
+            ibrd: Ibrd::default(),
+            fbrd: Fbrd::default(),
+            lcr_h: LcrH::default(),
+            cr: Cr::default(),
+            ifls: Ifls::default(),
+            imsc: Imsc::default(),
+            ris: Ris::default(),
+            tx_fifo: Default::default(),
+            tx_r_cursor: Default::default(),
+            tx_w_cursor: Default::default(),
+            rx_fifo: Default::default(),
+            rx_r_cursor: Default::default(),
+            rx_w_cursor: Default::default(),
+        };
+
+        let pl011 = Arc::new(Mutex::new(pl011));
+
+        thread::spawn({
+            let pl011 = pl011.clone();
+            move || {
+                while let Ok(byte) = rx.recv() {
+                    let mut pl011 = pl011.lock().unwrap();
+                    pl011.stdio(byte);
+                }
+            }
+        });
+
+        Self(pl011)
+    }
+}
+
+impl<const IRQ: u32> Device for Pl011<IRQ> {
+    fn name(&self) -> String {
+        self.0.lock().unwrap().name()
+    }
+
+    fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
+        Some(self)
+    }
+
+    fn as_mmio_device_mut(&mut self) -> Option<&mut dyn MmioDevice> {
+        Some(self)
+    }
+}
+
+impl<const IRQ: u32> MmioDevice for Pl011<IRQ> {
+    fn mmio_range(&self) -> MmioRange {
+        self.0.lock().unwrap().mmio_range()
+    }
+
+    fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]) {
+        self.0.lock().unwrap().mmio_read(offset, len, data);
+    }
+
+    fn mmio_write(&mut self, offset: u64, len: usize, data: &[u8]) {
+        self.0.lock().unwrap().mmio_write(offset, len, data);
+    }
+
+    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
+        self.0.lock().unwrap().generate_dt(fdt)
     }
 }

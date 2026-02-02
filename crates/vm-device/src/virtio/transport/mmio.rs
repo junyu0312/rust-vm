@@ -104,7 +104,7 @@ pub enum ControlRegister {
 }
 
 pub trait VirtIoMmio: VirtIo {
-    fn mmio_range(&self) -> &MmioRange;
+    fn mmio_range(&self) -> MmioRange;
 
     fn interrupts(&self) -> Option<&[u32]>;
 
@@ -116,19 +116,19 @@ pub trait VirtIoMmio: VirtIo {
             ControlRegister::DriverFeatures => self.write_driver_features(val),
             ControlRegister::DriverFeaturesSel => self.write_driver_feature_sel(val),
             ControlRegister::QueueSel => self.write_queue_sel(val),
-            ControlRegister::QueueSize => self.write_queue_size(val),
+            ControlRegister::QueueSize => self.write_queue_size(val.try_into().unwrap()),
             ControlRegister::QueueReady => self.write_queue_ready(val != 0),
-            ControlRegister::QueueNotify => todo!(),
-            ControlRegister::InterruptAck => todo!(),
+            ControlRegister::QueueNotify => self.write_queue_notify(val),
+            ControlRegister::InterruptAck => self.write_interrupt_ack(val),
             ControlRegister::Status => {
                 self.write_status(val.try_into().map_err(|_| VirtIoError::InvalidFlagLen)?)
             }
             ControlRegister::QueueDescLow => self.write_queue_desc_low(val),
             ControlRegister::QueueDescHigh => self.write_queue_desc_high(val),
-            ControlRegister::QueueAvailLow => self.write_queue_avail_low(val),
-            ControlRegister::QueueAvailHigh => self.write_queue_avail_high(val),
-            ControlRegister::QueueUsedLow => self.write_queue_used_low(val),
-            ControlRegister::QueueUsedHigh => self.write_queue_used_high(val),
+            ControlRegister::QueueAvailLow => self.write_queue_driver_low(val),
+            ControlRegister::QueueAvailHigh => self.write_queue_driver_high(val),
+            ControlRegister::QueueUsedLow => self.write_queue_device_low(val),
+            ControlRegister::QueueUsedHigh => self.write_queue_device_high(val),
             ControlRegister::ShmSel => todo!(),
             ControlRegister::ShmBaseLow => todo!(),
             ControlRegister::ShmBaseHigh => todo!(),
@@ -147,7 +147,7 @@ pub trait VirtIoMmio: VirtIo {
             ControlRegister::DeviceFeatures => self.read_device_features(),
             ControlRegister::QueueSizeMax => self.read_queue_size_max(),
             ControlRegister::QueueReady => self.read_queue_ready() as u32,
-            ControlRegister::InterruptStatus => todo!(),
+            ControlRegister::InterruptStatus => self.read_interrupt_status(),
             ControlRegister::Status => self.read_status().as_u32(),
             ControlRegister::ShmLenLow => todo!(),
             ControlRegister::ShmLenHigh => todo!(),
@@ -191,12 +191,24 @@ where
     }
 }
 
+impl<T> AsRef<T> for VirtIoMmioAdaptor<T> {
+    fn as_ref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T> AsMut<T> for VirtIoMmioAdaptor<T> {
+    fn as_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+}
+
 impl<T> Device for VirtIoMmioAdaptor<T>
 where
     T: VirtIoMmio + Subsystem,
 {
-    fn name(&self) -> &str {
-        T::NAME
+    fn name(&self) -> String {
+        T::NAME.to_string()
     }
 
     fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
@@ -212,7 +224,7 @@ impl<T> MmioDevice for VirtIoMmioAdaptor<T>
 where
     T: VirtIoMmio + Subsystem,
 {
-    fn mmio_range(&self) -> &MmioRange {
+    fn mmio_range(&self) -> MmioRange {
         self.0.mmio_range()
     }
 

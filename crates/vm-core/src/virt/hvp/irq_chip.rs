@@ -32,7 +32,7 @@ impl HvpGicV3 {
 
 impl InterruptController for HvpGicV3 {
     fn trigger_irq(&self, irq_line: u32, active: bool) {
-        assert!(irq_line >= 32);
+        // assert!(irq_line >= 32);
 
         if let Err(err) = self.vm.gic_set_spi(irq_line, active) {
             warn!(irq_line, ?err, "Failed to send spi");

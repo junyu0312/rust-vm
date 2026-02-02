@@ -6,27 +6,18 @@ use tracing::debug;
 use tracing::warn;
 
 use crate::virtio::device::Subsystem;
+use crate::virtio::device::virtio_input::linux_evdev::EventTypes;
 use crate::virtio::transport::Result;
 use crate::virtio::transport::VirtIo;
 use crate::virtio::transport::VirtIoError;
 
-pub const VIRTIO_INPUT_VIRT_QUEUE: u32 = 2; // 0. eventq, 1: statusq
+pub mod linux_evdev;
+pub mod virtio_input_event;
 
-#[derive(FromRepr)]
-#[repr(u8)]
-pub enum Ev {
-    Syn = 0x00,
-    Key = 0x01,
-    Rel = 0x02,
-    Abs = 0x03,
-    Msc = 0x04,
-    Sw = 0x05,
-    Led = 0x11,
-    Snd = 0x12,
-    Rep = 0x14,
-    Ff = 0x15,
-    Pwr = 0x16,
-}
+pub const VIRTIO_INPUT_EVENTS_Q: usize = 0;
+pub const VIRTIO_INPUT_STATUS_Q: usize = 1;
+
+pub const VIRTIO_INPUT_VIRT_QUEUE: u32 = 2; // 0. eventq, 1: statusq
 
 #[derive(Clone, Copy, Default, Debug, FromRepr)]
 #[repr(u8)]
@@ -115,7 +106,7 @@ pub trait VirtIOInput: VirtIo {
 
     fn serial(&self) -> &str;
 
-    fn bitmap_of_ev(&self, ev: Ev) -> Option<&[u8]>;
+    fn bitmap_of_ev(&self, ev: EventTypes) -> Option<&[u8]>;
 
     fn get_virtio_input_config(&self) -> &VirtioInputConfig;
 
@@ -178,7 +169,7 @@ pub trait VirtIOInput: VirtIo {
                     cfg.u.bitmap = bitmap;
                 }
             }
-            (InputConfigSelect::EvBits, subsel) => match Ev::from_repr(subsel) {
+            (InputConfigSelect::EvBits, subsel) => match EventTypes::from_repr(subsel) {
                 Some(ev) => {
                     if let Some(bitmap) = self.bitmap_of_ev(ev) {
                         // TODO: Avoid the clone

@@ -486,6 +486,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "termios",
  "thiserror",
  "tracing",
  "tracing-subscriber",
@@ -516,6 +517,7 @@ dependencies = [
 name = "vm-device"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bitflags 2.10.0",
  "lazy_static",
  "maplit",
@@ -524,6 +526,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "zerocopy",
 ]
 
 [[package]]

@@ -6,8 +6,8 @@ use vm_core::device::pio::PortRange;
 pub struct Coprocessor;
 
 impl Device for Coprocessor {
-    fn name(&self) -> &str {
-        "coprocessor"
+    fn name(&self) -> String {
+        "coprocessor".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {
