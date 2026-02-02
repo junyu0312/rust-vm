@@ -13,6 +13,12 @@ pub enum VirtIoError {
 
     #[error("invalid read device-configuration from driver")]
     DriverReadDeviceConfigurationInvalid,
+
+    #[error("try to access an unready virtqueue")]
+    AccessVirtqueueNotReady,
+
+    #[error("access invalid gpa")]
+    AccessInvalidGpa,
 }
 
 pub type Result<T> = core::result::Result<T, VirtIoError>;
@@ -37,11 +43,17 @@ pub trait VirtIo {
 
     fn read_queue_size_max(&self) -> u32;
 
-    fn write_queue_size(&mut self, size: u32);
+    fn write_queue_size(&mut self, size: u16);
 
     fn read_queue_ready(&self) -> bool;
 
     fn write_queue_ready(&mut self, queue_ready: bool);
+
+    fn write_queue_notify(&mut self, val: u32);
+
+    fn read_interrupt_status(&self) -> u32;
+
+    fn write_interrupt_ack(&mut self, val: u32);
 
     fn read_status(&self) -> Status;
 
@@ -59,13 +71,13 @@ pub trait VirtIo {
 
     fn write_queue_desc_high(&mut self, addr: u32);
 
-    fn write_queue_avail_low(&mut self, addr: u32);
+    fn write_queue_driver_low(&mut self, addr: u32);
 
-    fn write_queue_avail_high(&mut self, addr: u32);
+    fn write_queue_driver_high(&mut self, addr: u32);
 
-    fn write_queue_used_low(&mut self, addr: u32);
+    fn write_queue_device_low(&mut self, addr: u32);
 
-    fn write_queue_used_high(&mut self, addr: u32);
+    fn write_queue_device_high(&mut self, addr: u32);
 
     fn read_config_generation(&self) -> u32;
 }

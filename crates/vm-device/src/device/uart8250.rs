@@ -359,8 +359,8 @@ impl<const IRQ: u32> Uart8250<IRQ> {
 }
 
 impl<const IRQ: u32> Device for Uart8250<IRQ> {
-    fn name(&self) -> &str {
-        "uart8250"
+    fn name(&self) -> String {
+        "uart8250".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {
@@ -479,8 +479,8 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
 }
 
 impl<const IRQ: u32> MmioDevice for Uart8250<IRQ> {
-    fn mmio_range(&self) -> &MmioRange {
-        self.mmio_range.as_ref().unwrap()
+    fn mmio_range(&self) -> MmioRange {
+        self.mmio_range.unwrap()
     }
 
     fn mmio_read(&mut self, offset: u64, _len: usize, data: &mut [u8]) {

@@ -176,6 +176,7 @@ impl Vcpu<AArch64> for HvpVcpu {
                                 4 => self.vcpu.get_reg(hv_reg_t::X4),
                                 5 => self.vcpu.get_reg(hv_reg_t::X5),
                                 6 => self.vcpu.get_reg(hv_reg_t::X6),
+                                19 => self.vcpu.get_reg(hv_reg_t::X19),
                                 21 => self.vcpu.get_reg(hv_reg_t::X21),
                                 22 => self.vcpu.get_reg(hv_reg_t::X22),
                                 31 => Ok(0), // xzr

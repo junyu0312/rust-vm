@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
@@ -22,7 +23,7 @@ pub struct VmBuilder {
 }
 
 pub struct Vm<V: Virt> {
-    pub(crate) memory: MemoryAddressSpace<V::Memory>,
+    pub(crate) memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
     pub(crate) virt: V,
     pub(crate) irq_chip: Arc<V::Irq>,
     pub(crate) devices: IoAddressSpace,
@@ -58,11 +59,12 @@ impl VmBuilder {
 
         let mut memory = self.init_mm(layout.get_ram_base())?;
         virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)?;
+        let memory = Arc::new(Mutex::new(memory));
 
         virt.post_init()?;
 
         let mut devices = IoAddressSpace::new(mmio_layout);
-        init_device(&mut devices, irq_chip.clone())?;
+        init_device(memory.clone(), &mut devices, irq_chip.clone())?;
 
         /*
         #[cfg(target_arch = "x86_64")]
@@ -103,9 +105,11 @@ where
     V: Virt,
 {
     pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> anyhow::Result<()> {
+        let mut memory = self.memory.lock().unwrap();
+
         boot_loader.load(
             &mut self.virt,
-            &mut self.memory,
+            &mut memory,
             &self.irq_chip,
             self.devices.devices(),
         )?;

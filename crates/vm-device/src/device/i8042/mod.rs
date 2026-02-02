@@ -198,8 +198,8 @@ impl I8042 {
 }
 
 impl Device for I8042 {
-    fn name(&self) -> &str {
-        "i8042"
+    fn name(&self) -> String {
+        "i8042".to_string()
     }
 }
 

@@ -6,8 +6,8 @@ use vm_core::device::pio::PortRange;
 pub struct Pic;
 
 impl Device for Pic {
-    fn name(&self) -> &str {
-        "pic"
+    fn name(&self) -> String {
+        "pic".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {

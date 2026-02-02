@@ -4,7 +4,6 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
-use applevisor::memory::Memory;
 use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineConfig;
@@ -27,6 +26,7 @@ use crate::virt::Virt;
 use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
+use crate::virt::hvp::mm::MemoryWrapper;
 use crate::virt::hvp::vcpu::HvpVcpu;
 
 pub(crate) mod vcpu;
@@ -44,7 +44,7 @@ pub struct Hvp {
 impl Virt for Hvp {
     type Arch = AArch64;
     type Vcpu = HvpVcpu;
-    type Memory = Memory;
+    type Memory = MemoryWrapper;
     type Irq = HvpGicV3;
 
     fn new() -> Result<Self, VirtError> {
@@ -153,7 +153,7 @@ impl Virt for Hvp {
     fn init_memory(
         &mut self,
         _mmio_layout: &MmioLayout,
-        memory: &mut MemoryAddressSpace<Memory>,
+        memory: &mut MemoryAddressSpace<MemoryWrapper>,
         memory_size: u64,
     ) -> anyhow::Result<()> {
         let allocator = HvpAllocator {
@@ -164,7 +164,7 @@ impl Virt for Hvp {
             region.alloc(&allocator)?;
 
             let memory = region.memory.get_mut().unwrap();
-            memory.map(region.gpa, MemPerms::ReadWriteExec)?;
+            memory.0.map(region.gpa, MemPerms::ReadWriteExec)?;
         }
 
         self.get_layout_mut().set_ram_size(memory_size)?;

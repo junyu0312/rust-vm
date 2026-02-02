@@ -8,8 +8,8 @@ const PORT: u16 = 0x80;
 pub struct PostDebug;
 
 impl Device for PostDebug {
-    fn name(&self) -> &str {
-        "post_debug"
+    fn name(&self) -> String {
+        "post_debug".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {

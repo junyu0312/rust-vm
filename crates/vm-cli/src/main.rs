@@ -8,8 +8,10 @@ use vm_machine::vm::VmBuilder;
 
 use crate::cmd::Accel;
 use crate::cmd::Command;
+use crate::term::term_init;
 
 mod cmd;
+mod term;
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -22,6 +24,8 @@ fn main() -> anyhow::Result<()> {
 
     let args = Command::parse();
     debug!(?args);
+
+    term_init()?;
 
     match args.accel {
         #[cfg(feature = "kvm")]

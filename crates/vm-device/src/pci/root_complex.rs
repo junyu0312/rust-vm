@@ -99,8 +99,8 @@ impl PciRootComplex {
 }
 
 impl Device for PciRootComplex {
-    fn name(&self) -> &str {
-        "pci_root_complex"
+    fn name(&self) -> String {
+        "pci_root_complex".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {

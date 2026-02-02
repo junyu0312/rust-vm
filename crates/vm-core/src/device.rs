@@ -75,7 +75,7 @@ where
 }
 
 pub trait Device {
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {
         None

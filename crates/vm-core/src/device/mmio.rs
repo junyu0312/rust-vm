@@ -57,11 +57,11 @@ impl MmioLayout {
 }
 
 pub trait MmioDevice: Device {
-    fn mmio_range(&self) -> &MmioRange;
+    fn mmio_range(&self) -> MmioRange;
 
-    fn mmio_read(&mut self, _offset: u64, _len: usize, _data: &mut [u8]);
+    fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]);
 
-    fn mmio_write(&mut self, _offset: u64, _len: usize, _data: &[u8]);
+    fn mmio_write(&mut self, offset: u64, len: usize, data: &[u8]);
 
-    fn generate_dt(&self, _fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error>;
+    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error>;
 }

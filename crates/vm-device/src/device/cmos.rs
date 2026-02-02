@@ -6,8 +6,8 @@ use vm_core::device::pio::PortRange;
 pub struct Cmos;
 
 impl Device for Cmos {
-    fn name(&self) -> &str {
-        "cmos"
+    fn name(&self) -> String {
+        "cmos".to_string()
     }
 
     fn as_pio_device(&self) -> Option<&dyn PioDevice> {

@@ -1,6 +1,6 @@
 pub mod mmap_allocator;
 
-pub trait MemoryContainer {
+pub trait MemoryContainer: Send + Sync + 'static {
     fn to_hva(&self) -> *mut u8;
 }
 
