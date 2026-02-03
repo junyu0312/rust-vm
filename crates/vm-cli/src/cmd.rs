@@ -3,6 +3,14 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::ValueEnum;
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("invalid memory format({0})")]
+    InvalidMemoryFmt(String),
+    #[error("memory too large")]
+    MemoryTooLarge(String),
+}
+
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Accel {
     #[cfg(feature = "kvm")]
@@ -17,7 +25,7 @@ pub struct Command {
     pub cpus: usize,
 
     #[arg(short, long)]
-    pub memory: usize,
+    pub memory: String,
 
     #[arg(short, long)]
     pub accel: Accel,
@@ -32,42 +40,44 @@ pub struct Command {
     pub initramfs: Option<PathBuf>,
 }
 
-/*
-#[derive(thiserror::Error, Debug)]
-pub enum CommandError {
-    #[error("The number of cpus {current} exceeds maximum supported {max}")]
-    CpuCapacityExceeded { current: usize, max: usize },
+pub fn parse_memory(s: &str) -> Result<usize, Error> {
+    let s = s.trim().to_lowercase();
+
+    let pos = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+
+    let num_part = &s[..pos];
+    let unit_part = &s[pos..];
+
+    let num = num_part
+        .parse::<usize>()
+        .map_err(|_| Error::InvalidMemoryFmt(s.to_string()))?;
+
+    let shift = match unit_part.trim() {
+        "" => 0,
+        "k" => 10,
+        "m" => 20,
+        "g" => 30,
+        _ => return Err(Error::InvalidMemoryFmt(s.to_string())),
+    };
+
+    let bytes = num
+        .checked_shl(shift)
+        .ok_or(Error::MemoryTooLarge(s.to_string()))?;
+
+    Ok(bytes)
 }
 
-impl Command {
-    pub fn validate(
-        &self,
-        cap_nr_vcpus: usize,
-        cap_max_vcpus: usize,
-        cap_max_vcpu_id: usize,
-    ) -> Result<(), CommandError> {
-        if self.cpus > cap_nr_vcpus {
-            warn!(
-                "The number of requested cpus {} exceeds the number of cpus recommended by KVM {}",
-                self.cpus, cap_nr_vcpus
-            );
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        if self.cpus > cap_max_vcpus {
-            return Err(CommandError::CpuCapacityExceeded {
-                current: self.cpus,
-                max: cap_max_vcpus,
-            });
-        }
-
-        if self.cpus > cap_max_vcpu_id {
-            return Err(CommandError::CpuCapacityExceeded {
-                current: self.cpus,
-                max: cap_max_vcpu_id,
-            });
-        }
+    #[test]
+    fn test_parse_memory() -> anyhow::Result<()> {
+        assert_eq!(parse_memory("1")?, 1);
+        assert_eq!(parse_memory("1K")?, 1 << 10);
+        assert_eq!(parse_memory("1M")?, 1 << 20);
+        assert_eq!(parse_memory("1G")?, 1 << 30);
 
         Ok(())
     }
 }
-*/

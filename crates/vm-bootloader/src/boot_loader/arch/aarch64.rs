@@ -16,6 +16,7 @@ use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
 
 use crate::boot_loader::BootLoader;
+use crate::boot_loader::BootLoaderBuilder;
 use crate::boot_loader::Error;
 use crate::boot_loader::Result;
 use crate::initrd_loader::InitrdLoader;
@@ -29,16 +30,6 @@ pub struct AArch64BootLoader {
     kernel: PathBuf,
     initrd: Option<PathBuf>,
     cmdline: Option<String>,
-}
-
-impl AArch64BootLoader {
-    pub fn new(kernel: PathBuf, initrd: Option<PathBuf>, cmdline: Option<String>) -> Self {
-        AArch64BootLoader {
-            kernel,
-            initrd,
-            cmdline,
-        }
-    }
 }
 
 impl AArch64BootLoader {
@@ -303,6 +294,22 @@ impl AArch64BootLoader {
         fdt.end_node(root_node)?;
 
         Ok(fdt.finish()?)
+    }
+}
+
+impl<V> BootLoaderBuilder<V> for AArch64BootLoader
+where
+    V: Virt,
+    V::Vcpu: AArch64Vcpu,
+    V::Irq: AArch64IrqChip,
+    V::Arch: Arch<Layout = AArch64Layout>,
+{
+    fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self {
+        AArch64BootLoader {
+            kernel,
+            initrd: initramfs,
+            cmdline,
+        }
     }
 }
 
