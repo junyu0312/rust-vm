@@ -1,5 +1,3 @@
-pub(crate) mod device;
-pub(crate) mod transport;
-pub(crate) mod types;
-
-pub use transport::mmio::VirtIoMmioAdaptor;
+pub mod device;
+pub mod transport;
+pub mod types;

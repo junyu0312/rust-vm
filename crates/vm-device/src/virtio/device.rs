@@ -1,6 +1,6 @@
 use crate::virtio::transport::Result;
 
-pub(crate) mod virtio_input;
+pub mod virtio_input;
 
 pub trait Subsystem {
     type DeviceConfiguration;
