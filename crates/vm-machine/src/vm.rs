@@ -13,6 +13,11 @@ use vm_core::mm::region::MemoryRegion;
 use vm_core::virt::Virt;
 
 use crate::device::init_device;
+use crate::vm::error::Error;
+
+pub mod error;
+
+pub type Result<T> = core::result::Result<T, Error>;
 
 pub struct VmBuilder<V> {
     memory_size: usize,
@@ -34,51 +39,59 @@ pub struct Vm<V: Virt> {
     memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
     virt: V,
     irq_chip: Arc<V::Irq>,
-    devices: IoAddressSpace,
+    io_as: IoAddressSpace,
 }
 
 impl<V> VmBuilder<V>
 where
     V: Virt,
 {
-    fn init_mm<C>(&self, ram_base: u64) -> anyhow::Result<MemoryAddressSpace<C>>
+    fn init_mm<C>(&self, ram_base: u64) -> Result<MemoryAddressSpace<C>>
     where
         C: MemoryContainer,
     {
-        let memory_region = MemoryRegion::new(ram_base, self.memory_size)?;
+        let memory_region = MemoryRegion::new(ram_base, self.memory_size)
+            .map_err(|err| Error::InitMemory(err.to_string()))?;
 
         let mut memory_regions = MemoryAddressSpace::default();
         memory_regions
             .try_insert(memory_region)
-            .map_err(|_| anyhow!("Failed to insert memory_region"))?;
+            .map_err(|_| anyhow!("Failed to insert memory_region"))
+            .map_err(|err| Error::InitMemory(err.to_string()))?;
 
         Ok(memory_regions)
     }
 
-    pub fn build(&self) -> anyhow::Result<Vm<V>> {
+    pub fn build(&self) -> Result<Vm<V>> {
         let mut virt = V::new()?;
 
-        let irq_chip = virt.init_irq()?;
+        let irq_chip = virt
+            .init_irq()
+            .map_err(|err| Error::InitIrqchip(err.to_string()))?;
 
-        virt.init_vcpus(self.vcpus)?;
+        virt.init_vcpus(self.vcpus)
+            .map_err(|err| Error::InitCpu(err.to_string()))?;
 
         let layout = virt.get_layout();
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
 
         let mut memory = self.init_mm(layout.get_ram_base())?;
-        virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)?;
+        virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)
+            .map_err(|err| Error::InitMemory(err.to_string()))?;
         let memory = Arc::new(Mutex::new(memory));
 
-        virt.post_init()?;
+        virt.post_init()
+            .map_err(|err| Error::PostInit(err.to_string()))?;
 
-        let mut devices = IoAddressSpace::new(mmio_layout);
-        init_device(memory.clone(), &mut devices, irq_chip.clone())?;
+        let mut io_as = IoAddressSpace::new(mmio_layout);
+        init_device(memory.clone(), &mut io_as, irq_chip.clone())
+            .map_err(|err| Error::InitDevice(err.to_string()))?;
 
         let vm = Vm {
             memory,
             virt,
             irq_chip,
-            devices,
+            io_as,
         };
 
         Ok(vm)
@@ -89,21 +102,23 @@ impl<V> Vm<V>
 where
     V: Virt,
 {
-    pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> anyhow::Result<()> {
+    pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
         let mut memory = self.memory.lock().unwrap();
 
         boot_loader.load(
             &mut self.virt,
             &mut memory,
             &self.irq_chip,
-            self.devices.devices(),
+            self.io_as.devices(),
         )?;
 
         Ok(())
     }
 
-    pub fn run(&mut self) -> anyhow::Result<()> {
-        self.virt.run(&mut self.devices)?;
+    pub fn run(&mut self) -> Result<()> {
+        self.virt
+            .run(&mut self.io_as)
+            .map_err(|err| Error::Run(err.to_string()))?;
 
         Ok(())
     }
