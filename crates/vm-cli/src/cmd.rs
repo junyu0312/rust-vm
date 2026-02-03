@@ -43,7 +43,7 @@ pub struct Command {
 pub fn parse_memory(s: &str) -> Result<usize, Error> {
     let s = s.trim().to_lowercase();
 
-    let pos = s.find(|c: char| !c.is_digit(10)).unwrap_or(s.len());
+    let pos = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
 
     let num_part = &s[..pos];
     let unit_part = &s[pos..];

@@ -31,10 +31,10 @@ impl<V> VmBuilder<V> {
 }
 
 pub struct Vm<V: Virt> {
-    pub(crate) memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
-    pub(crate) virt: V,
-    pub(crate) irq_chip: Arc<V::Irq>,
-    pub(crate) devices: IoAddressSpace,
+    memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
+    virt: V,
+    irq_chip: Arc<V::Irq>,
+    devices: IoAddressSpace,
 }
 
 impl<V> VmBuilder<V>
