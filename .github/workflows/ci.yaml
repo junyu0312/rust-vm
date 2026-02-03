@@ -101,3 +101,17 @@ jobs:
           tool: cargo-udeps
       - name: udeps
         run: cargo udeps --all-targets
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: udeps
+        run: cargo test

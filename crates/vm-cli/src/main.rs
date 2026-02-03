@@ -9,6 +9,7 @@ use vm_machine::vm::VmBuilder;
 
 use crate::cmd::Accel;
 use crate::cmd::Command;
+use crate::cmd::parse_memory;
 use crate::term::term_init;
 
 mod cmd;
@@ -19,7 +20,7 @@ where
     V: Virt,
     Loader: BootLoaderBuilder<V>,
 {
-    let vm_builder = VmBuilder::<V>::new(args.memory << 30, args.cpus);
+    let vm_builder = VmBuilder::<V>::new(parse_memory(&args.memory)?, args.cpus);
     let mut vm = vm_builder.build()?;
 
     let bootloader = Loader::new(args.kernel, args.initramfs, args.cmdline);
