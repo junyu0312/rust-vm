@@ -5,12 +5,12 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use kvm_bindings::*;
 use kvm_ioctls::*;
+use memmap2::MmapMut;
 
 use crate::arch::Arch;
 use crate::device::IoAddressSpace;
 use crate::device::mmio::MmioLayout;
 use crate::mm::allocator::mmap_allocator::MmapAllocator;
-use crate::mm::allocator::mmap_allocator::MmapMemory;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::virt::Virt;
@@ -52,7 +52,7 @@ where
 {
     type Arch = A;
     type Vcpu = KvmVcpu;
-    type Memory = MmapMemory;
+    type Memory = MmapMut;
     type Irq = KvmIRQ;
 
     fn new() -> Result<Self, VirtError> {
@@ -97,7 +97,7 @@ where
     fn init_memory(
         &mut self,
         _mmio_layout: &MmioLayout,
-        memory: &mut MemoryAddressSpace<MmapMemory>,
+        memory: &mut MemoryAddressSpace<MmapMut>,
         _memory_size: u64,
     ) -> anyhow::Result<()> {
         let allocator = MmapAllocator;

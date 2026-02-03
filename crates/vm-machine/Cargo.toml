@@ -9,7 +9,6 @@ kvm-bindings = { workspace = true, optional = true }
 kvm-ioctls = { workspace = true, optional = true }
 lazy_static = { workspace = true }
 maplit = { workspace = true }
-nix = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 vm-bootloader = { workspace = true }
