@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::slice::Iter;
 
 use vm_core::device::Device;
@@ -38,6 +39,14 @@ impl From<vm_fdt::Error> for Error {
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
+
+pub trait BootLoaderBuilder<V>
+where
+    V: Virt,
+    Self: BootLoader<V>,
+{
+    fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self;
+}
 
 pub trait BootLoader<V>
 where

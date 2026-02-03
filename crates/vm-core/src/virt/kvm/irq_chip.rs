@@ -5,6 +5,8 @@ use tracing::error;
 
 use crate::irq::InterruptController;
 
+mod arch;
+
 pub struct KvmIRQ {
     vm_fd: Arc<VmFd>,
 }

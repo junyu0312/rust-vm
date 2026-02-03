@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -14,12 +14,20 @@ use vm_core::virt::Virt;
 
 use crate::device::init_device;
 
-pub struct VmBuilder {
-    pub memory_size: usize,
-    pub vcpus: usize,
-    pub kernel: PathBuf,
-    pub initramfs: Option<PathBuf>,
-    pub cmdline: Option<String>,
+pub struct VmBuilder<V> {
+    memory_size: usize,
+    vcpus: usize,
+    _mark: PhantomData<V>,
+}
+
+impl<V> VmBuilder<V> {
+    pub fn new(memory_size: usize, vcpus: usize) -> Self {
+        VmBuilder {
+            memory_size,
+            vcpus,
+            _mark: PhantomData,
+        }
+    }
 }
 
 pub struct Vm<V: Virt> {
@@ -29,7 +37,10 @@ pub struct Vm<V: Virt> {
     pub(crate) devices: IoAddressSpace,
 }
 
-impl VmBuilder {
+impl<V> VmBuilder<V>
+where
+    V: Virt,
+{
     fn init_mm<C>(&self, ram_base: u64) -> anyhow::Result<MemoryAddressSpace<C>>
     where
         C: MemoryContainer,
@@ -44,10 +55,7 @@ impl VmBuilder {
         Ok(memory_regions)
     }
 
-    pub fn build<V>(&self) -> anyhow::Result<Vm<V>>
-    where
-        V: Virt,
-    {
+    pub fn build(&self) -> anyhow::Result<Vm<V>> {
         let mut virt = V::new()?;
 
         let irq_chip = virt.init_irq()?;
@@ -65,29 +73,6 @@ impl VmBuilder {
 
         let mut devices = IoAddressSpace::new(mmio_layout);
         init_device(memory.clone(), &mut devices, irq_chip.clone())?;
-
-        /*
-        #[cfg(target_arch = "x86_64")]
-        {
-            use vm_bootloader::BootLoader;
-            use vm_bootloader::linux::bzimage::BzImage;
-
-            use crate::firmware::bios::Bios;
-
-            let bz_image = BzImage::new(
-                &self.kernel,
-                self.initramfs.as_deref(),
-                self.cmdline.as_deref(),
-            )?;
-            let vcpu0 = virt.get_vcpu_mut(0)?.unwrap();
-            bz_image.init(&mut memory, self.memory_size, vcpu0)?;
-
-            {
-                let bios = Bios;
-                bios.init(&mut memory, self.memory_size)?;
-            }
-        }
-        */
 
         let vm = Vm {
             memory,
