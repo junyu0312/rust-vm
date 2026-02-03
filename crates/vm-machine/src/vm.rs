@@ -50,8 +50,7 @@ where
     where
         C: MemoryContainer,
     {
-        let memory_region = MemoryRegion::new(ram_base, self.memory_size)
-            .map_err(|err| Error::InitMemory(err.to_string()))?;
+        let memory_region = MemoryRegion::placeholder(ram_base, self.memory_size);
 
         let mut memory_regions = MemoryAddressSpace::default();
         memory_regions

@@ -104,12 +104,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
-name = "cfg_aliases"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
-
-[[package]]
 name = "clap"
 version = "4.5.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -228,14 +222,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
-name = "nix"
-version = "0.30.1"
+name = "memmap2"
+version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
+checksum = "744133e4a0e0a658e1374cf3bf8e415c4052a15a111acd372764c55b4177d490"
 dependencies = [
- "bitflags 2.10.0",
- "cfg-if",
- "cfg_aliases",
  "libc",
 ]
 
@@ -505,7 +496,7 @@ dependencies = [
  "bitflags 2.10.0",
  "kvm-bindings",
  "kvm-ioctls",
- "nix",
+ "memmap2",
  "static_assertions",
  "strum_macros",
  "thiserror",
@@ -543,7 +534,6 @@ dependencies = [
  "kvm-ioctls",
  "lazy_static",
  "maplit",
- "nix",
  "thiserror",
  "tracing",
  "vm-bootloader",
