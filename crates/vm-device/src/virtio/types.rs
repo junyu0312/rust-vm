@@ -1,5 +1,5 @@
-pub(crate) mod device_features;
-pub(crate) mod driver_features;
-pub(crate) mod interrupt;
-pub(crate) mod status;
-pub(crate) mod virtqueue;
+pub mod device_features;
+pub mod driver_features;
+pub mod interrupt;
+pub mod status;
+pub mod virtqueue;

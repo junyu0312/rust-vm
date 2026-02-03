@@ -18,16 +18,20 @@ pub struct VirtqDesc {
 }
 
 pub struct VirtqDescTableRef {
-    queue_size: usize,
+    queue_size: u16,
     table: *mut VirtqDesc,
 }
 
 impl VirtqDescTableRef {
     pub fn new(queue_size: u16, table: *mut u8) -> Self {
         VirtqDescTableRef {
-            queue_size: queue_size as usize,
+            queue_size,
             table: table as *mut VirtqDesc,
         }
+    }
+
+    pub fn queue_size(&self) -> u16 {
+        self.queue_size
     }
 
     pub fn get_mut(&mut self, idx: u16) -> &mut VirtqDesc {

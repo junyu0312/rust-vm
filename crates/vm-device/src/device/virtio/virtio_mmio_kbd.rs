@@ -12,7 +12,6 @@ use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 
-use crate::virtio::VirtIoMmioAdaptor;
 use crate::virtio::device::virtio_input::VIRTIO_INPUT_EVENTS_Q;
 use crate::virtio::device::virtio_input::VIRTIO_INPUT_VIRT_QUEUE;
 use crate::virtio::device::virtio_input::VirtIOInput;
@@ -24,6 +23,7 @@ use crate::virtio::device::virtio_input::linux_evdev::ev_syn::EvSynCode;
 use crate::virtio::device::virtio_input::virtio_input_event::VirtioInputEvent;
 use crate::virtio::transport::VirtIo;
 use crate::virtio::transport::mmio::VirtIoMmio;
+use crate::virtio::transport::mmio::VirtIoMmioAdaptor;
 use crate::virtio::types::device_features::DeviceFeatures;
 use crate::virtio::types::device_features::VIRTIO_F_VERSION_1;
 use crate::virtio::types::driver_features::DriverFeatures;
