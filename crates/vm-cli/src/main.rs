@@ -19,13 +19,13 @@ fn main() -> anyhow::Result<()> {
         .with_target(true)
         .with_file(true)
         .with_line_number(true)
-        .with_ansi(false)
+        .with_ansi(true)
         .init();
 
     let args = Command::parse();
     debug!(?args);
 
-    term_init()?;
+    let _term_backup = term_init()?;
 
     match args.accel {
         #[cfg(feature = "kvm")]
