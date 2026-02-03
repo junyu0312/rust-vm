@@ -1,6 +1,7 @@
+use std::io;
+use std::io::Read;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::mpsc::Receiver;
 use std::thread;
 
 use vm_core::device::Device;
@@ -174,19 +175,24 @@ impl I8042Raw {
 pub struct I8042(Arc<Mutex<I8042Raw>>);
 
 impl I8042 {
-    pub fn new(irq: Arc<dyn InterruptController>, rx: Receiver<u8>) -> Self {
+    pub fn new(irq: Arc<dyn InterruptController>) -> Self {
         let i8042 = Arc::new(Mutex::new(I8042Raw::new(irq)));
 
         thread::spawn({
             let raw = i8042.clone();
             move || {
-                loop {
-                    if let Ok(c) = rx.recv() {
-                        let mut raw = raw.lock().unwrap();
-                        if let Some(bytes) = SCANCODE_SET2_MAP.get(&c) {
-                            for &b in bytes {
-                                raw.push_kbd(b);
-                            }
+                let stdin = io::stdin();
+                let mut handle = stdin.lock();
+                let mut buffer = [0u8; 1];
+
+                while let Ok(n) = handle.read(&mut buffer) {
+                    if n == 0 {
+                        break;
+                    }
+                    let mut raw = raw.lock().unwrap();
+                    if let Some(bytes) = SCANCODE_SET2_MAP.get(&buffer[0]) {
+                        for &b in bytes {
+                            raw.push_kbd(b);
                         }
                     }
                 }

@@ -1,8 +1,8 @@
 use std::io;
+use std::io::Read;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::mpsc::Receiver;
 use std::thread;
 
 use bitflags::Flags;
@@ -16,7 +16,6 @@ use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
 use vm_fdt::FdtWriter;
 
 use crate::device::pl011::cr::Cr;
-use crate::device::pl011::dr::Dr;
 use crate::device::pl011::fbrd::Fbrd;
 use crate::device::pl011::fr::Fr;
 use crate::device::pl011::ibrd::Ibrd;
@@ -24,23 +23,6 @@ use crate::device::pl011::ifls::Ifls;
 use crate::device::pl011::imsc::Imsc;
 use crate::device::pl011::lcrh::LcrH;
 use crate::device::pl011::ris::Ris;
-
-mod dr {
-    use bitflags::bitflags;
-
-    bitflags! {
-        #[derive(Default)]
-        pub struct Dr: u16 {
-            const DATA = 1 << 7 | 1 << 6 |
-                1 << 5 | 1 << 4 | 1 << 3 |
-                1 << 2 | 1 << 1 | 1 << 0;
-            const FE = 1 << 8;
-            const PE = 1 << 9;
-            const BE = 1 << 10;
-            const OE = 1 << 11;
-        }
-    }
-}
 
 mod fr {
     use bitflags::bitflags;
@@ -258,7 +240,6 @@ struct Pl011Internal<const IRQ: u32> {
     mmio_range: MmioRange,
     irq_chip: Arc<dyn InterruptController>,
 
-    dr: Dr,
     fr: Fr,
     ibrd: Ibrd,
     fbrd: Fbrd,
@@ -268,9 +249,6 @@ struct Pl011Internal<const IRQ: u32> {
     imsc: Imsc,
     ris: Ris,
 
-    tx_fifo: [u8; 32],
-    tx_r_cursor: usize,
-    tx_w_cursor: usize,
     rx_fifo: [Option<u16>; 32], // 12bit-wide(data and error bits), option to indicate thr's status
     rx_r_cursor: usize,
     rx_w_cursor: usize,
@@ -281,7 +259,6 @@ impl<const IRQ: u32> Pl011Internal<IRQ> {
         Pl011Internal {
             mmio_range,
             irq_chip,
-            dr: Dr::default(),
             fr: Fr::default(),
             ibrd: Ibrd::default(),
             fbrd: Fbrd::default(),
@@ -290,9 +267,6 @@ impl<const IRQ: u32> Pl011Internal<IRQ> {
             ifls: Ifls::default(),
             imsc: Imsc::default(),
             ris: Ris::default(),
-            tx_fifo: Default::default(),
-            tx_r_cursor: Default::default(),
-            tx_w_cursor: Default::default(),
             rx_fifo: Default::default(),
             rx_r_cursor: Default::default(),
             rx_w_cursor: Default::default(),
@@ -627,39 +601,22 @@ impl<const IRQ: u32> MmioDevice for Pl011Internal<IRQ> {
 pub struct Pl011<const IRQ: u32>(Arc<Mutex<Pl011Internal<IRQ>>>);
 
 impl<const IRQ: u32> Pl011<IRQ> {
-    pub fn new(
-        mmio_range: MmioRange,
-        irq_chip: Arc<dyn InterruptController>,
-        rx: Receiver<u8>,
-    ) -> Self {
-        let pl011 = Pl011Internal {
-            mmio_range,
-            irq_chip,
-            dr: Dr::default(),
-            fr: Fr::default(),
-            ibrd: Ibrd::default(),
-            fbrd: Fbrd::default(),
-            lcr_h: LcrH::default(),
-            cr: Cr::default(),
-            ifls: Ifls::default(),
-            imsc: Imsc::default(),
-            ris: Ris::default(),
-            tx_fifo: Default::default(),
-            tx_r_cursor: Default::default(),
-            tx_w_cursor: Default::default(),
-            rx_fifo: Default::default(),
-            rx_r_cursor: Default::default(),
-            rx_w_cursor: Default::default(),
-        };
-
-        let pl011 = Arc::new(Mutex::new(pl011));
+    pub fn new(mmio_range: MmioRange, irq_chip: Arc<dyn InterruptController>) -> Self {
+        let pl011 = Arc::new(Mutex::new(Pl011Internal::new(mmio_range, irq_chip)));
 
         thread::spawn({
             let pl011 = pl011.clone();
             move || {
-                while let Ok(byte) = rx.recv() {
+                let stdin = io::stdin();
+                let mut handle = stdin.lock();
+                let mut buffer = [0u8; 1];
+
+                while let Ok(n) = handle.read(&mut buffer) {
+                    if n == 0 {
+                        break;
+                    }
                     let mut pl011 = pl011.lock().unwrap();
-                    pl011.stdio(byte);
+                    pl011.stdio(buffer[0]);
                 }
             }
         });

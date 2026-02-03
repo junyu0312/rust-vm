@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::mpsc;
 
 use vm_core::device::IoAddressSpace;
 use vm_core::irq::InterruptController;
@@ -15,8 +14,6 @@ use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_device::device::vga::Vga;
 use vm_device::pci::root_complex::PciRootComplex;
-
-use crate::utils::stdin::init_stdin;
 
 pub fn init_device<C>(
     _mm: Arc<Mutex<MemoryAddressSpace<C>>>,
@@ -43,9 +40,7 @@ where
 
     let pci = PciRootComplex::default();
 
-    let (tx, rx) = mpsc::channel();
-    init_stdin(tx)?;
-    let i8042 = I8042::new(irq_chip, rx);
+    let i8042 = I8042::new(irq_chip);
 
     io_address_space.register(Box::new(uart8250_com0))?;
     io_address_space.register(Box::new(uart8250_com1))?;

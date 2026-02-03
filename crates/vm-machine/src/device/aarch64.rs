@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::mpsc;
 
 use vm_core::device::IoAddressSpace;
 use vm_core::device::mmio::MmioRange;
@@ -8,8 +7,6 @@ use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_device::device::pl011::Pl011;
-
-use crate::utils::stdin::init_stdin;
 
 pub fn init_device<C>(
     _mm: Arc<Mutex<MemoryAddressSpace<C>>>,
@@ -19,16 +16,12 @@ pub fn init_device<C>(
 where
     C: MemoryContainer,
 {
-    let (tx, rx) = mpsc::channel();
-    init_stdin(tx)?;
-
     let pl011 = Pl011::<1>::new(
         MmioRange {
             start: 0x0900_0000,
             len: 0x1000,
         },
         irq_chip,
-        rx,
     );
 
     // let virtio_mmio_kbd = VirtIOMmioKbd::<48, C>::new(
