@@ -6,7 +6,6 @@ use tracing::debug;
 use tracing::warn;
 
 use crate::transport::Result;
-use crate::transport::VirtIo;
 use crate::transport::VirtIoError;
 use crate::types::device::Subsystem;
 use crate::types::device::virtio_input::linux_evdev::EventTypes;
@@ -99,7 +98,7 @@ impl VirtioInputConfig {
     }
 }
 
-pub trait VirtIOInput: VirtIo {
+pub trait VirtIOInput {
     const INPUT_PROP: u32;
 
     fn id_name(&self) -> &str;
