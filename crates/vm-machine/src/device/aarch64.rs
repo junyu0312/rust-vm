@@ -7,6 +7,8 @@ use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_device::device::pl011::Pl011;
+use vm_device::device::virtio::virtio_blk::VirtIoBlkDevice;
+use vm_device::device::virtio::virtio_blk::VirtIoMmioBlkDevice;
 
 pub fn init_device<C>(
     _mm: Arc<Mutex<MemoryAddressSpace<C>>>,
@@ -24,6 +26,14 @@ where
         irq_chip,
     );
 
+    let virtio_mmio_blk = VirtIoMmioBlkDevice::new(
+        VirtIoBlkDevice::new(2),
+        MmioRange {
+            start: 0x0900_1000,
+            len: 0x1000,
+        },
+    );
+
     // let virtio_mmio_kbd = VirtIOMmioKbd::<48, C>::new(
     //     mm,
     //     "virtio-mmio-kbd-01".to_string(),
@@ -37,6 +47,7 @@ where
 
     io_address_space.register(Box::new(pl011))?;
     // io_address_space.register(Box::new(virtio_mmio_kbd))?;
+    io_address_space.register(Box::new(virtio_mmio_blk))?;
 
     Ok(())
 }
