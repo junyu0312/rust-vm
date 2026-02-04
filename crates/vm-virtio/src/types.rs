@@ -1,3 +1,4 @@
+pub mod device;
 pub mod device_features;
 pub mod driver_features;
 pub mod interrupt;

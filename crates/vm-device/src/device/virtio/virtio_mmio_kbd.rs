@@ -11,25 +11,24 @@ use vm_core::device::mmio::MmioRange;
 use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
-
-use crate::virtio::device::virtio_input::VIRTIO_INPUT_EVENTS_Q;
-use crate::virtio::device::virtio_input::VIRTIO_INPUT_VIRT_QUEUE;
-use crate::virtio::device::virtio_input::VirtIOInput;
-use crate::virtio::device::virtio_input::VirtioInputConfig;
-use crate::virtio::device::virtio_input::linux_evdev::EventTypes;
-use crate::virtio::device::virtio_input::linux_evdev::ev_key::EvKeyCode;
-use crate::virtio::device::virtio_input::linux_evdev::ev_key::KeyValue;
-use crate::virtio::device::virtio_input::linux_evdev::ev_syn::EvSynCode;
-use crate::virtio::device::virtio_input::virtio_input_event::VirtioInputEvent;
-use crate::virtio::transport::VirtIo;
-use crate::virtio::transport::mmio::VirtIoMmio;
-use crate::virtio::transport::mmio::VirtIoMmioAdaptor;
-use crate::virtio::types::device_features::DeviceFeatures;
-use crate::virtio::types::device_features::VIRTIO_F_VERSION_1;
-use crate::virtio::types::driver_features::DriverFeatures;
-use crate::virtio::types::interrupt::InterruptStatus;
-use crate::virtio::types::status::Status;
-use crate::virtio::types::virtqueue::split_virtqueue::VirtQueue;
+use vm_virtio::transport::VirtIo;
+use vm_virtio::transport::mmio::VirtIoMmio;
+use vm_virtio::transport::mmio::VirtIoMmioAdaptor;
+use vm_virtio::types::device::virtio_input::VIRTIO_INPUT_EVENTS_Q;
+use vm_virtio::types::device::virtio_input::VIRTIO_INPUT_VIRT_QUEUE;
+use vm_virtio::types::device::virtio_input::VirtIOInput;
+use vm_virtio::types::device::virtio_input::VirtioInputConfig;
+use vm_virtio::types::device::virtio_input::linux_evdev::EventTypes;
+use vm_virtio::types::device::virtio_input::linux_evdev::ev_key::EvKeyCode;
+use vm_virtio::types::device::virtio_input::linux_evdev::ev_key::KeyValue;
+use vm_virtio::types::device::virtio_input::linux_evdev::ev_syn::EvSynCode;
+use vm_virtio::types::device::virtio_input::virtio_input_event::VirtioInputEvent;
+use vm_virtio::types::device_features::DeviceFeatures;
+use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
+use vm_virtio::types::driver_features::DriverFeatures;
+use vm_virtio::types::interrupt::InterruptStatus;
+use vm_virtio::types::status::Status;
+use vm_virtio::types::virtqueue::split_virtqueue::VirtQueue;
 
 fn bit_to_index(bit: usize) -> (usize, usize) {
     (bit / 8, bit % 8)

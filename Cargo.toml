@@ -25,4 +25,5 @@ vm-core = { path = "crates/vm-core" }
 vm-device = { path = "crates/vm-device" }
 vm-fdt = "0.3.0"
 vm-machine = { path = "crates/vm-machine" }
+vm-virtio = { path = "crates/vm-virtio" }
 zerocopy = { version = "0.8.33", features = ["derive"] }

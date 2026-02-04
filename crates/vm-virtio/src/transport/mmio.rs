@@ -7,10 +7,10 @@ use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
 use vm_fdt::FdtWriter;
 
-use crate::virtio::device::Subsystem;
-use crate::virtio::transport::Result as VirtIoResult;
-use crate::virtio::transport::VirtIo;
-use crate::virtio::transport::VirtIoError;
+use crate::transport::Result as VirtIoResult;
+use crate::transport::VirtIo;
+use crate::transport::VirtIoError;
+use crate::types::device::Subsystem;
 
 const DEVICE_SPECIFIC_CONFIGURATION_OFFSET: usize = 0x100;
 

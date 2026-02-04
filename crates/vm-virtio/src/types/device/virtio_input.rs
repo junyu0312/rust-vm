@@ -5,11 +5,11 @@ use strum_macros::FromRepr;
 use tracing::debug;
 use tracing::warn;
 
-use crate::virtio::device::Subsystem;
-use crate::virtio::device::virtio_input::linux_evdev::EventTypes;
-use crate::virtio::transport::Result;
-use crate::virtio::transport::VirtIo;
-use crate::virtio::transport::VirtIoError;
+use crate::transport::Result;
+use crate::transport::VirtIo;
+use crate::transport::VirtIoError;
+use crate::types::device::Subsystem;
+use crate::types::device::virtio_input::linux_evdev::EventTypes;
 
 pub mod linux_evdev;
 pub mod virtio_input_event;
