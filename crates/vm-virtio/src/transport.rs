@@ -1,4 +1,5 @@
-use crate::types::{device::Subsystem, status::Status};
+use crate::types::device::Subsystem;
+use crate::types::status::Status;
 
 pub mod mmio;
 
