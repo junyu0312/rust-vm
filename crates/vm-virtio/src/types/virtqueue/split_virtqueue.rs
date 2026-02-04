@@ -5,11 +5,11 @@ use tracing::warn;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 
-use crate::virtio::transport::Result;
-use crate::virtio::transport::VirtIoError;
-use crate::virtio::types::virtqueue::split_virtqueue::virtq_avail_ring::VirtqAvail;
-use crate::virtio::types::virtqueue::split_virtqueue::virtq_desc_table::VirtqDescTableRef;
-use crate::virtio::types::virtqueue::split_virtqueue::virtq_used_ring::VirtqUsed;
+use crate::transport::Result;
+use crate::transport::VirtIoError;
+use crate::types::virtqueue::split_virtqueue::virtq_avail_ring::VirtqAvail;
+use crate::types::virtqueue::split_virtqueue::virtq_desc_table::VirtqDescTableRef;
+use crate::types::virtqueue::split_virtqueue::virtq_used_ring::VirtqUsed;
 
 pub mod virtq_avail_ring;
 pub mod virtq_desc_table;

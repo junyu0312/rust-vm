@@ -1,4 +1,4 @@
-use crate::virtio::device::virtio_input::linux_evdev::EventCode;
+use crate::types::device::virtio_input::linux_evdev::EventCode;
 
 #[derive(Clone, Copy)]
 #[repr(u16)]

@@ -1,16 +1,12 @@
 [package]
-name = "vm-device"
+name = "vm-virtio"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow.workspace = true
 bitflags.workspace = true
-lazy_static.workspace = true
-maplit.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
-vm-virtio.workspace = true

@@ -1,4 +1,4 @@
-use crate::virtio::transport::Result;
+use crate::transport::Result;
 
 pub mod virtio_input;
 

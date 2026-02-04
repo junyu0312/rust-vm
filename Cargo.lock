@@ -517,6 +517,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-virtio",
 ]
 
 [[package]]
@@ -539,6 +540,18 @@ dependencies = [
  "vm-bootloader",
  "vm-core",
  "vm-device",
+]
+
+[[package]]
+name = "vm-virtio"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.10.0",
+ "strum_macros",
+ "thiserror",
+ "tracing",
+ "vm-core",
+ "vm-fdt",
 ]
 
 [[package]]

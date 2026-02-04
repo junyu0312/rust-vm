@@ -1,7 +1,7 @@
-use crate::virtio::device::Subsystem;
-use crate::virtio::types::status::Status;
+use crate::types::device::Subsystem;
+use crate::types::status::Status;
 
-pub(crate) mod mmio;
+pub mod mmio;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VirtIoError {
