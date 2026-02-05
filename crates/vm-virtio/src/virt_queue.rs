@@ -114,7 +114,7 @@ impl VirtQueue {
             .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa)?;
+            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqDescTableRef::new(self.queue_size, hva))
     }
@@ -128,7 +128,7 @@ impl VirtQueue {
             .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa)?;
+            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqAvail::new(self.queue_size, hva as *const u16))
     }
@@ -142,7 +142,7 @@ impl VirtQueue {
             .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa)?;
+            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqUsed::new(self.queue_size, hva))
     }

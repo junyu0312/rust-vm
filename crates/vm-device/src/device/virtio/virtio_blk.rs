@@ -82,23 +82,21 @@ where
             let last_available_idx = q.last_available_idx();
             let desc_id = avail_ring.ring(last_available_idx);
             let desc_entry = desc_ring.get(desc_id);
-            let req_gpa = desc_entry.addr;
-            let req_hva = mm.gpa_to_hva(req_gpa).unwrap();
-            let req = unsafe { &*(req_hva as *const VirtioBlkReq) };
+            let req = desc_entry.addr(&mut mm).unwrap();
+            let req = unsafe { &*(req.as_ptr() as *const VirtioBlkReq) };
 
             match req.r#type {
                 VirtIoBlkReqType::VirtioBlkTIn => {
                     let chains = desc_ring.get_chain(desc_id);
-                    println!("desc:{:?}", chains);
 
                     let data = chains[1];
-                    let data_hva = mm.gpa_to_hva(data.addr).unwrap();
+                    let data_hva = data.addr(&mut mm).unwrap();
                     let data_len = data.len;
                     unsafe { data_hva.write_bytes(0xff, data_len.try_into().unwrap()) };
 
                     let status = chains[2];
-                    let status_hva = mm.gpa_to_hva(status.addr).unwrap();
-                    unsafe { *status_hva = 0 };
+                    let mut status_hva = status.addr(&mut mm).unwrap();
+                    *unsafe { status_hva.as_mut() } = 0;
 
                     let used_idx = used_ring.idx();
                     let used_entry = used_ring.ring(used_idx);

@@ -1,3 +1,11 @@
+use std::ptr::NonNull;
+
+use vm_core::mm::allocator::MemoryContainer;
+use vm_core::mm::manager::MemoryAddressSpace;
+
+use crate::result::Result;
+use crate::result::VirtIoError;
+
 /* This marks a buffer as continuing via the next field. */
 pub const VIRTQ_DESC_F_NEXT: u16 = 1;
 /* This marks a buffer as device write-only (otherwise device read-only). */
@@ -9,13 +17,26 @@ pub const VIRTQ_DESC_F_INDIRECT: u16 = 4;
 #[repr(C, packed)]
 pub struct VirtqDesc {
     /// Address (guest-physical).
-    pub addr: u64,
+    addr: u64,
     /// Length.
     pub len: u32,
     /// The flags as indicated above.
     pub flags: u16,
     /// Next field if flags & NEXT
     pub next: u16,
+}
+
+impl VirtqDesc {
+    /// Get hva of the buf
+    pub fn addr<C>(&self, mm: &mut MemoryAddressSpace<C>) -> Result<NonNull<u8>>
+    where
+        C: MemoryContainer,
+    {
+        let addr = mm
+            .gpa_to_hva(self.addr)
+            .map_err(|_| VirtIoError::AccessInvalidGpa(self.addr))?;
+        NonNull::new(addr).ok_or(VirtIoError::AccessInvalidGpa(self.addr))
+    }
 }
 
 pub struct VirtqDescTableRef {
