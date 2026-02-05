@@ -10,3 +10,4 @@ thiserror.workspace = true
 tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
+zerocopy.workspace = true

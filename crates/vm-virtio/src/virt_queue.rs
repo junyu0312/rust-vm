@@ -1,15 +1,14 @@
-/* Split virtqueue */
 use std::cell::OnceCell;
 
 use tracing::warn;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 
-use crate::transport::Result;
-use crate::transport::VirtIoError;
-use crate::types::virtqueue::split_virtqueue::virtq_avail_ring::VirtqAvail;
-use crate::types::virtqueue::split_virtqueue::virtq_desc_table::VirtqDescTableRef;
-use crate::types::virtqueue::split_virtqueue::virtq_used_ring::VirtqUsed;
+use crate::result::Result;
+use crate::result::VirtIoError;
+use crate::virt_queue::virtq_avail_ring::VirtqAvail;
+use crate::virt_queue::virtq_desc_table::VirtqDescTableRef;
+use crate::virt_queue::virtq_used_ring::VirtqUsed;
 
 pub mod virtq_avail_ring;
 pub mod virtq_desc_table;
@@ -25,8 +24,8 @@ fn to_gpa(high: Option<&u32>, low: Option<&u32>) -> Option<u64> {
     }
 }
 
-#[derive(Default)]
-pub struct VirtQueue<const QUEUE_SIZE_MAX: u32> {
+pub struct VirtQueue {
+    queue_size_max: u32,
     queue_size: u16,
     queue_ready: bool,
     queue_desc_low: OnceCell<u32>,
@@ -37,25 +36,35 @@ pub struct VirtQueue<const QUEUE_SIZE_MAX: u32> {
     queue_used_high: OnceCell<u32>,
 }
 
-impl<const QUEUE_SIZE_MAX: u32> VirtQueue<QUEUE_SIZE_MAX> {
-    pub fn queue_size_max(&self) -> u32 {
-        QUEUE_SIZE_MAX
+impl VirtQueue {
+    pub fn new(queue_size_max: u32) -> Self {
+        VirtQueue {
+            queue_size_max,
+            queue_size: Default::default(),
+            queue_ready: Default::default(),
+            queue_desc_low: Default::default(),
+            queue_desc_high: Default::default(),
+            queue_available_low: Default::default(),
+            queue_available_high: Default::default(),
+            queue_used_low: Default::default(),
+            queue_used_high: Default::default(),
+        }
     }
 
-    pub fn read_queue_size(&self) -> u16 {
-        self.queue_size
+    pub fn read_queue_size_max(&self) -> u32 {
+        self.queue_size_max
     }
 
-    pub fn write_queue_size(&mut self, size: u16) {
-        self.queue_size = size;
+    pub fn write_queue_size(&mut self, queue_size: u16) {
+        self.queue_size = queue_size;
     }
 
     pub fn read_queue_ready(&self) -> bool {
         self.queue_ready
     }
 
-    pub fn write_queue_ready(&mut self, ready: bool) {
-        self.queue_ready = ready
+    pub fn write_queue_ready(&mut self, queue_ready: bool) {
+        self.queue_ready = queue_ready;
     }
 
     pub fn write_queue_desc_low(&mut self, addr: u32) {

@@ -1,15 +1,20 @@
-use vm_virtio::v2::device::DeviceId;
-use vm_virtio::v2::device::VirtIoDevice;
-use vm_virtio::v2::transport::mmio::VirtIoMmioTransport;
-use vm_virtio::v2::types::device_features::VIRTIO_F_VERSION_1;
+use vm_virtio::device::VirtIoDevice;
+use vm_virtio::result::Result;
+use vm_virtio::transport::mmio::VirtIoMmioTransport;
+use vm_virtio::types::device_config::blk::config::VirtioBlkConfig;
+use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
+use vm_virtio::types::device_id::DeviceId;
+use zerocopy::IntoBytes;
 
 pub struct VirtIoBlkDevice {
     irq: u32,
+    cfg: VirtioBlkConfig,
 }
 
 impl VirtIoBlkDevice {
     pub fn new(irq: u32) -> Self {
-        VirtIoBlkDevice { irq }
+        let cfg = VirtioBlkConfig::default();
+        VirtIoBlkDevice { irq, cfg }
     }
 }
 
@@ -24,6 +29,16 @@ impl VirtIoDevice for VirtIoBlkDevice {
     }
 
     fn reset(&mut self) {}
+
+    fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()> {
+        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + len]);
+        Ok(())
+    }
+
+    fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
+        self.cfg.as_mut_bytes()[offset..len].copy_from_slice(buf);
+        Ok(())
+    }
 }
 
 pub type VirtIoMmioBlkDevice = VirtIoMmioTransport<VirtIoBlkDevice>;
