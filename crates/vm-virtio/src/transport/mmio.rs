@@ -10,6 +10,7 @@ use crate::result::Result as VirtIoResult;
 use crate::transport::VirtIoTransport;
 use crate::transport::control_register::ControlRegister;
 use crate::transport::mmio::control_register::MmioControlRegister;
+use crate::types::interrupt_status::InterruptStatus;
 
 mod control_register;
 
@@ -46,7 +47,9 @@ where
                 self.transport.read_reg(ControlRegister::QueueSizeMax)
             }
             MmioControlRegister::QueueReady => self.transport.read_reg(ControlRegister::QueueReady),
-            MmioControlRegister::InterruptStatus => todo!(),
+            MmioControlRegister::InterruptStatus => {
+                self.transport.read_reg(ControlRegister::InterruptStatus)
+            }
             MmioControlRegister::Status => self.transport.read_reg(ControlRegister::Status),
             MmioControlRegister::QueueReset => todo!(),
             MmioControlRegister::ConfigGeneration => {
@@ -76,8 +79,20 @@ where
             MmioControlRegister::QueueReady => {
                 self.transport.write_reg(ControlRegister::QueueReady, val)
             }
-            MmioControlRegister::QueueNotify => todo!(),
-            MmioControlRegister::InterruptAck => todo!(),
+            MmioControlRegister::QueueNotify => {
+                self.transport.write_reg(ControlRegister::QueueNotify, val)
+            }
+            MmioControlRegister::InterruptAck => {
+                self.transport
+                    .interrupt_status
+                    .remove(InterruptStatus::from_bits_truncate(val));
+
+                if self.transport.interrupt_status.is_empty() {
+                    self.transport.device.trigger_irq(false);
+                }
+
+                Ok(())
+            }
             MmioControlRegister::Status => self.transport.write_reg(ControlRegister::Status, val),
             MmioControlRegister::QueueDescLow => {
                 self.transport.write_reg(ControlRegister::QueueDescLow, val)

@@ -11,7 +11,7 @@ use vm_device::device::virtio::virtio_blk::VirtIoBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtIoMmioBlkDevice;
 
 pub fn init_device<C>(
-    _mm: Arc<Mutex<MemoryAddressSpace<C>>>,
+    mm: Arc<Mutex<MemoryAddressSpace<C>>>,
     io_address_space: &mut IoAddressSpace,
     irq_chip: Arc<dyn InterruptController>,
 ) -> anyhow::Result<()>
@@ -23,11 +23,11 @@ where
             start: 0x0900_0000,
             len: 0x1000,
         },
-        irq_chip,
+        irq_chip.clone(),
     );
 
     let virtio_mmio_blk = VirtIoMmioBlkDevice::new(
-        VirtIoBlkDevice::new(2),
+        VirtIoBlkDevice::new(2, irq_chip, mm),
         MmioRange {
             start: 0x0900_1000,
             len: 0x1000,

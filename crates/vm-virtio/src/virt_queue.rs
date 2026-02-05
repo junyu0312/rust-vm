@@ -34,6 +34,7 @@ pub struct VirtQueue {
     queue_available_high: OnceCell<u32>,
     queue_used_low: OnceCell<u32>,
     queue_used_high: OnceCell<u32>,
+    last_available_idx: u16,
 }
 
 impl VirtQueue {
@@ -48,6 +49,7 @@ impl VirtQueue {
             queue_available_high: Default::default(),
             queue_used_low: Default::default(),
             queue_used_high: Default::default(),
+            last_available_idx: Default::default(),
         }
     }
 
@@ -112,7 +114,7 @@ impl VirtQueue {
             .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa)?;
+            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqDescTableRef::new(self.queue_size, hva))
     }
@@ -126,7 +128,7 @@ impl VirtQueue {
             .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa)?;
+            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqAvail::new(self.queue_size, hva as *const u16))
     }
@@ -140,9 +142,17 @@ impl VirtQueue {
             .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa)?;
+            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqUsed::new(self.queue_size, hva))
+    }
+
+    pub fn last_available_idx(&self) -> u16 {
+        self.last_available_idx
+    }
+
+    pub fn incr_last_available_idx(&mut self) {
+        self.last_available_idx = (self.last_available_idx + 1) % self.queue_size;
     }
 
     fn queue_desc_table_gpa(&self) -> Option<u64> {

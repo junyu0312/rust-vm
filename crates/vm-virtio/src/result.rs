@@ -12,8 +12,8 @@ pub enum VirtIoError {
     #[error("try to access an unready virtqueue")]
     AccessVirtqueueNotReady,
 
-    #[error("access invalid gpa")]
-    AccessInvalidGpa,
+    #[error("access invalid gpa 0x{0:x}")]
+    AccessInvalidGpa(u64),
 }
 
 pub type Result<T> = core::result::Result<T, VirtIoError>;
