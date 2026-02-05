@@ -16,7 +16,9 @@ pub mod features {
 }
 
 pub mod config {
-    use zerocopy::{FromBytes, Immutable, IntoBytes};
+    use zerocopy::FromBytes;
+    use zerocopy::Immutable;
+    use zerocopy::IntoBytes;
 
     #[derive(Default, FromBytes, IntoBytes, Immutable)]
     #[repr(C)]

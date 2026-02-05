@@ -1,15 +1,14 @@
 use std::cell::OnceCell;
 
 use tracing::warn;
-use vm_core::mm::{allocator::MemoryContainer, manager::MemoryAddressSpace};
+use vm_core::mm::allocator::MemoryContainer;
+use vm_core::mm::manager::MemoryAddressSpace;
 
-use crate::{
-    result::{Result, VirtIoError},
-    virt_queue::{
-        virtq_avail_ring::VirtqAvail, virtq_desc_table::VirtqDescTableRef,
-        virtq_used_ring::VirtqUsed,
-    },
-};
+use crate::result::Result;
+use crate::result::VirtIoError;
+use crate::virt_queue::virtq_avail_ring::VirtqAvail;
+use crate::virt_queue::virtq_desc_table::VirtqDescTableRef;
+use crate::virt_queue::virtq_used_ring::VirtqUsed;
 
 pub mod virtq_avail_ring;
 pub mod virtq_desc_table;
