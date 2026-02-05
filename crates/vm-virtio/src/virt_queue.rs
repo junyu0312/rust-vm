@@ -5,7 +5,7 @@ use vm_core::mm::{allocator::MemoryContainer, manager::MemoryAddressSpace};
 
 use crate::{
     result::{Result, VirtIoError},
-    v2::virt_queue::{
+    virt_queue::{
         virtq_avail_ring::VirtqAvail, virtq_desc_table::VirtqDescTableRef,
         virtq_used_ring::VirtqUsed,
     },

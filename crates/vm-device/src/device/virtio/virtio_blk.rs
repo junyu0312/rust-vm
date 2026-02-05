@@ -1,9 +1,9 @@
+use vm_virtio::device::VirtIoDevice;
 use vm_virtio::result::Result;
-use vm_virtio::v2::device::VirtIoDevice;
-use vm_virtio::v2::transport::mmio::VirtIoMmioTransport;
-use vm_virtio::v2::types::device_config::blk::config::VirtioBlkConfig;
-use vm_virtio::v2::types::device_features::VIRTIO_F_VERSION_1;
-use vm_virtio::v2::types::device_id::DeviceId;
+use vm_virtio::transport::mmio::VirtIoMmioTransport;
+use vm_virtio::types::device_config::blk::config::VirtioBlkConfig;
+use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
+use vm_virtio::types::device_id::DeviceId;
 use zerocopy::IntoBytes;
 
 pub struct VirtIoBlkDevice {

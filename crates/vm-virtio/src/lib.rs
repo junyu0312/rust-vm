@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
+pub mod device;
 pub mod result;
-// pub mod transport;
-// pub mod types;
-pub mod v2;
+pub mod transport;
+pub mod types;
+pub mod virt_queue;
