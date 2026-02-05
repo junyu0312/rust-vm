@@ -5,8 +5,8 @@ use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
 use vm_fdt::FdtWriter;
 
+use crate::result::Result as VirtIoResult;
 use crate::v2::device::VirtIoDevice;
-use crate::v2::result::Result as VirtIoResult;
 use crate::v2::transport::VirtIoTransport;
 use crate::v2::transport::control_register::ControlRegister;
 use crate::v2::transport::mmio::control_register::MmioControlRegister;

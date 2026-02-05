@@ -518,6 +518,7 @@ dependencies = [
  "vm-core",
  "vm-fdt",
  "vm-virtio",
+ "zerocopy",
 ]
 
 [[package]]
@@ -552,6 +553,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "zerocopy",
 ]
 
 [[package]]

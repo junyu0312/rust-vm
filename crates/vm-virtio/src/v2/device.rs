@@ -1,6 +1,4 @@
-pub enum DeviceId {
-    Blk = 2,
-}
+use crate::result::Result;
 
 pub trait VirtIoDevice {
     const NAME: &str;
@@ -11,4 +9,8 @@ pub trait VirtIoDevice {
     fn irq(&self) -> Option<u32>;
 
     fn reset(&mut self);
+
+    fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()>;
+
+    fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()>;
 }

@@ -14,3 +14,4 @@ tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
 vm-virtio.workspace = true
+zerocopy.workspace = true

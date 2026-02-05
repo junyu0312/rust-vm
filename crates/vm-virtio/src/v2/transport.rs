@@ -1,7 +1,7 @@
 use tracing::warn;
 
+use crate::result::Result;
 use crate::v2::device::VirtIoDevice;
-use crate::v2::result::Result;
 use crate::v2::transport::control_register::ControlRegister;
 use crate::v2::types::interrupt_status::InterruptStatus;
 use crate::v2::types::status::Status;
@@ -208,11 +208,11 @@ where
         Ok(())
     }
 
-    pub fn read_config(&self, _offset: usize, _len: usize, _buf: &mut [u8]) -> Result<()> {
-        todo!()
+    pub fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()> {
+        self.device.read_config(offset, len, buf)
     }
 
-    pub fn write_config(&mut self, _offset: usize, _len: usize, _buf: &[u8]) -> Result<()> {
-        todo!()
+    pub fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
+        self.device.write_config(offset, len, buf)
     }
 }
