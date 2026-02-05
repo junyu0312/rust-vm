@@ -30,9 +30,6 @@ pub enum ControlRegister {
     /// Interrupt status
     InterruptStatus,
 
-    /// Interrupt acknowledge
-    InterruptAck,
-
     /// Device status
     Status,
 

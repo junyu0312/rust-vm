@@ -34,6 +34,7 @@ pub struct VirtQueue {
     queue_available_high: OnceCell<u32>,
     queue_used_low: OnceCell<u32>,
     queue_used_high: OnceCell<u32>,
+    last_available_idx: u16,
 }
 
 impl VirtQueue {
@@ -48,6 +49,7 @@ impl VirtQueue {
             queue_available_high: Default::default(),
             queue_used_low: Default::default(),
             queue_used_high: Default::default(),
+            last_available_idx: Default::default(),
         }
     }
 
@@ -143,6 +145,14 @@ impl VirtQueue {
             .map_err(|_| VirtIoError::AccessInvalidGpa)?;
 
         Ok(VirtqUsed::new(self.queue_size, hva))
+    }
+
+    pub fn last_available_idx(&self) -> u16 {
+        self.last_available_idx
+    }
+
+    pub fn incr_last_available_idx(&mut self) {
+        self.last_available_idx = (self.last_available_idx + 1) % self.queue_size;
     }
 
     fn queue_desc_table_gpa(&self) -> Option<u64> {

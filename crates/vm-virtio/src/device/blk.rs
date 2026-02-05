@@ -79,3 +79,45 @@ pub mod config {
         pub unused2: [u8; 3],
     }
 }
+
+pub mod req {
+    use strum_macros::FromRepr;
+
+    #[derive(Clone, Copy, Debug, FromRepr)]
+    #[repr(u32)]
+    pub enum VirtIoBlkReqType {
+        /* Read */
+        VirtioBlkTIn = 0,
+
+        /* Write */
+        VirtioBlkTOut = 1,
+
+        /* Cache flush command */
+        VirtioBlkTFlush = 4,
+
+        /* Get device ID command */
+        VirtioBlkTGetId = 8,
+
+        /* Get device lifetime */
+        VirtioBlkTGetLifetime = 10,
+
+        /* Discard command */
+        VirtioBlkTDiscard = 11,
+
+        /* Write zeroes command */
+        VirtioBlkTWriteZeroes = 13,
+
+        /* Barrier before this op. */
+        VirtioBlkTSecureErase = 14,
+    }
+
+    #[derive(Debug)]
+    #[repr(C, packed)]
+    pub struct VirtioBlkReq {
+        pub r#type: VirtIoBlkReqType,
+        pub reserved: u32,
+        pub sector: u64,
+        // pub data: *mut u8,
+        // pub status: u8,
+    }
+}

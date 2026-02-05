@@ -113,8 +113,7 @@ where
                 self.virtqueues[sel as usize].read_queue_ready() as u32
             }
             ControlRegister::QueueNotify => todo!(),
-            ControlRegister::InterruptStatus => todo!(),
-            ControlRegister::InterruptAck => todo!(),
+            ControlRegister::InterruptStatus => self.interrupt_status.bits(),
             ControlRegister::Status => self.status.bits() as u32,
             ControlRegister::QueueDescLow => todo!(),
             ControlRegister::QueueDescHigh => todo!(),
@@ -162,9 +161,16 @@ where
                 let sel = self.get_queue_sel_or_default();
                 self.virtqueues[sel as usize].write_queue_ready(val != 0);
             }
-            ControlRegister::QueueNotify => todo!(),
+            ControlRegister::QueueNotify => {
+                if let Some(interrupt_status) = self.device.queue_notify(&mut self.virtqueues, val)
+                {
+                    self.interrupt_status.insert(interrupt_status);
+                    if !self.interrupt_status.is_empty() {
+                        self.device.trigger_irq(true);
+                    }
+                }
+            }
             ControlRegister::InterruptStatus => todo!(),
-            ControlRegister::InterruptAck => todo!(),
             ControlRegister::Status => {
                 if val == 0 {
                     self.reset();
