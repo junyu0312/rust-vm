@@ -2,7 +2,6 @@ use crate::device::Error;
 use crate::device::Result;
 use crate::device::address_space::AddressSpace;
 use crate::device::pio::pio_device::PioDevice;
-use crate::device::pio::pio_device::PortRange;
 
 #[derive(Default)]
 pub struct PioAddressSpaceManager {
@@ -29,7 +28,7 @@ impl PioAddressSpaceManager {
         Ok(())
     }
 
-    pub fn get_device_by_port(&mut self, port: u16) -> Option<(&mut dyn PioDevice)> {
+    pub fn get_device_by_port(&mut self, port: u16) -> Option<&mut dyn PioDevice> {
         let (_, idx) = self.address_space.try_get_value_by_key(port)?;
 
         Some(self.device[idx].as_mut())

@@ -13,7 +13,7 @@ use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_device::device::vga::Vga;
-use vm_device::pci::root_complex::PciRootComplex;
+use vm_device::pci::root_complex::pio::PciRootComplexPio;
 
 pub fn init_device<C>(
     _mm: Arc<Mutex<MemoryAddressSpace<C>>>,
@@ -38,7 +38,7 @@ where
 
     let vga = Vga;
 
-    let pci = PciRootComplex::default();
+    let pci = PciRootComplexPio::default();
 
     let i8042 = I8042::new(irq_chip);
 
