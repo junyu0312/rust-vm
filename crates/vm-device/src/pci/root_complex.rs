@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use tracing::debug;
 use vm_core::device::Device;
-use vm_core::device::pio::PioDevice;
-use vm_core::device::pio::PortRange;
+use vm_core::device::pio::pio_device::PioDevice;
+use vm_core::device::pio::pio_device::PortRange;
 
 use crate::pci::bus::PciBus;
 use crate::pci::config_address::ConfigAddress;
@@ -101,14 +101,6 @@ impl PciRootComplex {
 impl Device for PciRootComplex {
     fn name(&self) -> String {
         "pci_root_complex".to_string()
-    }
-
-    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
-        Some(self)
-    }
-
-    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
-        Some(self)
     }
 }
 

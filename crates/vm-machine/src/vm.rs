@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
-use vm_core::device::IoAddressSpace;
+use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioLayout;
 use vm_core::layout::MemoryLayout;
 use vm_core::mm::allocator::MemoryContainer;
@@ -39,7 +39,7 @@ pub struct Vm<V: Virt> {
     memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
     virt: V,
     irq_chip: Arc<V::Irq>,
-    io_as: IoAddressSpace,
+    device_manager: DeviceManager,
 }
 
 impl<V> VmBuilder<V>
@@ -82,15 +82,15 @@ where
         virt.post_init()
             .map_err(|err| Error::PostInit(err.to_string()))?;
 
-        let mut io_as = IoAddressSpace::new(mmio_layout);
-        init_device(memory.clone(), &mut io_as, irq_chip.clone())
+        let mut device_manager = DeviceManager::new(mmio_layout);
+        init_device(memory.clone(), &mut device_manager, irq_chip.clone())
             .map_err(|err| Error::InitDevice(err.to_string()))?;
 
         let vm = Vm {
             memory,
             virt,
             irq_chip,
-            io_as,
+            device_manager,
         };
 
         Ok(vm)
@@ -108,7 +108,7 @@ where
             &mut self.virt,
             &mut memory,
             &self.irq_chip,
-            self.io_as.devices(),
+            self.device_manager.mmio_devices(),
         )?;
 
         Ok(())
@@ -116,7 +116,7 @@ where
 
     pub fn run(&mut self) -> Result<()> {
         self.virt
-            .run(&mut self.io_as)
+            .run(&mut self.device_manager)
             .map_err(|err| Error::Run(err.to_string()))?;
 
         Ok(())

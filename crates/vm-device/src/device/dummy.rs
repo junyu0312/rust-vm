@@ -1,20 +1,12 @@
 use vm_core::device::Device;
-use vm_core::device::pio::PioDevice;
-use vm_core::device::pio::PortRange;
+use vm_core::device::pio::pio_device::PioDevice;
+use vm_core::device::pio::pio_device::PortRange;
 
 pub struct Dummy;
 
 impl Device for Dummy {
     fn name(&self) -> String {
         "dummy".to_string()
-    }
-
-    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
-        Some(self)
-    }
-
-    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
-        Some(self)
     }
 }
 

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::arch::Arch;
-use crate::device::IoAddressSpace;
 use crate::device::mmio::MmioLayout;
+use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::irq::InterruptController;
 use crate::mm::allocator::MemoryContainer;
 use crate::mm::manager::MemoryAddressSpace;
@@ -42,5 +42,5 @@ pub trait Virt: Sized {
     fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>>;
     fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<Self::Vcpu>>;
 
-    fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()>;
+    fn run(&mut self, device_manager: &mut dyn DeviceVmExitHandler) -> anyhow::Result<()>;
 }

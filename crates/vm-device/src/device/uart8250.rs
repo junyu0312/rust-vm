@@ -3,10 +3,10 @@ use std::io::{self};
 use std::sync::Arc;
 
 use vm_core::device::Device;
-use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
-use vm_core::device::pio::PioDevice;
-use vm_core::device::pio::PortRange;
+use vm_core::device::mmio::mmio_device::MmioDevice;
+use vm_core::device::pio::pio_device::PioDevice;
+use vm_core::device::pio::pio_device::PortRange;
 use vm_core::irq::InterruptController;
 use vm_fdt::FdtWriter;
 
@@ -361,38 +361,6 @@ impl<const IRQ: u32> Uart8250<IRQ> {
 impl<const IRQ: u32> Device for Uart8250<IRQ> {
     fn name(&self) -> String {
         "uart8250".to_string()
-    }
-
-    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
-        if self.port_base.is_some() {
-            Some(self)
-        } else {
-            None
-        }
-    }
-
-    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
-        if self.port_base.is_some() {
-            Some(self)
-        } else {
-            None
-        }
-    }
-
-    fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
-        if self.mmio_range.is_some() {
-            Some(self)
-        } else {
-            None
-        }
-    }
-
-    fn as_mmio_device_mut(&mut self) -> Option<&mut dyn MmioDevice> {
-        if self.mmio_range.is_some() {
-            Some(self)
-        } else {
-            None
-        }
     }
 }
 

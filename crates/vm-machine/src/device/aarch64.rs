@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_core::device::IoAddressSpace;
+use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
 use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
@@ -12,7 +12,7 @@ use vm_device::device::virtio::virtio_blk::VirtIoMmioBlkDevice;
 
 pub fn init_device<C>(
     mm: Arc<Mutex<MemoryAddressSpace<C>>>,
-    io_address_space: &mut IoAddressSpace,
+    io_address_space: &mut DeviceManager,
     irq_chip: Arc<dyn InterruptController>,
 ) -> anyhow::Result<()>
 where
@@ -45,9 +45,9 @@ where
     //     rx,
     // );
 
-    io_address_space.register(Box::new(pl011))?;
+    io_address_space.register_mmio_device(Box::new(pl011))?;
     // io_address_space.register(Box::new(virtio_mmio_kbd))?;
-    io_address_space.register(Box::new(virtio_mmio_blk))?;
+    io_address_space.register_mmio_device(Box::new(virtio_mmio_blk))?;
 
     Ok(())
 }

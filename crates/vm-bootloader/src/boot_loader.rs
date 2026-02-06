@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
-use vm_core::device::Device;
+use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::layout;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::virt::Virt;
@@ -57,6 +57,6 @@ where
         virt: &mut V,
         memory: &mut MemoryAddressSpace<V::Memory>,
         irq_chip: &V::Irq,
-        devices: Iter<'_, Box<dyn Device>>,
+        devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<()>;
 }

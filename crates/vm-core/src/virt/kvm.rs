@@ -8,8 +8,8 @@ use kvm_ioctls::*;
 use memmap2::MmapMut;
 
 use crate::arch::Arch;
-use crate::device::IoAddressSpace;
 use crate::device::mmio::MmioLayout;
+use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::mm::allocator::mmap_allocator::MmapAllocator;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
@@ -153,7 +153,7 @@ where
             .ok_or_else(|| anyhow!("vcpus is not init"))
     }
 
-    fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()> {
+    fn run(&mut self, device: &mut dyn DeviceVmExitHandler) -> anyhow::Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()
@@ -161,7 +161,7 @@ where
 
         assert_eq!(vcpus.len(), 1);
 
-        vcpus.get_mut(0).unwrap().run(device.mmio_layout())?;
+        vcpus.get_mut(0).unwrap().run(device)?;
 
         Ok(())
     }

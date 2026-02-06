@@ -1,6 +1,6 @@
 use tracing::trace;
 
-use crate::device::IoAddressSpace;
+use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
@@ -43,7 +43,7 @@ pub enum HandleVmExitResult {
 pub fn handle_vm_exit(
     vcpu: &dyn AArch64Vcpu,
     exit_reason: VmExitReason,
-    device: &mut IoAddressSpace,
+    device: &mut dyn DeviceVmExitHandler,
 ) -> Result<HandleVmExitResult, Error> {
     trace!(?exit_reason);
 

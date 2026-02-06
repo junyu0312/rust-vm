@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::slice::Iter;
 
 use vm_core::arch::Arch;
-use vm_core::device::Device;
+use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::irq::arch::aarch64::AArch64IrqChip;
 use vm_core::layout::MemoryLayout;
 use vm_core::layout::aarch64::AArch64Layout;
@@ -202,7 +202,7 @@ impl AArch64BootLoader {
         layout: &AArch64Layout,
         vcpus: usize,
         irq_chip: &dyn AArch64IrqChip,
-        devices: Iter<'_, Box<dyn Device>>,
+        devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<Vec<u8>> {
         let mut fdt = FdtWriter::new()?;
         let root_node = fdt.begin_node("")?;
@@ -266,9 +266,7 @@ impl AArch64BootLoader {
             }
 
             for device in devices {
-                if let Some(mmio_device) = device.as_mmio_device() {
-                    mmio_device.generate_dt(&mut fdt)?;
-                }
+                device.generate_dt(&mut fdt)?;
             }
 
             fdt.end_node(soc_node)?;
@@ -325,7 +323,7 @@ where
         virt: &mut V,
         memory: &mut MemoryAddressSpace<V::Memory>,
         irq_chip: &V::Irq,
-        devices: Iter<'_, Box<dyn Device>>,
+        devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<()> {
         {
             let layout = virt.get_layout_mut();

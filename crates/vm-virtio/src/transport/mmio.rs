@@ -1,8 +1,8 @@
 use tracing::error;
 use tracing::warn;
 use vm_core::device::Device;
-use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_fdt::FdtWriter;
 
 use crate::device::VirtIoDevice;
@@ -125,14 +125,6 @@ where
 {
     fn name(&self) -> String {
         D::NAME.to_string()
-    }
-
-    fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
-        Some(self)
-    }
-
-    fn as_mmio_device_mut(&mut self) -> Option<&mut dyn MmioDevice> {
-        Some(self)
     }
 }
 
