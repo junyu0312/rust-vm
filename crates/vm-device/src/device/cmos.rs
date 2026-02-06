@@ -1,6 +1,6 @@
 use vm_core::device::Device;
-use vm_core::device::pio::PioDevice;
-use vm_core::device::pio::PortRange;
+use vm_core::device::pio::pio_device::PioDevice;
+use vm_core::device::pio::pio_device::PortRange;
 
 #[derive(Default)]
 pub struct Cmos;
@@ -8,14 +8,6 @@ pub struct Cmos;
 impl Device for Cmos {
     fn name(&self) -> String {
         "cmos".to_string()
-    }
-
-    fn as_pio_device(&self) -> Option<&dyn PioDevice> {
-        Some(self)
-    }
-
-    fn as_pio_device_mut(&mut self) -> Option<&mut dyn PioDevice> {
-        Some(self)
     }
 }
 

@@ -1,8 +1,9 @@
 use anyhow::bail;
-use vm_fdt::FdtWriter;
 
-use crate::device::Device;
-use crate::device::Range;
+use crate::device::address_space::Range;
+
+pub mod mmio_as_manager;
+pub mod mmio_device;
 
 pub type MmioRange = Range<u64>;
 
@@ -54,14 +55,4 @@ impl MmioLayout {
             range.start >= s.start && range.start + range.len as u64 <= s.start + s.len as u64
         })
     }
-}
-
-pub trait MmioDevice: Device {
-    fn mmio_range(&self) -> MmioRange;
-
-    fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]);
-
-    fn mmio_write(&mut self, offset: u64, len: usize, data: &[u8]);
-
-    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error>;
 }

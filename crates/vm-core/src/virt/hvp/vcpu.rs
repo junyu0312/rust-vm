@@ -7,7 +7,7 @@ use tracing::trace;
 
 use crate::arch::aarch64::AArch64;
 use crate::arch::vm_exit::aarch64::VmExitReason;
-use crate::device::mmio::MmioLayout;
+use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
@@ -111,7 +111,7 @@ impl AArch64Vcpu for HvpVcpu {
 }
 
 impl Vcpu<AArch64> for HvpVcpu {
-    fn run(&mut self, mmio_layout: &MmioLayout) -> anyhow::Result<VmExitReason> {
+    fn run(&mut self, device_handler: &dyn DeviceVmExitHandler) -> anyhow::Result<VmExitReason> {
         self.vcpu.run()?;
 
         let exit_info = self.vcpu.get_exit_info();
@@ -153,7 +153,7 @@ impl Vcpu<AArch64> for HvpVcpu {
                     esr_el2::Ec::DA => {
                         let far_el2 = exit_info.exception.physical_address;
 
-                        if mmio_layout.contains(far_el2) {
+                        if device_handler.in_mmio_range(far_el2) {
                             let is_write = (iss >> 6) & 0x1 != 0;
                             let len = match (iss >> 22) & 0x3 {
                                 0 => 1,

@@ -5,8 +5,8 @@ use std::sync::Mutex;
 use std::thread;
 
 use vm_core::device::Device;
-use vm_core::device::pio::PioDevice;
-use vm_core::device::pio::PortRange;
+use vm_core::device::pio::pio_device::PioDevice;
+use vm_core::device::pio::pio_device::PortRange;
 use vm_core::irq::InterruptController;
 
 use crate::device::i8042::command::I8042Cmd;

@@ -7,9 +7,9 @@ use crate::layout::MemoryLayout;
 use crate::layout::Result;
 
 const MMIO_START: u64 = 0x0900_0000;
-const MMIO_LEN: usize = 0x0100_0000;
-const GIC_DISTRIBUTOR: u64 = 0x1000_0000;
-const GIC_REDISTRIBUTOR: u64 = 0x1001_0000;
+const MMIO_LEN: usize = 0x2000_0000;
+const GIC_DISTRIBUTOR: u64 = 0x3000_0000;
+const GIC_REDISTRIBUTOR: u64 = 0x3001_0000;
 const RAM_BASE: u64 = 0x4000_0000;
 const DTB_START: u64 = 0x4400_0000; // Reserve 64MB for kernel
 const INITRD_START: u64 = 0x44200000; // DTB + 2MB

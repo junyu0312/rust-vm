@@ -14,8 +14,8 @@ use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
 use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
-use crate::device::IoAddressSpace;
 use crate::device::mmio::MmioLayout;
+use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::layout::MemoryLayout;
 use crate::layout::aarch64::AArch64Layout;
 use crate::mm::manager::MemoryAddressSpace;
@@ -212,14 +212,14 @@ impl Virt for Hvp {
         Ok(vcpus)
     }
 
-    fn run(&mut self, device: &mut IoAddressSpace) -> anyhow::Result<()> {
+    fn run(&mut self, device_manager: &mut dyn DeviceVmExitHandler) -> anyhow::Result<()> {
         // TODO: support smp, fork for per vcpu
         {
             loop {
                 let vcpu = self.get_vcpu_mut(0)?.unwrap();
-                let vm_exit_info = vcpu.run(device.mmio_layout())?;
+                let vm_exit_info = vcpu.run(device_manager)?;
 
-                let r = handle_vm_exit(vcpu, vm_exit_info, device)?;
+                let r = handle_vm_exit(vcpu, vm_exit_info, device_manager)?;
 
                 match r {
                     HandleVmExitResult::Continue => (),

@@ -8,8 +8,8 @@ use std::thread;
 use bitflags::Flags;
 use strum_macros::FromRepr;
 use vm_core::device::Device;
-use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::irq::InterruptController;
 use vm_core::irq::arch::aarch64::GIC_SPI;
 use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
@@ -494,14 +494,6 @@ impl<const IRQ: u32> Device for Pl011Internal<IRQ> {
     fn name(&self) -> String {
         "pl011".to_string()
     }
-
-    fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
-        Some(self)
-    }
-
-    fn as_mmio_device_mut(&mut self) -> Option<&mut dyn MmioDevice> {
-        Some(self)
-    }
 }
 
 impl<const IRQ: u32> MmioDevice for Pl011Internal<IRQ> {
@@ -628,14 +620,6 @@ impl<const IRQ: u32> Pl011<IRQ> {
 impl<const IRQ: u32> Device for Pl011<IRQ> {
     fn name(&self) -> String {
         self.0.lock().unwrap().name()
-    }
-
-    fn as_mmio_device(&self) -> Option<&dyn MmioDevice> {
-        Some(self)
-    }
-
-    fn as_mmio_device_mut(&mut self) -> Option<&mut dyn MmioDevice> {
-        Some(self)
     }
 }
 
