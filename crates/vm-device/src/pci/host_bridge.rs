@@ -1,43 +1,18 @@
-use crate::pci::configuration_space::ConfigurationSpace;
 use crate::pci::device::PciDevice;
-use crate::pci::device::PciFunc;
+use crate::pci::types::function::PciTypeFunctionCommon;
+use crate::pci::types::function::type1::PciType1Function;
+use crate::pci::types::function::type1::Type1Function;
 
-const PCI_CLASS_BRIDGE_HOST: u16 = 0x0600;
+struct HostBridgeFunction;
 
-pub struct PciHostBridgeFunc {
-    cfg: ConfigurationSpace,
+impl PciTypeFunctionCommon for HostBridgeFunction {
+    const VENDOR_ID: u16 = 0;
+    const DEVICE_ID: u16 = 0;
+    const SUBCLASS: u8 = 0x06;
 }
+impl PciType1Function for HostBridgeFunction {}
 
-impl PciFunc for PciHostBridgeFunc {
-    fn get_configuration_space(&self) -> &ConfigurationSpace {
-        &self.cfg
-    }
-
-    fn get_configuration_space_mut(&mut self) -> &mut ConfigurationSpace {
-        &mut self.cfg
-    }
-}
-
-pub struct PciHostBridge {
-    func: Vec<PciHostBridgeFunc>,
-}
-
-impl Default for PciHostBridge {
-    fn default() -> Self {
-        let cfg = ConfigurationSpace::new(PCI_CLASS_BRIDGE_HOST);
-
-        Self {
-            func: vec![PciHostBridgeFunc { cfg }],
-        }
-    }
-}
-
-impl PciDevice for PciHostBridge {
-    fn get_func(&self, func: u8) -> &dyn PciFunc {
-        &self.func[func as usize]
-    }
-
-    fn get_func_mut(&mut self, func: u8) -> &mut dyn PciFunc {
-        &mut self.func[func as usize]
-    }
+pub fn new_host_bridge() -> PciDevice {
+    let function = Type1Function::<HostBridgeFunction>::default();
+    PciDevice::new(vec![Box::new(function)])
 }

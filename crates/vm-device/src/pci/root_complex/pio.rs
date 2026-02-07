@@ -34,20 +34,15 @@ impl PciRootComplexPio {
 
         let register = self.config_address.register();
         // let offset = self.config_address.offset();
-
         let start = register * 4 + offset;
 
-        let Some(device) = self
-            .internal
-            .get_device_mut(self.config_address.bus(), self.config_address.device())
-        else {
-            return;
-        };
-
-        let func = device.get_func_mut(self.config_address.function());
-
-        let configuration_space = func.get_configuration_space_mut();
-        configuration_space.write(start as u16, data);
+        self.internal.handle_ecam_write(
+            self.config_address.bus(),
+            self.config_address.device(),
+            self.config_address.function(),
+            start as u16,
+            data,
+        );
     }
 
     fn handle_in_config_data(&self, offset: u8, data: &mut [u8]) {

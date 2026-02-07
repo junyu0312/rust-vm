@@ -1,6 +1,7 @@
 pub mod cmos;
 pub mod coprocessor;
 pub mod dummy;
+pub mod dummy_pci;
 pub mod i8042;
 pub mod pic;
 pub mod post_debug;
