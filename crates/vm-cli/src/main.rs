@@ -37,7 +37,7 @@ fn main() -> anyhow::Result<()> {
         .with_target(true)
         .with_file(true)
         .with_line_number(true)
-        .with_ansi(true)
+        .with_ansi(false)
         .init();
 
     let args = Command::parse();

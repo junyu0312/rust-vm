@@ -3,6 +3,7 @@ use vm_core::device::mmio::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_fdt::FdtWriter;
 
+use crate::pci::device::PciDevice;
 use crate::pci::root_complex::PciRootComplex;
 
 #[derive(Debug)]
@@ -26,15 +27,29 @@ impl From<u64> for DeviceSel {
 
 pub struct PciRootComplexMmio {
     mmio_range: MmioRange,
+    physical_address_start: u64,
+    pci_address_space_start: u64,
+    pci_address_space_len: u64,
     internal: PciRootComplex,
 }
 
 impl PciRootComplexMmio {
-    pub fn new(mmio_range: MmioRange) -> Self {
+    pub fn new(
+        mmio_range: MmioRange,
+        physical_address_start: u64,
+        pci_address_space_len: u64,
+    ) -> Self {
         PciRootComplexMmio {
             mmio_range,
+            physical_address_start,
+            pci_address_space_start: 0,
+            pci_address_space_len,
             internal: Default::default(),
         }
+    }
+
+    pub fn register_device(&mut self, device: PciDevice) -> Result<(), PciDevice> {
+        self.internal.register_device(device)
     }
 }
 
@@ -64,11 +79,23 @@ impl MmioDevice for PciRootComplexMmio {
     }
 
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
-        let node = fdt.begin_node(&format!("pci@{:x}", self.mmio_range.start))?;
+        let node = fdt.begin_node(&format!("pcie@{:x}", self.mmio_range.start))?;
         fdt.property_string("compatible", "pci-host-ecam-generic")?;
-        fdt.property_string("device-type", "pci")?;
+        fdt.property_string("device_type", "pci")?;
         fdt.property_u32("#size-cells", 2)?;
         fdt.property_u32("#address-cells", 3)?;
+        fdt.property_array_u32(
+            "ranges",
+            &[
+                0x0200_0000,
+                (self.pci_address_space_start >> 32) as u32,
+                (self.pci_address_space_start) as u32,
+                (self.physical_address_start >> 32) as u32,
+                (self.physical_address_start) as u32,
+                (self.pci_address_space_len >> 32) as u32,
+                (self.pci_address_space_len) as u32,
+            ],
+        )?;
         // interrupt
         fdt.property_array_u64("reg", &[self.mmio_range.start, self.mmio_range.len as u64])?;
         fdt.end_node(node)?;

@@ -1,13 +1,21 @@
-use crate::pci::configuration_space::ConfigurationSpace;
+use crate::pci::types::function::PciFunction;
 
-pub trait PciFunc {
-    fn get_configuration_space(&self) -> &ConfigurationSpace;
-
-    fn get_configuration_space_mut(&mut self) -> &mut ConfigurationSpace;
+pub struct PciDevice {
+    functions: Vec<Box<dyn PciFunction>>,
 }
 
-pub trait PciDevice {
-    fn get_func(&self, func: u8) -> &dyn PciFunc;
+impl PciDevice {
+    pub fn new(functions: Vec<Box<dyn PciFunction>>) -> Self {
+        PciDevice { functions }
+    }
 
-    fn get_func_mut(&mut self, func: u8) -> &mut dyn PciFunc;
+    pub fn get_func(&self, func: u8) -> Option<&dyn PciFunction> {
+        self.functions.get(func as usize).map(|r| r.as_ref() as _)
+    }
+
+    pub fn get_func_mut(&mut self, func: u8) -> Option<&mut dyn PciFunction> {
+        self.functions
+            .get_mut(func as usize)
+            .map(|r| r.as_mut() as _)
+    }
 }

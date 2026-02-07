@@ -1,19 +1,24 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::pci::device::PciDevice;
 
+#[derive(Default)]
 pub struct PciBus {
-    devices: HashMap<u8, Box<dyn PciDevice>>,
+    devices: BTreeMap<u8, PciDevice>,
 }
 
 impl PciBus {
-    pub fn get_device(&self, device_number: u8) -> Option<&dyn PciDevice> {
-        self.devices.get(&device_number).map(|d| d.as_ref() as _)
+    pub fn get_device(&self, device_number: u8) -> Option<&PciDevice> {
+        self.devices.get(&device_number)
     }
 
-    pub fn get_device_mut(&mut self, device_number: u8) -> Option<&mut dyn PciDevice> {
-        self.devices
-            .get_mut(&device_number)
-            .map(|d| d.as_mut() as _)
+    pub fn get_device_mut(&mut self, device_number: u8) -> Option<&mut PciDevice> {
+        self.devices.get_mut(&device_number)
+    }
+
+    pub fn register_device(&mut self, device_id: u8, device: PciDevice) {
+        let old_dev = self.devices.insert(device_id, device);
+
+        assert!(old_dev.is_none());
     }
 }
