@@ -9,7 +9,9 @@ pub struct DummyPci;
 impl PciTypeFunctionCommon for DummyPci {
     const VENDOR_ID: u16 = VENDOR_ID;
     const DEVICE_ID: u16 = VirtIoPciDeviceId::Blk as u16;
-    const SUBCLASS: u8 = 0; // TODO
+    const PROG_IF: u8 = 0;
+    const SUBCLASS: u8 = 0x80;
+    const CLASS_CODE: u8 = 0x01;
 }
 
 impl PciType0Function for DummyPci {

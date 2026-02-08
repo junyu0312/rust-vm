@@ -10,6 +10,8 @@ pub trait PciTypeFunctionCommon {
     const VENDOR_ID: u16;
     const DEVICE_ID: u16;
     const SUBCLASS: u8;
+    const CLASS_CODE: u8;
+    const PROG_IF: u8;
 
     fn new_configuration_space(header_type: u8) -> ConfigurationSpace {
         let mut buf = [0; 4096];
@@ -17,7 +19,9 @@ pub trait PciTypeFunctionCommon {
 
         header.vendor_id = Self::VENDOR_ID;
         header.device_id = Self::DEVICE_ID;
+        header.prog_if = Self::PROG_IF;
         header.subclass = Self::SUBCLASS;
+        header.class_code = Self::CLASS_CODE;
         header.header_type = header_type;
 
         ConfigurationSpace { buf }

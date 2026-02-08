@@ -8,18 +8,22 @@ pub mod mmio;
 pub mod pio;
 
 struct PciRootComplex {
-    host_bridge: PciDevice,
     bus: Vec<PciBus>,
     allocation: usize,
 }
 
 impl Default for PciRootComplex {
     fn default() -> Self {
-        Self {
-            host_bridge: new_host_bridge(),
+        let mut rc = PciRootComplex {
             bus: vec![PciBus::default()],
-            allocation: 1, // 0 is reserved for host bridge
-        }
+            allocation: 0, // 0 is reserved for host bridge
+        };
+
+        rc.register_device(new_host_bridge())
+            .map_err(|_| "failed to register host bridge")
+            .unwrap();
+
+        rc
     }
 }
 
@@ -37,20 +41,12 @@ impl PciRootComplex {
     }
 
     fn get_device(&self, bus_number: u8, device_number: u8) -> Option<&PciDevice> {
-        if bus_number == 0 && device_number == 0 {
-            return Some(&self.host_bridge);
-        }
-
         self.bus
             .get(bus_number as usize)
             .and_then(|bus| bus.get_device(device_number))
     }
 
     fn get_device_mut(&mut self, bus_number: u8, device_number: u8) -> Option<&mut PciDevice> {
-        if bus_number == 0 && device_number == 0 {
-            return Some(&mut self.host_bridge);
-        }
-
         self.bus
             .get_mut(bus_number as usize)
             .and_then(|bus| bus.get_device_mut(device_number))
