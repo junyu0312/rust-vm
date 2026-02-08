@@ -96,6 +96,7 @@ impl MmioDevice for PciRootComplexMmio {
                 (self.pci_address_space_len) as u32,
             ],
         )?;
+        fdt.property_array_u32("bus-range", &[0, 0])?;
         // interrupt
         fdt.property_array_u64("reg", &[self.mmio_range.start, self.mmio_range.len as u64])?;
         fdt.end_node(node)?;
