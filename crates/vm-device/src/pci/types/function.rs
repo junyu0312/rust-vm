@@ -24,7 +24,15 @@ pub trait PciTypeFunctionCommon {
         header.class_code = Self::CLASS_CODE;
         header.header_type = header_type;
 
-        ConfigurationSpace { buf }
+        let mut cfg = ConfigurationSpace::new(buf);
+
+        Self::init_capability(&mut cfg);
+
+        cfg
+    }
+
+    fn init_capability(_configuration_space: &mut ConfigurationSpace) {
+        // Default impl
     }
 }
 
