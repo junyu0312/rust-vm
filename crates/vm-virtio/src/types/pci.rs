@@ -1,4 +1,5 @@
 use zerocopy::FromBytes;
+use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
@@ -34,7 +35,7 @@ pub enum VirtIoPciCapCfgType {
     VirtioPciCapVendorCfg = 9,
 }
 
-#[derive(FromBytes, IntoBytes)]
+#[derive(Default, FromBytes, IntoBytes, Immutable)]
 #[repr(C, packed)]
 pub struct VirtIoPciCommonCfg {
     /* About the whole device. */

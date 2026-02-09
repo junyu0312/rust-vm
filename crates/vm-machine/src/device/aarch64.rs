@@ -24,7 +24,7 @@ where
     C: MemoryContainer,
 {
     {
-        let mut pci_rc = PciRootComplexMmio::new(
+        let pci_rc = PciRootComplexMmio::new(
             MmioRange {
                 start: 0x1000_0000,
                 len: 0x1000_0000,
@@ -33,7 +33,7 @@ where
             0x1000_0000,
         );
 
-        let function = Type0Function::<DummyPci>::default();
+        let function = Type0Function::new(DummyPci::default());
         let pci_device = PciDevice::new(vec![Box::new(function)]);
 
         pci_rc

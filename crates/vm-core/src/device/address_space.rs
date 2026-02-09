@@ -5,15 +5,15 @@ use crate::device::Error;
 use crate::device::Result;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Range<K: Debug> {
+pub struct Range<K: Debug + Into<u64>> {
     pub start: K,
     pub len: usize,
 }
 
 #[derive(Default)]
-pub struct AddressSpace<K: Debug>(BTreeMap<K, (usize, usize)>); // start |-> (len, device)
+pub struct AddressSpace<K: Debug, V>(BTreeMap<K, (usize, V)>); // start |-> (len, device)
 
-impl<K> AddressSpace<K>
+impl<K, V> AddressSpace<K, V>
 where
     K: Copy + Debug + Ord + Into<u64>,
 {
@@ -21,22 +21,22 @@ where
         AddressSpace(BTreeMap::new())
     }
 
-    pub fn try_insert(&mut self, range: Range<K>, device: usize) -> Result<()> {
+    pub fn try_insert(&mut self, range: Range<K>, value: V) -> Result<()> {
         if range.len == 0 {
             return Err(Error::InvalidLen);
         }
 
         if self.is_overlap(range.start, range.len) {
-            return Err(Error::InvalidRange);
+            return Err(Error::InvalidRange(range.start.into(), range.len));
         }
 
-        self.0.insert(range.start, (range.len, device));
+        self.0.insert(range.start, (range.len, value));
 
         Ok(())
     }
 
-    pub fn try_get_value_by_key(&self, key: K) -> Option<(Range<K>, usize)> {
-        let (&start, &(len, value)) = self.0.range(..=key).next_back()?;
+    pub fn try_get_value_by_key(&self, key: K) -> Option<(Range<K>, &V)> {
+        let (&start, &(len, ref value)) = self.0.range(..=key).next_back()?;
 
         if key.into() - start.into() < len as u64 {
             Some((Range { start, len }, value))

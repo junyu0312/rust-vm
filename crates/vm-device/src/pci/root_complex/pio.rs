@@ -37,6 +37,7 @@ impl PciRootComplexPio {
         let start = register * 4 + offset;
 
         self.internal.handle_ecam_write(
+            todo!(),
             self.config_address.bus(),
             self.config_address.device(),
             self.config_address.function(),

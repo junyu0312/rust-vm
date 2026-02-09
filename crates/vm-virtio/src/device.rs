@@ -4,7 +4,7 @@ use crate::virt_queue::VirtQueue;
 
 pub mod blk;
 
-pub trait VirtIoDevice {
+pub trait VirtIoDevice: 'static {
     const NAME: &str;
     const DEVICE_ID: u32;
     const VIRT_QUEUES_SIZE_MAX: &[u32];

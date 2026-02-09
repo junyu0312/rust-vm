@@ -37,10 +37,10 @@ impl DeviceVmExitHandler for DeviceManager {
         Ok(())
     }
 
-    fn mmio_read(&mut self, addr: u64, len: usize, data: &mut [u8]) -> Result<()> {
-        let (range, device) = self
+    fn mmio_read(&self, addr: u64, len: usize, data: &mut [u8]) -> Result<()> {
+        let (range, handler) = self
             .mmio_manager
-            .get_device_by_port_mut(addr)
+            .get_handler_by_addr(addr)
             .ok_or(Error::NoDeviceForAddr(addr))?;
 
         let err = || Error::MmioOutOfMemory {
@@ -55,15 +55,15 @@ impl DeviceVmExitHandler for DeviceManager {
             return Err(err());
         }
 
-        device.mmio_read(addr - range.start, len, data);
+        handler.mmio_read(addr - range.start, len, data);
 
         Ok(())
     }
 
-    fn mmio_write(&mut self, addr: u64, len: usize, data: &[u8]) -> Result<()> {
-        let (range, device) = self
+    fn mmio_write(&self, addr: u64, len: usize, data: &[u8]) -> Result<()> {
+        let (range, handler) = self
             .mmio_manager
-            .get_device_by_port_mut(addr)
+            .get_handler_by_addr(addr)
             .ok_or(Error::NoDeviceForAddr(addr))?;
 
         let err = || Error::MmioOutOfMemory {
@@ -78,7 +78,7 @@ impl DeviceVmExitHandler for DeviceManager {
             return Err(err());
         }
 
-        device.mmio_write(addr - range.start, len, data);
+        handler.mmio_write(addr - range.start, len, data);
 
         Ok(())
     }

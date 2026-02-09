@@ -1,0 +1,63 @@
+use vm_core::device::address_space::AddressSpace;
+use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::mmio_device::MmioHandler;
+
+struct Destination {
+    bus: u8,
+    device: u8,
+    function: u8,
+    bar: u8,
+    handler: Box<dyn MmioHandler>,
+}
+
+pub struct MmioRouter {
+    pci_address_space: AddressSpace<u64, Destination>,
+}
+
+impl Default for MmioRouter {
+    fn default() -> Self {
+        Self {
+            pci_address_space: AddressSpace::new(),
+        }
+    }
+}
+
+impl MmioRouter {
+    pub fn register_handler(
+        &mut self,
+        bar_range: MmioRange,
+        bus: u8,
+        device: u8,
+        function: u8,
+        bar: u8,
+        handler: Box<dyn MmioHandler>,
+    ) {
+        if self
+            .pci_address_space
+            .try_insert(
+                bar_range,
+                Destination {
+                    bus,
+                    device,
+                    function,
+                    bar,
+                    handler,
+                },
+            )
+            .is_err()
+        {
+            println!("remap range: {:?} ignored", bar_range);
+        }
+    }
+
+    pub fn get_handler(&self, offset: u64) -> Option<&dyn MmioHandler> {
+        Some(
+            self.pci_address_space
+                .try_get_value_by_key(offset)
+                .unwrap()
+                .1
+                .handler
+                .as_ref(),
+        )
+    }
+}

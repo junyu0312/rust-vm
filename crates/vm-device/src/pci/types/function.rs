@@ -1,3 +1,5 @@
+use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::mmio_device::MmioHandler;
 use zerocopy::FromBytes;
 
 use crate::pci::types::configuration_space::ConfigurationSpace;
@@ -36,10 +38,18 @@ pub trait PciTypeFunctionCommon {
     }
 }
 
+pub enum Callback {
+    Void,
+    // bar n, pci address range, handler
+    RegisterBarClosure((u8, MmioRange, Box<dyn MmioHandler>)),
+}
+
 pub trait PciFunction {
-    fn write_bar(&mut self, n: usize, buf: &[u8]);
+    fn write_bar(&self, pci_address_to_gpa: u64, n: u8, buf: &[u8]) -> Callback;
 
     fn ecam_read(&self, offset: u16, buf: &mut [u8]);
 
-    fn ecam_write(&mut self, offset: u16, buf: &[u8]);
+    fn ecam_write(&self, pci_address_to_gpa: u64, offset: u16, buf: &[u8]) -> Callback;
+
+    fn bar_handler(&self, bar: u8, gpa: u64) -> Box<dyn MmioHandler>;
 }
