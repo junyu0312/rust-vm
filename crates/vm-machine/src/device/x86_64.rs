@@ -13,7 +13,7 @@ use vm_device::device::pic::Pic;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_device::device::vga::Vga;
-use vm_device::pci::root_complex::pio::PciRootComplexPio;
+use vm_pci::root_complex::pio::PciRootComplexPio;
 
 pub fn init_device<C>(
     _mm: Arc<Mutex<MemoryAddressSpace<C>>>,
@@ -23,10 +23,10 @@ pub fn init_device<C>(
 where
     C: MemoryContainer,
 {
-    let uart8250_com0 = Uart8250::<4>::new(Some(0x3f8), None, irq_chip.clone());
-    let uart8250_com1 = Uart8250::<3>::new(Some(0x2f8), None, irq_chip.clone());
-    let uart8250_com2 = Uart8250::<4>::new(Some(0x3e8), None, irq_chip.clone());
-    let uart8250_com3 = Uart8250::<3>::new(Some(0x2e8), None, irq_chip.clone());
+    let uart8250_com0 = Uart8250::<4>::new(Some(0x3f8), irq_chip.clone());
+    let uart8250_com1 = Uart8250::<3>::new(Some(0x2f8), irq_chip.clone());
+    let uart8250_com2 = Uart8250::<4>::new(Some(0x3e8), irq_chip.clone());
+    let uart8250_com3 = Uart8250::<3>::new(Some(0x2e8), irq_chip.clone());
 
     let cmos = Cmos;
 
