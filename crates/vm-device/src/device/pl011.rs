@@ -10,6 +10,7 @@ use strum_macros::FromRepr;
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
+use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_core::irq::InterruptController;
 use vm_core::irq::arch::aarch64::GIC_SPI;
 use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
@@ -237,7 +238,6 @@ enum Register {
 }
 
 struct Pl011Internal<const IRQ: u32> {
-    mmio_range: MmioRange,
     irq_chip: Arc<dyn InterruptController>,
 
     fr: Fr,
@@ -255,9 +255,8 @@ struct Pl011Internal<const IRQ: u32> {
 }
 
 impl<const IRQ: u32> Pl011Internal<IRQ> {
-    fn new(mmio_range: MmioRange, irq_chip: Arc<dyn InterruptController>) -> Self {
+    fn new(irq_chip: Arc<dyn InterruptController>) -> Self {
         Pl011Internal {
-            mmio_range,
             irq_chip,
             fr: Fr::default(),
             ibrd: Ibrd::default(),
@@ -488,18 +487,6 @@ impl<const IRQ: u32> Pl011Internal<IRQ> {
     fn trigger_irq(&self, active: bool) {
         self.irq_chip.trigger_irq(32 + IRQ, active);
     }
-}
-
-impl<const IRQ: u32> Device for Pl011Internal<IRQ> {
-    fn name(&self) -> String {
-        "pl011".to_string()
-    }
-}
-
-impl<const IRQ: u32> MmioDevice for Pl011Internal<IRQ> {
-    fn mmio_range(&self) -> MmioRange {
-        self.mmio_range
-    }
 
     fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]) {
         let offset: u16 = offset.try_into().unwrap();
@@ -556,6 +543,70 @@ impl<const IRQ: u32> MmioDevice for Pl011Internal<IRQ> {
             Register::CellId3 => unreachable!("RO"),
         }
     }
+}
+
+struct Pl011Handler<const IRQ: u32> {
+    mmio_range: MmioRange,
+    pl011: Arc<Mutex<Pl011Internal<IRQ>>>,
+}
+
+impl<const IRQ: u32> MmioHandler for Pl011Handler<IRQ> {
+    fn mmio_range(&self) -> MmioRange {
+        self.mmio_range
+    }
+
+    fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
+        self.pl011.lock().unwrap().mmio_read(offset, len, data);
+    }
+
+    fn mmio_write(&self, offset: u64, len: usize, data: &[u8]) {
+        self.pl011.lock().unwrap().mmio_write(offset, len, data);
+    }
+}
+
+pub struct Pl011<const IRQ: u32> {
+    mmio_range: MmioRange,
+    pl011: Arc<Mutex<Pl011Internal<IRQ>>>,
+}
+
+impl<const IRQ: u32> Pl011<IRQ> {
+    pub fn new(mmio_range: MmioRange, irq_chip: Arc<dyn InterruptController>) -> Self {
+        let pl011 = Arc::new(Mutex::new(Pl011Internal::new(irq_chip)));
+
+        thread::spawn({
+            let pl011 = pl011.clone();
+            move || {
+                let stdin = io::stdin();
+                let mut handle = stdin.lock();
+                let mut buffer = [0u8; 1];
+
+                while let Ok(n) = handle.read(&mut buffer) {
+                    if n == 0 {
+                        break;
+                    }
+                    let mut pl011 = pl011.lock().unwrap();
+                    pl011.stdio(buffer[0]);
+                }
+            }
+        });
+
+        Pl011 { mmio_range, pl011 }
+    }
+}
+
+impl<const IRQ: u32> Device for Pl011<IRQ> {
+    fn name(&self) -> String {
+        "pl011".to_string()
+    }
+}
+
+impl<const IRQ: u32> MmioDevice for Pl011<IRQ> {
+    fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
+        vec![Box::new(Pl011Handler {
+            mmio_range: self.mmio_range,
+            pl011: self.pl011.clone(),
+        })]
+    }
 
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
         let node = fdt.begin_node("uartclk")?;
@@ -587,56 +638,5 @@ impl<const IRQ: u32> MmioDevice for Pl011Internal<IRQ> {
         fdt.end_node(node)?;
 
         Ok(())
-    }
-}
-
-pub struct Pl011<const IRQ: u32>(Arc<Mutex<Pl011Internal<IRQ>>>);
-
-impl<const IRQ: u32> Pl011<IRQ> {
-    pub fn new(mmio_range: MmioRange, irq_chip: Arc<dyn InterruptController>) -> Self {
-        let pl011 = Arc::new(Mutex::new(Pl011Internal::new(mmio_range, irq_chip)));
-
-        thread::spawn({
-            let pl011 = pl011.clone();
-            move || {
-                let stdin = io::stdin();
-                let mut handle = stdin.lock();
-                let mut buffer = [0u8; 1];
-
-                while let Ok(n) = handle.read(&mut buffer) {
-                    if n == 0 {
-                        break;
-                    }
-                    let mut pl011 = pl011.lock().unwrap();
-                    pl011.stdio(buffer[0]);
-                }
-            }
-        });
-
-        Self(pl011)
-    }
-}
-
-impl<const IRQ: u32> Device for Pl011<IRQ> {
-    fn name(&self) -> String {
-        self.0.lock().unwrap().name()
-    }
-}
-
-impl<const IRQ: u32> MmioDevice for Pl011<IRQ> {
-    fn mmio_range(&self) -> MmioRange {
-        self.0.lock().unwrap().mmio_range()
-    }
-
-    fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]) {
-        self.0.lock().unwrap().mmio_read(offset, len, data);
-    }
-
-    fn mmio_write(&mut self, offset: u64, len: usize, data: &[u8]) {
-        self.0.lock().unwrap().mmio_write(offset, len, data);
-    }
-
-    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
-        self.0.lock().unwrap().generate_dt(fdt)
     }
 }

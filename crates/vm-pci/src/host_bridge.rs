@@ -1,7 +1,9 @@
-use crate::pci::device::PciDevice;
-use crate::pci::types::function::PciTypeFunctionCommon;
-use crate::pci::types::function::type0::PciType0Function;
-use crate::pci::types::function::type0::Type0Function;
+use crate::device::PciDevice;
+use crate::types::function::BarHandler;
+use crate::types::function::PciTypeFunctionCommon;
+use crate::types::function::type0::PciType0Function;
+use crate::types::function::type0::Type0Function;
+
 struct HostBridgeFunction;
 
 impl PciTypeFunctionCommon for HostBridgeFunction {
@@ -11,11 +13,16 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
     const SUBCLASS: u8 = 0x00;
     const CLASS_CODE: u8 = 0x06;
 }
+
 impl PciType0Function for HostBridgeFunction {
     const BAR_SIZE: [Option<u32>; 6] = [None, None, None, None, None, None];
+
+    fn bar_handler(&self, _n: u8) -> Box<dyn BarHandler> {
+        todo!()
+    }
 }
 
 pub fn new_host_bridge() -> PciDevice {
-    let function = Type0Function::<HostBridgeFunction>::default();
+    let function = Type0Function::new(HostBridgeFunction);
     PciDevice::new(vec![Box::new(function)])
 }

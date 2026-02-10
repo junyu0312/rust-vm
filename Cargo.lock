@@ -517,6 +517,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-pci",
  "vm-virtio",
  "zerocopy",
 ]
@@ -541,6 +542,19 @@ dependencies = [
  "vm-bootloader",
  "vm-core",
  "vm-device",
+ "vm-pci",
+ "vm-virtio",
+]
+
+[[package]]
+name = "vm-pci"
+version = "0.1.0"
+dependencies = [
+ "strum_macros",
+ "tracing",
+ "vm-core",
+ "vm-fdt",
+ "zerocopy",
 ]
 
 [[package]]
@@ -553,6 +567,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-pci",
  "zerocopy",
 ]
 

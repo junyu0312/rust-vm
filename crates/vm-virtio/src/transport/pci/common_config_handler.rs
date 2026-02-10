@@ -1,0 +1,139 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
+use strum_macros::FromRepr;
+use tracing::warn;
+use vm_pci::types::function::BarHandler;
+
+use crate::device::pci::VirtIoPciDevice;
+use crate::transport::VirtIoTransport;
+use crate::transport::control_register::ControlRegister;
+
+#[derive(Debug, FromRepr)]
+#[repr(u64)]
+enum CommonCfgOffset {
+    // About the whole device
+    DeviceFeatureSelect = 0x00,
+    DeviceFeature = 0x04,
+    DriverFeatureSelect = 0x08,
+    DriverFeature = 0x0c,
+    ConfigMsixVector = 0x10,
+    NumQueues = 0x12,
+    DeviceStatus = 0x14,
+    ConfigGeneration = 0x15,
+
+    // About a specific virtqueue
+    QueueSelect = 0x16,
+    QueueSize = 0x18,
+    QueueMsixVector = 0x1a,
+    QueueEnable = 0x1c,
+    QueueNotifyOff = 0x1e,
+    QueueDesc = 0x20,
+    QueueDriver = 0x28,
+    QueueDevice = 0x30,
+    QueueNotifConfigData = 0x38,
+    QueueReset = 0x3a,
+    AdminQueueIndex = 0x3c,
+    AdminQueueNum = 0x3e,
+}
+
+pub struct CommonConfigHandler<D: VirtIoPciDevice> {
+    pub transport: Arc<Mutex<VirtIoTransport<D>>>,
+}
+
+impl<D> BarHandler for CommonConfigHandler<D>
+where
+    D: VirtIoPciDevice,
+{
+    fn read(&self, offset: u64, len: usize, data: &mut [u8]) {
+        let Some(offset) = CommonCfgOffset::from_repr(offset) else {
+            warn!(offset, "invalid offset");
+            return;
+        };
+
+        let transport = self.transport.lock().unwrap();
+
+        match offset {
+            CommonCfgOffset::DeviceFeatureSelect => todo!(),
+            CommonCfgOffset::DeviceFeature => {
+                assert_eq!(len, 4);
+                let feat = transport.read_reg(ControlRegister::DeviceFeatures);
+                data.copy_from_slice(&feat.to_le_bytes());
+            }
+            CommonCfgOffset::DriverFeatureSelect => todo!(),
+            CommonCfgOffset::DriverFeature => todo!(),
+            CommonCfgOffset::ConfigMsixVector => todo!(),
+            CommonCfgOffset::NumQueues => todo!(),
+            CommonCfgOffset::DeviceStatus => {
+                assert_eq!(len, 1);
+                let status = transport.read_reg(ControlRegister::Status);
+                data[0] = status.try_into().unwrap();
+            }
+            CommonCfgOffset::ConfigGeneration => todo!(),
+            CommonCfgOffset::QueueSelect => todo!(),
+            CommonCfgOffset::QueueSize => todo!(),
+            CommonCfgOffset::QueueMsixVector => todo!(),
+            CommonCfgOffset::QueueEnable => todo!(),
+            CommonCfgOffset::QueueNotifyOff => todo!(),
+            CommonCfgOffset::QueueDesc => todo!(),
+            CommonCfgOffset::QueueDriver => todo!(),
+            CommonCfgOffset::QueueDevice => todo!(),
+            CommonCfgOffset::QueueNotifConfigData => todo!(),
+            CommonCfgOffset::QueueReset => todo!(),
+            CommonCfgOffset::AdminQueueIndex => todo!(),
+            CommonCfgOffset::AdminQueueNum => todo!(),
+        }
+    }
+
+    fn write(&self, offset: u64, len: usize, data: &[u8]) {
+        let Some(offset) = CommonCfgOffset::from_repr(offset) else {
+            warn!(offset, "invalid offset");
+            return;
+        };
+
+        let mut transport = self.transport.lock().unwrap();
+
+        match offset {
+            CommonCfgOffset::DeviceFeatureSelect => {
+                assert_eq!(len, 4);
+                let sel = u32::from_le_bytes(data.try_into().unwrap());
+                transport
+                    .write_reg(ControlRegister::DeviceFeaturesSel, sel)
+                    .unwrap();
+            }
+            CommonCfgOffset::DriverFeatureSelect => {
+                assert_eq!(len, 4);
+                let sel = u32::from_le_bytes(data.try_into().unwrap());
+                transport
+                    .write_reg(ControlRegister::DriverFeaturesSel, sel)
+                    .unwrap();
+            }
+            CommonCfgOffset::DriverFeature => {
+                assert_eq!(len, 4);
+                let sel = u32::from_le_bytes(data.try_into().unwrap());
+                transport
+                    .write_reg(ControlRegister::DriverFeatures, sel)
+                    .unwrap();
+            }
+            CommonCfgOffset::ConfigMsixVector => todo!(),
+            CommonCfgOffset::DeviceStatus => {
+                assert_eq!(len, 1);
+                let status = data[0];
+                transport
+                    .write_reg(ControlRegister::Status, status as u32)
+                    .unwrap();
+            }
+            CommonCfgOffset::QueueSelect => todo!(),
+            CommonCfgOffset::QueueSize => todo!(),
+            CommonCfgOffset::QueueMsixVector => todo!(),
+            CommonCfgOffset::QueueEnable => todo!(),
+            CommonCfgOffset::QueueDesc => todo!(),
+            CommonCfgOffset::QueueDriver => todo!(),
+            CommonCfgOffset::QueueDevice => todo!(),
+            CommonCfgOffset::QueueReset => todo!(),
+            _ => {
+                warn!(?offset, "write to a RO cfg");
+            }
+        }
+    }
+}

@@ -1,18 +1,17 @@
 use std::fmt::Debug;
 
+pub mod address_space;
 pub mod device_manager;
 pub mod mmio;
 pub mod pio;
 pub mod vm_exit;
 
-mod address_space;
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("invalid length of range")]
     InvalidLen,
-    #[error("invalid range")]
-    InvalidRange,
+    #[error("invalid range, offset: 0x{0:x}, len: {1}")]
+    InvalidRange(u64, usize),
     #[error("no device found for port 0x{0:#x}")]
     NoDeviceForPort(u16),
     #[error("no device found for addr 0x{0:#x}")]

@@ -3,6 +3,8 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
+pub mod status;
+
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct HeaderCommon {
@@ -18,4 +20,11 @@ pub struct HeaderCommon {
     pub latency_timer: u8,   // 0x0D
     pub header_type: u8,     // 0x0E
     pub bist: u8,            // 0x0F
+}
+
+pub enum CommonHeaderOffset {
+    Status = 0x06,
+    CapabilityPointer = 0x34,
+    InterruptLine = 0x3c,
+    InterruptPin = 0x3d,
 }

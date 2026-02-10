@@ -3,12 +3,9 @@ use std::io::{self};
 use std::sync::Arc;
 
 use vm_core::device::Device;
-use vm_core::device::mmio::MmioRange;
-use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
 use vm_core::irq::InterruptController;
-use vm_fdt::FdtWriter;
 
 use crate::device::uart8250::ier::IER;
 use crate::device::uart8250::iir::IIR;
@@ -168,7 +165,6 @@ mod msr {
 
 pub struct Uart8250<const IRQ: u32> {
     port_base: Option<u16>,
-    mmio_range: Option<MmioRange>,
 
     txr: u8,
     rbr: Option<u8>,
@@ -186,14 +182,9 @@ pub struct Uart8250<const IRQ: u32> {
 }
 
 impl<const IRQ: u32> Uart8250<IRQ> {
-    pub fn new(
-        port_base: Option<u16>,
-        mmio_range: Option<MmioRange>,
-        irq_controller: Arc<dyn InterruptController>,
-    ) -> Self {
+    pub fn new(port_base: Option<u16>, irq_controller: Arc<dyn InterruptController>) -> Self {
         Uart8250 {
             port_base,
-            mmio_range,
             txr: Default::default(),
             rbr: Default::default(),
             dll: Default::default(),
@@ -443,65 +434,5 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
         }
 
         self.update_irq();
-    }
-}
-
-impl<const IRQ: u32> MmioDevice for Uart8250<IRQ> {
-    fn mmio_range(&self) -> MmioRange {
-        self.mmio_range.unwrap()
-    }
-
-    fn mmio_read(&mut self, offset: u64, _len: usize, data: &mut [u8]) {
-        match offset as u16 {
-            RBR if !self.lcr.is_dlab_set() => self.in_rbr(data),
-            DLL if self.lcr.is_dlab_set() => self.in_dll(data),
-            IER if !self.lcr.is_dlab_set() => self.in_ier(data),
-            DLH if self.lcr.is_dlab_set() => self.in_dlh(data),
-            IIR => self.in_iir(data),
-            LCR => self.in_lcr(data),
-            MCR => self.in_mcr(data),
-            LSR => self.in_lsr(data),
-            MSR => self.in_msr(data),
-            SR => self.in_sr(data),
-            _ => unreachable!(),
-        }
-
-        self.update_irq();
-    }
-
-    fn mmio_write(&mut self, offset: u64, _len: usize, data: &[u8]) {
-        match offset as u16 {
-            THR if !self.lcr.is_dlab_set() => self.out_thr(data),
-            DLL if self.lcr.is_dlab_set() => self.out_dll(data),
-            IER if !self.lcr.is_dlab_set() => self.out_ier(data),
-            DLH if self.lcr.is_dlab_set() => self.out_dlh(data),
-            // FCR => self.out_fcr(data),
-            FCR => (), // no fifo,
-            LCR => self.out_lcr(data),
-            MCR => self.out_mcr(data),
-            LSR => (), // Ignore
-            MSR => (), // Ignore
-            SR => (),  // 8250 does not have sr
-            _ => unimplemented!("{offset}"),
-        }
-
-        self.update_irq();
-    }
-
-    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
-        let Some(mmio_range) = self.mmio_range else {
-            return Ok(());
-        };
-
-        let serial_node = fdt.begin_node(&format!("uart@{:x}", mmio_range.start))?;
-        fdt.property_string("compatible", "ns16550a")?;
-        fdt.property_array_u64("reg", &[mmio_range.start, mmio_range.len as u64])?;
-        fdt.property_u32("clock-frequency", 24000000)?;
-        fdt.property_u32("current-speed", 115200)?;
-        fdt.property_array_u32("interrupts", &[0, 33, 4])?;
-        fdt.property_phandle(2)?;
-        fdt.end_node(serial_node)?;
-
-        Ok(())
     }
 }

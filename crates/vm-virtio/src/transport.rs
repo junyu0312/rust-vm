@@ -11,7 +11,7 @@ pub mod control_register;
 pub mod mmio;
 pub mod pci;
 
-struct VirtIoTransport<D> {
+pub struct VirtIoTransport<D> {
     device: D,
 
     device_feature_sel: Option<u32>,
@@ -96,7 +96,7 @@ where
         match reg {
             ControlRegister::DeviceFeatures => {
                 let sel = self.get_device_feature_sel_or_default();
-                assert!(sel < 2);
+                // if sel >= 2, just return 0
                 (D::DEVICE_FEATURES >> (sel * 32)) as u32
             }
             ControlRegister::DeviceFeaturesSel => self.get_device_feature_sel_or_default(),
@@ -141,13 +141,14 @@ where
             ControlRegister::DriverFeatures => {
                 let sel = self.get_driver_feature_sel_or_default();
 
-                assert!(sel < 2);
                 if sel == 0 {
                     self.driver_features =
                         (self.driver_features & 0xffff_ffff_0000_0000) | (val as u64);
-                } else {
+                } else if sel == 1 {
                     self.driver_features =
                         (self.driver_features & 0x0000_0000_ffff_ffff) | ((val as u64) << 32);
+                } else {
+                    assert_eq!(val, 0);
                 }
             }
             ControlRegister::DriverFeaturesSel => self.driver_feature_sel = Some(val),
