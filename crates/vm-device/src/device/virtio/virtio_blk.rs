@@ -8,6 +8,7 @@ use vm_virtio::device::VirtIoDevice;
 use vm_virtio::device::blk::config::VirtioBlkConfig;
 use vm_virtio::device::blk::req::VirtIoBlkReqType;
 use vm_virtio::device::blk::req::VirtioBlkReq;
+use vm_virtio::device::pci::VirtIoPciDevice;
 use vm_virtio::result::Result;
 use vm_virtio::transport::mmio::VirtIoMmioTransport;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
@@ -128,6 +129,14 @@ where
         self.cfg.as_mut_bytes()[offset..len].copy_from_slice(buf);
         Ok(())
     }
+}
+
+impl<C> VirtIoPciDevice for VirtIoBlkDevice<C>
+where
+    C: MemoryContainer,
+{
+    const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = size_of::<VirtioBlkConfig>();
+    const CLASS_CODE: u32 = 0x018000;
 }
 
 pub type VirtIoMmioBlkDevice<C> = VirtIoMmioTransport<VirtIoBlkDevice<C>>;

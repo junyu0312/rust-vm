@@ -1,4 +1,4 @@
-use crate::pci::types::function::PciFunction;
+use crate::types::function::PciFunction;
 
 pub struct PciDevice {
     functions: Vec<Box<dyn PciFunction>>,

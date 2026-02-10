@@ -1,13 +1,14 @@
 use vm_core::device::address_space::AddressSpace;
 use vm_core::device::mmio::MmioRange;
-use vm_core::device::mmio::mmio_device::MmioHandler;
+
+use crate::types::function::BarHandler;
 
 struct Destination {
     bus: u8,
     device: u8,
     function: u8,
     bar: u8,
-    handler: Box<dyn MmioHandler>,
+    handler: Box<dyn BarHandler>,
 }
 
 pub struct MmioRouter {
@@ -30,7 +31,7 @@ impl MmioRouter {
         device: u8,
         function: u8,
         bar: u8,
-        handler: Box<dyn MmioHandler>,
+        handler: Box<dyn BarHandler>,
     ) {
         if self
             .pci_address_space
@@ -50,7 +51,7 @@ impl MmioRouter {
         }
     }
 
-    pub fn get_handler(&self, offset: u64) -> Option<&dyn MmioHandler> {
+    pub fn get_handler(&self, offset: u64) -> Option<&dyn BarHandler> {
         Some(
             self.pci_address_space
                 .try_get_value_by_key(offset)

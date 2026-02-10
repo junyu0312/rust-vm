@@ -1,19 +1,24 @@
 use vm_core::device::mmio::MmioRange;
-use vm_core::device::mmio::mmio_device::MmioHandler;
 use zerocopy::FromBytes;
 
-use crate::pci::types::configuration_space::ConfigurationSpace;
-use crate::pci::types::configuration_space::common::HeaderCommon;
+use crate::types::configuration_space::ConfigurationSpace;
+use crate::types::configuration_space::common::HeaderCommon;
 
 pub mod type0;
 pub mod type1;
 
+pub trait BarHandler {
+    fn read(&self, offset: u64, len: usize, data: &mut [u8]);
+
+    fn write(&self, offset: u64, len: usize, data: &[u8]);
+}
+
 pub trait PciTypeFunctionCommon {
     const VENDOR_ID: u16;
     const DEVICE_ID: u16;
+    const PROG_IF: u8;
     const SUBCLASS: u8;
     const CLASS_CODE: u8;
-    const PROG_IF: u8;
 
     fn new_configuration_space(header_type: u8) -> ConfigurationSpace {
         let mut buf = [0; 4096];
@@ -41,15 +46,15 @@ pub trait PciTypeFunctionCommon {
 pub enum Callback {
     Void,
     // bar n, pci address range, handler
-    RegisterBarClosure((u8, MmioRange, Box<dyn MmioHandler>)),
+    RegisterBarClosure((u8, MmioRange, Box<dyn BarHandler>)),
 }
 
 pub trait PciFunction {
-    fn write_bar(&self, pci_address_to_gpa: u64, n: u8, buf: &[u8]) -> Callback;
+    fn write_bar(&self, n: u8, buf: &[u8]) -> Callback;
 
     fn ecam_read(&self, offset: u16, buf: &mut [u8]);
 
-    fn ecam_write(&self, pci_address_to_gpa: u64, offset: u16, buf: &[u8]) -> Callback;
+    fn ecam_write(&self, offset: u16, buf: &[u8]) -> Callback;
 
-    fn bar_handler(&self, bar: u8, gpa: u64) -> Box<dyn MmioHandler>;
+    fn bar_handler(&self, bar: u8) -> Box<dyn BarHandler>;
 }

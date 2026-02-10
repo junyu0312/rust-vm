@@ -7,10 +7,10 @@ use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
 
-use crate::pci::device::PciDevice;
-use crate::pci::root_complex::PciRootComplex;
-use crate::pci::root_complex::mmio::device_mmio_handler::DeviceMmioHandler;
-use crate::pci::root_complex::mmio::ecam_handler::EcamHandler;
+use crate::device::PciDevice;
+use crate::root_complex::PciRootComplex;
+use crate::root_complex::mmio::device_mmio_handler::DeviceMmioHandler;
+use crate::root_complex::mmio::ecam_handler::EcamHandler;
 
 #[derive(Debug)]
 struct DeviceSel {
@@ -78,26 +78,17 @@ mod ecam_handler {
     use vm_core::device::mmio::MmioRange;
     use vm_core::device::mmio::mmio_device::MmioHandler;
 
-    use crate::pci::root_complex::PciRootComplex;
-    use crate::pci::root_complex::mmio::DeviceSel;
+    use crate::root_complex::PciRootComplex;
+    use crate::root_complex::mmio::DeviceSel;
 
     pub struct EcamHandler {
         mmio_range: MmioRange,
-        physical_address_start: u64,
         rc: Arc<Mutex<PciRootComplex>>,
     }
 
     impl EcamHandler {
-        pub fn new(
-            mmio_range: MmioRange,
-            physical_address_start: u64,
-            rc: Arc<Mutex<PciRootComplex>>,
-        ) -> Self {
-            EcamHandler {
-                mmio_range,
-                physical_address_start,
-                rc,
-            }
+        pub fn new(mmio_range: MmioRange, rc: Arc<Mutex<PciRootComplex>>) -> Self {
+            EcamHandler { mmio_range, rc }
         }
     }
 
@@ -119,14 +110,7 @@ mod ecam_handler {
 
             let mut rc = self.rc.lock().unwrap();
 
-            rc.handle_ecam_write(
-                self.physical_address_start, // TODO: mapping
-                sel.bus,
-                sel.device,
-                sel.func,
-                sel.offset,
-                data,
-            );
+            rc.handle_ecam_write(sel.bus, sel.device, sel.func, sel.offset, data);
         }
     }
 }
@@ -138,7 +122,7 @@ mod device_mmio_handler {
     use vm_core::device::mmio::MmioRange;
     use vm_core::device::mmio::mmio_device::MmioHandler;
 
-    use crate::pci::root_complex::PciRootComplex;
+    use crate::root_complex::PciRootComplex;
 
     pub struct DeviceMmioHandler {
         bar_mmio_range: MmioRange,
@@ -161,7 +145,7 @@ mod device_mmio_handler {
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
             if let Some(handler) = handler {
-                handler.mmio_read(offset, len, data);
+                handler.read(offset, len, data);
             }
         }
 
@@ -170,7 +154,7 @@ mod device_mmio_handler {
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
             if let Some(handler) = handler {
-                handler.mmio_write(offset, len, data);
+                handler.write(offset, len, data);
             }
         }
     }
@@ -183,7 +167,6 @@ impl MmioDevice for PciRootComplexMmio {
 
         handlers.push(Box::new(EcamHandler::new(
             self.ecam_range,
-            self.physical_address_start,
             self.internal.clone(),
         )));
         for bar_mmio_range in &self.bar_mmio_ranges {

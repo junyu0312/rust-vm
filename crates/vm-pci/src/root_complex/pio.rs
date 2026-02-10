@@ -2,8 +2,8 @@ use vm_core::device::Device;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
 
-use crate::pci::root_complex::PciRootComplex;
-use crate::pci::root_complex::pio::config_addr::ConfigAddress;
+use crate::root_complex::PciRootComplex;
+use crate::root_complex::pio::config_addr::ConfigAddress;
 
 mod config_addr;
 
@@ -37,7 +37,6 @@ impl PciRootComplexPio {
         let start = register * 4 + offset;
 
         self.internal.handle_ecam_write(
-            todo!(),
             self.config_address.bus(),
             self.config_address.device(),
             self.config_address.function(),

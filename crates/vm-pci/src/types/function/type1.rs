@@ -2,12 +2,11 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_core::device::mmio::mmio_device::MmioHandler;
-
-use crate::pci::types::configuration_space::ConfigurationSpace;
-use crate::pci::types::function::Callback;
-use crate::pci::types::function::PciFunction;
-use crate::pci::types::function::PciTypeFunctionCommon;
+use crate::types::configuration_space::ConfigurationSpace;
+use crate::types::function::BarHandler;
+use crate::types::function::Callback;
+use crate::types::function::PciFunction;
+use crate::types::function::PciTypeFunctionCommon;
 
 pub trait PciType1Function: PciTypeFunctionCommon {}
 
@@ -31,7 +30,7 @@ where
 }
 
 impl<T> PciFunction for Type1Function<T> {
-    fn write_bar(&self, pci_address_to_gpa: u64, _n: u8, _buf: &[u8]) -> Callback {
+    fn write_bar(&self, _n: u8, _buf: &[u8]) -> Callback {
         todo!()
     }
 
@@ -39,13 +38,13 @@ impl<T> PciFunction for Type1Function<T> {
         self.configuration_space.lock().unwrap().read(offset, buf);
     }
 
-    fn ecam_write(&self, pci_address_to_gpa: u64, offset: u16, buf: &[u8]) -> Callback {
+    fn ecam_write(&self, offset: u16, buf: &[u8]) -> Callback {
         // TODO: update bar cb
         self.configuration_space.lock().unwrap().write(offset, buf);
         Callback::Void
     }
 
-    fn bar_handler(&self, bar: u8, gpa: u64) -> Box<dyn MmioHandler> {
+    fn bar_handler(&self, _bar: u8) -> Box<dyn BarHandler> {
         todo!()
     }
 }

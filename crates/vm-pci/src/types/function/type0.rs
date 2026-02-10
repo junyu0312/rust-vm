@@ -3,13 +3,13 @@ use std::sync::Mutex;
 
 use strum_macros::FromRepr;
 use vm_core::device::mmio::MmioRange;
-use vm_core::device::mmio::mmio_device::MmioHandler;
 
-use crate::pci::types::configuration_space::ConfigurationSpace;
-use crate::pci::types::configuration_space::type0::Type0Header;
-use crate::pci::types::function::Callback;
-use crate::pci::types::function::PciFunction;
-use crate::pci::types::function::PciTypeFunctionCommon;
+use crate::types::configuration_space::ConfigurationSpace;
+use crate::types::configuration_space::type0::Type0Header;
+use crate::types::function::BarHandler;
+use crate::types::function::Callback;
+use crate::types::function::PciFunction;
+use crate::types::function::PciTypeFunctionCommon;
 
 #[derive(FromRepr)]
 #[repr(u16)]
@@ -39,12 +39,7 @@ enum Type0HeaderOffset {
 pub trait PciType0Function: PciTypeFunctionCommon {
     const BAR_SIZE: [Option<u32>; 6];
 
-    fn bar_handler(
-        &self,
-        n: u8,
-        gpa: u64,
-        cfg: Arc<Mutex<ConfigurationSpace>>,
-    ) -> Box<dyn MmioHandler>;
+    fn bar_handler(&self, n: u8) -> Box<dyn BarHandler>;
 }
 
 pub struct Type0Function<T> {
@@ -70,7 +65,7 @@ impl<T> PciFunction for Type0Function<T>
 where
     T: PciType0Function,
 {
-    fn write_bar(&self, pci_address_to_gpa: u64, n: u8, buf: &[u8]) -> Callback {
+    fn write_bar(&self, n: u8, buf: &[u8]) -> Callback {
         let mut configuration_space = self.configuration_space.lock().unwrap();
 
         let val = u32::from_le_bytes(buf.try_into().unwrap());
@@ -89,7 +84,7 @@ where
                         start: val as u64,
                         len: bar_size as usize,
                     },
-                    self.bar_handler(n, pci_address_to_gpa + val as u64),
+                    self.bar_handler(n),
                 ))
             }
         } else {
@@ -102,14 +97,14 @@ where
         self.configuration_space.lock().unwrap().read(offset, buf);
     }
 
-    fn ecam_write(&self, pci_address_to_gpa: u64, offset: u16, buf: &[u8]) -> Callback {
+    fn ecam_write(&self, offset: u16, buf: &[u8]) -> Callback {
         match Type0HeaderOffset::from_repr(offset) {
-            Some(Type0HeaderOffset::Bar0) => self.write_bar(pci_address_to_gpa, 0, buf),
-            Some(Type0HeaderOffset::Bar1) => self.write_bar(pci_address_to_gpa, 1, buf),
-            Some(Type0HeaderOffset::Bar2) => self.write_bar(pci_address_to_gpa, 2, buf),
-            Some(Type0HeaderOffset::Bar3) => self.write_bar(pci_address_to_gpa, 3, buf),
-            Some(Type0HeaderOffset::Bar4) => self.write_bar(pci_address_to_gpa, 4, buf),
-            Some(Type0HeaderOffset::Bar5) => self.write_bar(pci_address_to_gpa, 5, buf),
+            Some(Type0HeaderOffset::Bar0) => self.write_bar(0, buf),
+            Some(Type0HeaderOffset::Bar1) => self.write_bar(1, buf),
+            Some(Type0HeaderOffset::Bar2) => self.write_bar(2, buf),
+            Some(Type0HeaderOffset::Bar3) => self.write_bar(3, buf),
+            Some(Type0HeaderOffset::Bar4) => self.write_bar(4, buf),
+            Some(Type0HeaderOffset::Bar5) => self.write_bar(5, buf),
             Some(Type0HeaderOffset::RomAddress) => Callback::Void,
             _ => {
                 let mut configuration_space = self.configuration_space.lock().unwrap();
@@ -119,8 +114,7 @@ where
         }
     }
 
-    fn bar_handler(&self, bar: u8, gpa: u64) -> Box<dyn MmioHandler> {
-        self.device
-            .bar_handler(bar, gpa, self.configuration_space.clone())
+    fn bar_handler(&self, bar: u8) -> Box<dyn BarHandler> {
+        self.device.bar_handler(bar)
     }
 }

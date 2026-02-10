@@ -3,7 +3,6 @@ use std::io::{self};
 use std::sync::Arc;
 
 use vm_core::device::Device;
-use vm_core::device::mmio::MmioRange;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
 use vm_core::irq::InterruptController;
@@ -166,7 +165,6 @@ mod msr {
 
 pub struct Uart8250<const IRQ: u32> {
     port_base: Option<u16>,
-    mmio_range: Option<MmioRange>,
 
     txr: u8,
     rbr: Option<u8>,
@@ -184,14 +182,9 @@ pub struct Uart8250<const IRQ: u32> {
 }
 
 impl<const IRQ: u32> Uart8250<IRQ> {
-    pub fn new(
-        port_base: Option<u16>,
-        mmio_range: Option<MmioRange>,
-        irq_controller: Arc<dyn InterruptController>,
-    ) -> Self {
+    pub fn new(port_base: Option<u16>, irq_controller: Arc<dyn InterruptController>) -> Self {
         Uart8250 {
             port_base,
-            mmio_range,
             txr: Default::default(),
             rbr: Default::default(),
             dll: Default::default(),

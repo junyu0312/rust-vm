@@ -3,8 +3,9 @@ use crate::types::interrupt_status::InterruptStatus;
 use crate::virt_queue::VirtQueue;
 
 pub mod blk;
+pub mod pci;
 
-pub trait VirtIoDevice: 'static {
+pub trait VirtIoDevice: Sized + 'static {
     const NAME: &str;
     const DEVICE_ID: u32;
     const VIRT_QUEUES_SIZE_MAX: &[u32];

@@ -1,10 +1,10 @@
 use tracing::debug;
 
-use crate::pci::bus::PciBus;
-use crate::pci::device::PciDevice;
-use crate::pci::host_bridge::new_host_bridge;
-use crate::pci::root_complex::mmio_router::MmioRouter;
-use crate::pci::types::function::Callback;
+use crate::bus::PciBus;
+use crate::device::PciDevice;
+use crate::host_bridge::new_host_bridge;
+use crate::root_complex::mmio_router::MmioRouter;
+use crate::types::function::Callback;
 
 pub mod mmio;
 pub mod pio;
@@ -75,15 +75,7 @@ impl PciRootComplex {
         debug!(bus, device, func, offset, ?data, "ecam read");
     }
 
-    fn handle_ecam_write(
-        &mut self,
-        pci_address_to_pa: u64,
-        bus: u8,
-        device: u8,
-        func: u8,
-        offset: u16,
-        data: &[u8],
-    ) {
+    fn handle_ecam_write(&mut self, bus: u8, device: u8, func: u8, offset: u16, data: &[u8]) {
         debug!(bus, device, func, offset, data, "ecam write");
 
         let Some(function) = self
@@ -93,7 +85,7 @@ impl PciRootComplex {
             return;
         };
 
-        match function.ecam_write(pci_address_to_pa, offset, data) {
+        match function.ecam_write(offset, data) {
             Callback::Void => (),
             Callback::RegisterBarClosure((bar_n, bar_range, handler)) => self
                 .mmio_router
