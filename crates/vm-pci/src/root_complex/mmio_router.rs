@@ -4,10 +4,10 @@ use vm_core::device::mmio::MmioRange;
 use crate::types::function::BarHandler;
 
 struct Destination {
-    bus: u8,
-    device: u8,
-    function: u8,
-    bar: u8,
+    _bus: u8,
+    _device: u8,
+    _function: u8,
+    _bar: u8,
     handler: Box<dyn BarHandler>,
 }
 
@@ -38,10 +38,10 @@ impl MmioRouter {
             .try_insert(
                 bar_range,
                 Destination {
-                    bus,
-                    device,
-                    function,
-                    bar,
+                    _bus: bus,
+                    _device: device,
+                    _function: function,
+                    _bar: bar,
                     handler,
                 },
             )

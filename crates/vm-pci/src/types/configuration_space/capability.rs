@@ -1,1 +1,7 @@
-pub const PCI_CAP_ID_VNDR: u8 = 0x09; /* Vendor-Specific */
+pub mod msix;
+
+#[repr(u8)]
+pub enum PciCapId {
+    Vndr = 0x09, /* Vendor-Specific */
+    MsiX = 0x11, /* MSI-X */
+}

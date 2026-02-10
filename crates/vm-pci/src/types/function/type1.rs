@@ -20,10 +20,10 @@ where
     T: PciType1Function,
 {
     fn default() -> Self {
-        let configuration_space = Arc::new(Mutex::new(T::new_configuration_space(1)));
+        let cfg = ConfigurationSpace::init::<T>(1);
 
         Type1Function {
-            configuration_space,
+            configuration_space: Arc::new(Mutex::new(cfg)),
             _mark: PhantomData,
         }
     }

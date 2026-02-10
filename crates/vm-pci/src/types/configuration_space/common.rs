@@ -25,4 +25,6 @@ pub struct HeaderCommon {
 pub enum CommonHeaderOffset {
     Status = 0x06,
     CapabilityPointer = 0x34,
+    InterruptLine = 0x3c,
+    InterruptPin = 0x3d,
 }

@@ -52,10 +52,10 @@ where
     T: PciType0Function,
 {
     pub fn new(device: T) -> Self {
-        let configuration_space = Arc::new(Mutex::new(T::new_configuration_space(0)));
+        let cfg = ConfigurationSpace::init::<T>(0);
 
         Type0Function {
-            configuration_space,
+            configuration_space: Arc::new(Mutex::new(cfg)),
             device,
         }
     }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use vm_pci::types::configuration_space::ConfigurationSpace;
-use vm_pci::types::configuration_space::capability::PCI_CAP_ID_VNDR;
+use vm_pci::types::configuration_space::capability::PciCapId;
 use vm_pci::types::function::BarHandler;
 use vm_pci::types::function::PciTypeFunctionCommon;
 use vm_pci::types::function::type0::PciType0Function;
@@ -76,7 +76,7 @@ where
             // cap for virtio_pci_common_cfg
             let cap_len = size_of::<VirtIoPciCap>().try_into().unwrap();
 
-            let cap = cfg.alloc_capability(PCI_CAP_ID_VNDR, cap_len);
+            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
             let cap = VirtIoPciCap::mut_from_bytes(cap).unwrap();
             cap.cap_len = cap_len;
             cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapCommonCfg as u8;
@@ -91,7 +91,7 @@ where
             // cap for virtio_pci_notify_cap
             let cap_len = size_of::<VirtIoPciNotifyCap>().try_into().unwrap();
 
-            let cap = cfg.alloc_capability(PCI_CAP_ID_VNDR, cap_len);
+            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
             let cap = VirtIoPciNotifyCap::mut_from_bytes(cap).unwrap();
             cap.cap.cap_len = cap_len;
             cap.cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapNotifyCfg as u8;
@@ -106,7 +106,7 @@ where
             // cap for virtio_pci_isr_cap
             let cap_len = size_of::<VirtIoPciCap>().try_into().unwrap();
 
-            let cap = cfg.alloc_capability(PCI_CAP_ID_VNDR, cap_len);
+            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
             let cap = VirtIoPciCap::mut_from_bytes(cap).unwrap();
             cap.cap_len = cap_len;
             cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapIsrCfg as u8;
@@ -120,7 +120,7 @@ where
             // cap for device_spec_cfg
             let cap_len = size_of::<VirtIoPciCap>().try_into().unwrap();
 
-            let cap = cfg.alloc_capability(PCI_CAP_ID_VNDR, cap_len);
+            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
             let cap = VirtIoPciCap::mut_from_bytes(cap).unwrap();
             cap.cap_len = cap_len;
             cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapDeviceCfg as u8;
