@@ -12,6 +12,43 @@ use crate::root_complex::PciRootComplex;
 use crate::root_complex::mmio::device_mmio_handler::DeviceMmioHandler;
 use crate::root_complex::mmio::ecam_handler::EcamHandler;
 
+#[cfg(target_arch = "x86_64")]
+fn todo_irq() {
+    todo!()
+}
+
+#[cfg(target_arch = "aarch64")]
+struct InterruptMapEntry {
+    pci_addr_high: u32,
+    pci_addr_mid: u32,
+    pci_addr_low: u32,
+    pin: u32,
+    gic_phandle: u32,
+    gic_addr_high: u32,
+    gic_addr_low: u32,
+    gic_irq_type: u32,
+    gic_irq_num: u32,
+    gic_irq_flags: u32,
+}
+
+#[cfg(target_arch = "aarch64")]
+impl InterruptMapEntry {
+    fn into_array(self) -> [u32; 10] {
+        [
+            self.pci_addr_high,
+            self.pci_addr_mid,
+            self.pci_addr_low,
+            self.pin,
+            self.gic_phandle,
+            self.gic_addr_high,
+            self.gic_addr_low,
+            self.gic_irq_type,
+            self.gic_irq_num,
+            self.gic_irq_flags,
+        ]
+    }
+}
+
 #[derive(Debug)]
 struct DeviceSel {
     bus: u8,
@@ -185,6 +222,7 @@ impl MmioDevice for PciRootComplexMmio {
         fdt.property_string("device_type", "pci")?;
         fdt.property_u32("#size-cells", 2)?;
         fdt.property_u32("#address-cells", 3)?;
+        fdt.property_u32("#interrupt-cells", 1)?;
         fdt.property_array_u32(
             "ranges",
             &[
@@ -198,8 +236,37 @@ impl MmioDevice for PciRootComplexMmio {
             ],
         )?;
         fdt.property_array_u32("bus-range", &[0, 0])?;
-        // interrupt
         fdt.property_array_u64("reg", &[self.ecam_range.start, self.ecam_range.len as u64])?;
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            use vm_core::irq::Phandle;
+            use vm_core::irq::arch::aarch64::GIC_SPI;
+            use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
+
+            fdt.property_array_u32("interrupt-map-mask", &[0, 0, 0, 7])?;
+            // TODO: hard code, virtio-pci-blk
+            let entry = InterruptMapEntry {
+                pci_addr_high: 0x800,
+                pci_addr_mid: 0,
+                pci_addr_low: 0,
+                pin: 0x01,
+                gic_phandle: Phandle::GIC as u32,
+                gic_addr_high: 0,
+                gic_addr_low: 0,
+                gic_irq_type: GIC_SPI,
+                gic_irq_num: 10,
+                gic_irq_flags: IRQ_TYPE_LEVEL_HIGH,
+            };
+            fdt.property_array_u32("interrupt-map", &entry.into_array())?;
+            fdt.property_u32("msi-parent", Phandle::MSI as u32)?;
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            todo_irq();
+        }
+
         fdt.end_node(node)?;
 
         Ok(())

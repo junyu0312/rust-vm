@@ -12,6 +12,8 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
     const PROG_IF: u8 = 0x00;
     const SUBCLASS: u8 = 0x00;
     const CLASS_CODE: u8 = 0x06;
+    const IRQ_LINE: u8 = 0xff;
+    const IRQ_PIN: u8 = 0x00;
 }
 
 impl PciType0Function for HostBridgeFunction {

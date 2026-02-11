@@ -52,7 +52,11 @@ where
     T: PciType0Function,
 {
     pub fn new(device: T) -> Self {
-        let cfg = ConfigurationSpace::init::<T>(0);
+        let mut cfg = ConfigurationSpace::init::<T>(0);
+
+        let header = cfg.as_header_mut::<Type0Header>();
+        header.interrupt_line = T::IRQ_LINE;
+        header.interrupt_pin = T::IRQ_PIN;
 
         Type0Function {
             configuration_space: Arc::new(Mutex::new(cfg)),

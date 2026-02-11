@@ -137,6 +137,8 @@ where
 {
     const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = size_of::<VirtioBlkConfig>();
     const CLASS_CODE: u32 = 0x018000;
+    const IRQ_LINE: u8 = 32 + 10;
+    const IRQ_PIN: u8 = 0x01;
 }
 
 pub type VirtIoMmioBlkDevice<C> = VirtIoMmioTransport<VirtIoBlkDevice<C>>;

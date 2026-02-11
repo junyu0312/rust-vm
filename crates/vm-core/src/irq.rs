@@ -1,5 +1,11 @@
 pub mod arch;
 
+#[repr(u32)]
+pub enum Phandle {
+    GIC = 0x1,
+    MSI = 0x2,
+}
+
 pub trait InterruptController: Send + Sync + 'static {
     fn trigger_irq(&self, irq_line: u32, active: bool);
 

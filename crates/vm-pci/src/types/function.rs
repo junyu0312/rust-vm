@@ -17,6 +17,8 @@ pub trait PciTypeFunctionCommon {
     const PROG_IF: u8;
     const SUBCLASS: u8;
     const CLASS_CODE: u8;
+    const IRQ_LINE: u8;
+    const IRQ_PIN: u8;
 
     fn init_capability(_configuration_space: &mut ConfigurationSpace) {
         // Default impl

@@ -41,7 +41,7 @@ impl VirtQueue {
     pub fn new(queue_size_max: u32) -> Self {
         VirtQueue {
             queue_size_max,
-            queue_size: Default::default(),
+            queue_size: queue_size_max.try_into().unwrap(), // virtio-pci uses it as maximal queue size, does it work on mmio?
             queue_ready: Default::default(),
             queue_desc_low: Default::default(),
             queue_desc_high: Default::default(),
@@ -55,6 +55,10 @@ impl VirtQueue {
 
     pub fn read_queue_size_max(&self) -> u32 {
         self.queue_size_max
+    }
+
+    pub fn read_queue_size(&self) -> u16 {
+        self.queue_size
     }
 
     pub fn write_queue_size(&mut self, queue_size: u16) {

@@ -6,10 +6,8 @@ use applevisor::vm::VirtualMachineInstance;
 use tracing::warn;
 
 use crate::irq::InterruptController;
+use crate::irq::Phandle;
 use crate::irq::arch::aarch64::AArch64IrqChip;
-
-const GIC_PHANDLE: u32 = 0x1;
-const MSI_PHANDLE: u32 = 0x2;
 
 pub struct HvpGicV3 {
     distributor_base: u64,
@@ -83,7 +81,9 @@ impl AArch64IrqChip for HvpGicV3 {
         fdt.property_string("compatible", "arm,gic-v3")?;
         fdt.property_u32("#interrupt-cells", 3)?;
         fdt.property_null("interrupt-controller")?;
-        fdt.property_phandle(GIC_PHANDLE)?;
+        fdt.property_u32("#address-cells", 2)?;
+        fdt.property_u32("#size-cells", 2)?;
+        fdt.property_phandle(Phandle::GIC as u32)?;
         fdt.property_array_u64(
             "reg",
             &[
@@ -109,11 +109,11 @@ impl AArch64IrqChip for HvpGicV3 {
                 self.get_msi_region_size()? as u64,
             ],
         )?;
-        fdt.property_phandle(MSI_PHANDLE)?;
+        fdt.property_phandle(Phandle::MSI as u32)?;
         fdt.end_node(msi_node)?;
 
         fdt.end_node(gic_node)?;
 
-        Ok(GIC_PHANDLE)
+        Ok(Phandle::GIC as u32)
     }
 }
