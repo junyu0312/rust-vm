@@ -107,7 +107,10 @@ where
                 let sel = self.get_queue_sel_or_default();
                 self.virtqueues[sel as usize].read_queue_size_max()
             }
-            ControlRegister::QueueSize => todo!(),
+            ControlRegister::QueueSize => {
+                let sel = self.get_queue_sel_or_default();
+                self.virtqueues[sel as usize].read_queue_size() as u32
+            }
             ControlRegister::QueueReady => {
                 let sel = self.get_queue_sel_or_default();
                 self.virtqueues[sel as usize].read_queue_ready() as u32

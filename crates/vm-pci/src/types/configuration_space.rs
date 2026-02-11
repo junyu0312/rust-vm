@@ -46,6 +46,7 @@ impl ConfigurationSpace {
         header.subclass = T::SUBCLASS;
         header.class_code = T::CLASS_CODE;
         header.header_type = header_type;
+
         T::init_capability(&mut cfg);
 
         cfg

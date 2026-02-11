@@ -34,4 +34,8 @@ impl InterruptController for KvmIRQ {
             error!(?err, "Failed to set_irq_line")
         }
     }
+
+    fn send_msi(&self, _intid: u32) {
+        todo!()
+    }
 }

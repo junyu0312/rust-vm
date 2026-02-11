@@ -45,11 +45,18 @@ impl BarHandler for IsrHandler {
     }
 }
 
-struct DeviceHandler;
+struct DeviceHandler<D: VirtIoPciDevice> {
+    transport: Arc<Mutex<VirtIoTransport<D>>>,
+}
 
-impl BarHandler for DeviceHandler {
+impl<D> BarHandler for DeviceHandler<D>
+where
+    D: VirtIoPciDevice,
+{
     fn read(&self, _offset: u64, _len: usize, _data: &mut [u8]) {
-        todo!()
+        let _transport = self.transport.lock().unwrap();
+        // todo!("{offset}")
+        // data[0] = 1;
     }
 
     fn write(&self, _offset: u64, _len: usize, _data: &[u8]) {
@@ -70,6 +77,8 @@ where
     const PROG_IF: u8 = D::CLASS_CODE as u8;
     const SUBCLASS: u8 = (D::CLASS_CODE >> 8) as u8;
     const CLASS_CODE: u8 = (D::CLASS_CODE >> 16) as u8;
+    const IRQ_LINE: u8 = D::IRQ_LINE;
+    const IRQ_PIN: u8 = D::IRQ_PIN;
 
     fn init_capability(cfg: &mut ConfigurationSpace) {
         {
@@ -157,7 +166,9 @@ where
             }),
             1 => Box::new(NotifyHandler),
             2 => Box::new(IsrHandler),
-            3 => Box::new(DeviceHandler),
+            3 => Box::new(DeviceHandler {
+                transport: self.transport.clone(),
+            }),
             _ => todo!("{n}"),
         }
     }

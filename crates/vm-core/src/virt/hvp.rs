@@ -59,9 +59,12 @@ impl Virt for Hvp {
 
         let distributor_base = layout.get_distributor_start();
         let redistributor_base = layout.get_redistributor_start();
+        let msi_base = layout.get_msi_start();
         let distributor_base_alignment = GicConfig::get_distributor_base_alignment()
             .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
         let redistributor_base_alignment = GicConfig::get_redistributor_base_alignment()
+            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+        let msi_region_base_alignment = GicConfig::get_msi_region_base_alignment()
             .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
 
         let gic_distributor_size = GicConfig::get_distributor_size().map_err(|err| {
@@ -82,6 +85,14 @@ impl Virt for Hvp {
         layout
             .set_redistributor_region_len(gic_redistributor_region_size)
             .unwrap();
+
+        let gic_msi_region_size = GicConfig::get_msi_region_size().map_err(|err| {
+            VirtError::InterruptControllerFailed(format!(
+                "Failed to get the size of msi region, {:?}",
+                err
+            ))
+        })?;
+        layout.set_msi_region_len(gic_msi_region_size).unwrap();
 
         {
             // Setup distributor
@@ -112,6 +123,32 @@ impl Virt for Hvp {
                 .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
         }
 
+        {
+            // Setup msi
+            if !msi_base.is_multiple_of(msi_region_base_alignment as u64) {
+                return Err(VirtError::InterruptControllerFailed(
+                    "The base address of gic msi is not aligned".to_string(),
+                ));
+            }
+            if redistributor_base + gic_redistributor_region_size as u64 > msi_base {
+                return Err(VirtError::InterruptControllerFailed(
+                    "redistributor too large".to_string(),
+                ));
+            }
+            gic_config
+                .set_msi_region_base(msi_base)
+                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+            gic_config
+                .set_msi_interrupt_range(256, 256)
+                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+        }
+
+        if msi_base + gic_msi_region_size as u64 > layout.get_ram_base() {
+            return Err(VirtError::InterruptControllerFailed(
+                "msi region too large".to_string(),
+            ));
+        }
+
         let vm = VirtualMachine::with_gic(vm_config, gic_config).map_err(|err| {
             VirtError::FailedInitialize(
                 format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
@@ -119,7 +156,7 @@ impl Virt for Hvp {
         })?;
         let vm = Arc::new(vm);
 
-        let gic_chip = HvpGicV3::new(distributor_base, redistributor_base, vm.clone());
+        let gic_chip = HvpGicV3::new(distributor_base, redistributor_base, msi_base, vm.clone());
         let gic_chip = Arc::new(gic_chip);
 
         Ok(Hvp {
