@@ -3,7 +3,7 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
-use crate::types::configuration_space::common::HeaderCommon;
+use crate::types::configuration_space::header::HeaderCommon;
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]

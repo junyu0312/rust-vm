@@ -5,18 +5,16 @@ use zerocopy::KnownLayout;
 
 use crate::types::configuration_space::capability::PciCapId;
 use crate::types::configuration_space::capability::msix::MsixCap;
-use crate::types::configuration_space::common::CommonHeaderOffset;
-use crate::types::configuration_space::common::HeaderCommon;
-use crate::types::configuration_space::common::status::PciStatus;
+use crate::types::configuration_space::header::CommonHeaderOffset;
+use crate::types::configuration_space::header::HeaderCommon;
+use crate::types::configuration_space::status::PciStatus;
 use crate::types::function::PciTypeFunctionCommon;
 
 pub mod capability;
-pub mod common;
 pub mod interrupt;
-pub mod type0;
-pub mod type1;
 
-const FIRST_CAPABILITY_OFFSET: u8 = 0x40;
+pub(crate) mod header;
+mod status;
 
 pub struct ConfigurationSpace {
     buf: [u8; 4096],
@@ -25,26 +23,23 @@ pub struct ConfigurationSpace {
 }
 
 impl ConfigurationSpace {
-    fn new() -> Self {
-        let mut buf = [0; 4096];
-        buf[CommonHeaderOffset::InterruptLine as usize] = 0xff;
-
+    pub(crate) fn new() -> Self {
         ConfigurationSpace {
-            buf,
+            buf: [0; 4096],
             next_capability_pointer: CommonHeaderOffset::CapabilityPointer as u8,
-            next_available_capability_pointer: FIRST_CAPABILITY_OFFSET,
+            next_available_capability_pointer: CommonHeaderOffset::CapabilityStart as u8,
         }
     }
 
-    pub fn init<T: PciTypeFunctionCommon>(header_type: u8) -> Self {
+    pub(crate) fn init<T: PciTypeFunctionCommon>(header_type: u8) -> Self {
         let mut cfg = ConfigurationSpace::new();
 
         let header = cfg.as_common_header_mut();
         header.vendor_id = T::VENDOR_ID;
         header.device_id = T::DEVICE_ID;
-        header.prog_if = T::PROG_IF;
-        header.subclass = T::SUBCLASS;
-        header.class_code = T::CLASS_CODE;
+        header.prog_if = T::CLASS_CODE as u8;
+        header.subclass = (T::CLASS_CODE >> 8) as u8;
+        header.class_code = (T::CLASS_CODE >> 16) as u8;
         header.header_type = header_type;
 
         T::init_capability(&mut cfg);
@@ -52,33 +47,22 @@ impl ConfigurationSpace {
         cfg
     }
 
-    pub fn as_common_header(&self) -> &HeaderCommon {
-        self.as_header::<HeaderCommon>()
-    }
-
-    pub fn as_common_header_mut(&mut self) -> &mut HeaderCommon {
+    pub(crate) fn as_common_header_mut(&mut self) -> &mut HeaderCommon {
         self.as_header_mut::<HeaderCommon>()
     }
 
-    pub fn as_header<T>(&self) -> &T
-    where
-        T: FromBytes + KnownLayout + Immutable,
-    {
-        T::ref_from_bytes(&self.buf[0..size_of::<T>()]).unwrap()
-    }
-
-    pub fn as_header_mut<T>(&mut self) -> &mut T
+    pub(crate) fn as_header_mut<T>(&mut self) -> &mut T
     where
         T: IntoBytes + FromBytes + KnownLayout + Immutable,
     {
         T::mut_from_bytes(&mut self.buf[0..size_of::<T>()]).unwrap()
     }
 
-    pub fn read(&self, offset: u16, buf: &mut [u8]) {
+    pub(crate) fn read(&self, offset: u16, buf: &mut [u8]) {
         buf.copy_from_slice(&self.buf[offset as usize..offset as usize + buf.len()]);
     }
 
-    pub fn write(&mut self, offset: u16, buf: &[u8]) {
+    pub(crate) fn write(&mut self, offset: u16, buf: &[u8]) {
         self.buf[offset as usize..offset as usize + buf.len()].copy_from_slice(buf);
     }
 

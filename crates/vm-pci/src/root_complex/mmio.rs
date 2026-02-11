@@ -244,13 +244,15 @@ impl MmioDevice for PciRootComplexMmio {
             use vm_core::irq::arch::aarch64::GIC_SPI;
             use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
 
+            use crate::types::configuration_space::interrupt::InterruptPin;
+
             fdt.property_array_u32("interrupt-map-mask", &[0, 0, 0, 7])?;
             // TODO: hard code, virtio-pci-blk
             let entry = InterruptMapEntry {
                 pci_addr_high: 0x800,
                 pci_addr_mid: 0,
                 pci_addr_low: 0,
-                pin: 0x01,
+                pin: InterruptPin::INTA as u32,
                 gic_phandle: Phandle::GIC as u32,
                 gic_addr_high: 0,
                 gic_addr_low: 0,

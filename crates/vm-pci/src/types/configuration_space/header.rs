@@ -3,7 +3,8 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
-pub mod status;
+pub(crate) mod type0;
+pub(crate) mod type1;
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
@@ -23,8 +24,6 @@ pub struct HeaderCommon {
 }
 
 pub enum CommonHeaderOffset {
-    Status = 0x06,
     CapabilityPointer = 0x34,
-    InterruptLine = 0x3c,
-    InterruptPin = 0x3d,
+    CapabilityStart = 0x40,
 }

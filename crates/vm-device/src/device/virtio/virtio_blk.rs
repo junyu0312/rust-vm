@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
+use vm_pci::types::configuration_space::interrupt::InterruptPin;
 use vm_virtio::device::VirtIoDevice;
 use vm_virtio::device::blk::config::VirtioBlkConfig;
 use vm_virtio::device::blk::req::VirtIoBlkReqType;
@@ -138,7 +139,7 @@ where
     const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = size_of::<VirtioBlkConfig>();
     const CLASS_CODE: u32 = 0x018000;
     const IRQ_LINE: u8 = 32 + 10;
-    const IRQ_PIN: u8 = 0x01;
+    const IRQ_PIN: u8 = InterruptPin::INTA as u8;
 }
 
 pub type VirtIoMmioBlkDevice<C> = VirtIoMmioTransport<VirtIoBlkDevice<C>>;

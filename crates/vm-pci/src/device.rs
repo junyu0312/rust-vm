@@ -9,8 +9,12 @@ impl PciDevice {
         PciDevice { functions }
     }
 
+    pub fn from_single_function(function: Box<dyn PciFunction>) -> Self {
+        Self::new(vec![function])
+    }
+
     pub fn get_func(&self, func: u8) -> Option<&dyn PciFunction> {
-        self.functions.get(func as usize).map(|r| r.as_ref() as _)
+        self.functions.get(func as usize).map(|r| r.as_ref())
     }
 
     pub fn get_func_mut(&mut self, func: u8) -> Option<&mut dyn PciFunction> {

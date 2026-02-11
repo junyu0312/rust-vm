@@ -14,15 +14,11 @@ pub trait BarHandler {
 pub trait PciTypeFunctionCommon {
     const VENDOR_ID: u16;
     const DEVICE_ID: u16;
-    const PROG_IF: u8;
-    const SUBCLASS: u8;
-    const CLASS_CODE: u8;
+    const CLASS_CODE: u32;
     const IRQ_LINE: u8;
     const IRQ_PIN: u8;
 
-    fn init_capability(_configuration_space: &mut ConfigurationSpace) {
-        // Default impl
-    }
+    fn init_capability(_configuration_space: &mut ConfigurationSpace);
 }
 
 pub enum Callback {
@@ -38,5 +34,5 @@ pub trait PciFunction {
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Callback;
 
-    fn bar_handler(&self, bar: u8) -> Box<dyn BarHandler>;
+    fn bar_handler(&self, bar: u8) -> Option<Box<dyn BarHandler>>;
 }

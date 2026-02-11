@@ -74,9 +74,7 @@ where
 {
     const VENDOR_ID: u16 = VENDOR_ID;
     const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID as u16;
-    const PROG_IF: u8 = D::CLASS_CODE as u8;
-    const SUBCLASS: u8 = (D::CLASS_CODE >> 8) as u8;
-    const CLASS_CODE: u8 = (D::CLASS_CODE >> 16) as u8;
+    const CLASS_CODE: u32 = D::CLASS_CODE;
     const IRQ_LINE: u8 = D::IRQ_LINE;
     const IRQ_PIN: u8 = D::IRQ_PIN;
 
@@ -159,17 +157,17 @@ where
         None,
     ];
 
-    fn bar_handler(&self, n: u8) -> Box<dyn BarHandler> {
+    fn bar_handler(&self, n: u8) -> Option<Box<dyn BarHandler>> {
         match n {
-            0 => Box::new(CommonConfigHandler {
+            0 => Some(Box::new(CommonConfigHandler {
                 transport: self.transport.clone(),
-            }),
-            1 => Box::new(NotifyHandler),
-            2 => Box::new(IsrHandler),
-            3 => Box::new(DeviceHandler {
+            })),
+            1 => Some(Box::new(NotifyHandler)),
+            2 => Some(Box::new(IsrHandler)),
+            3 => Some(Box::new(DeviceHandler {
                 transport: self.transport.clone(),
-            }),
-            _ => todo!("{n}"),
+            })),
+            _ => None,
         }
     }
 }

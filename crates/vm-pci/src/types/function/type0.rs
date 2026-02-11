@@ -5,7 +5,7 @@ use strum_macros::FromRepr;
 use vm_core::device::mmio::MmioRange;
 
 use crate::types::configuration_space::ConfigurationSpace;
-use crate::types::configuration_space::type0::Type0Header;
+use crate::types::configuration_space::header::type0::Type0Header;
 use crate::types::function::BarHandler;
 use crate::types::function::Callback;
 use crate::types::function::PciFunction;
@@ -39,7 +39,7 @@ enum Type0HeaderOffset {
 pub trait PciType0Function: PciTypeFunctionCommon {
     const BAR_SIZE: [Option<u32>; 6];
 
-    fn bar_handler(&self, n: u8) -> Box<dyn BarHandler>;
+    fn bar_handler(&self, n: u8) -> Option<Box<dyn BarHandler>>;
 }
 
 pub struct Type0Function<T> {
@@ -88,7 +88,7 @@ where
                         start: val as u64,
                         len: bar_size as usize,
                     },
-                    self.bar_handler(n),
+                    self.bar_handler(n).unwrap(),
                 ))
             }
         } else {
@@ -118,7 +118,7 @@ where
         }
     }
 
-    fn bar_handler(&self, bar: u8) -> Box<dyn BarHandler> {
+    fn bar_handler(&self, bar: u8) -> Option<Box<dyn BarHandler>> {
         self.device.bar_handler(bar)
     }
 }

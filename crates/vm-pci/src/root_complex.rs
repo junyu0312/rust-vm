@@ -6,10 +6,10 @@ use crate::host_bridge::new_host_bridge;
 use crate::root_complex::mmio_router::MmioRouter;
 use crate::types::function::Callback;
 
+mod mmio_router;
+
 pub mod mmio;
 pub mod pio;
-
-mod mmio_router;
 
 struct PciRootComplex {
     bus: Vec<PciBus>,

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::types::configuration_space::ConfigurationSpace;
+use crate::types::configuration_space::header::type1::Type1Header;
 use crate::types::function::BarHandler;
 use crate::types::function::Callback;
 use crate::types::function::PciFunction;
@@ -20,7 +21,11 @@ where
     T: PciType1Function,
 {
     fn default() -> Self {
-        let cfg = ConfigurationSpace::init::<T>(1);
+        let mut cfg = ConfigurationSpace::init::<T>(1);
+
+        let header = cfg.as_header_mut::<Type1Header>();
+        header.interrupt_line = T::IRQ_LINE;
+        header.interrupt_pin = T::IRQ_PIN;
 
         Type1Function {
             configuration_space: Arc::new(Mutex::new(cfg)),
@@ -44,7 +49,7 @@ impl<T> PciFunction for Type1Function<T> {
         Callback::Void
     }
 
-    fn bar_handler(&self, _bar: u8) -> Box<dyn BarHandler> {
+    fn bar_handler(&self, _bar: u8) -> Option<Box<dyn BarHandler>> {
         todo!()
     }
 }
