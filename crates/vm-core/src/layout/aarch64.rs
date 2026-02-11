@@ -10,6 +10,7 @@ const MMIO_START: u64 = 0x0900_0000;
 const MMIO_LEN: usize = 0x2700_0000;
 const GIC_DISTRIBUTOR: u64 = 0x3000_0000;
 const GIC_REDISTRIBUTOR: u64 = 0x3001_0000;
+const GIC_MSI: u64 = 0x3a00_0000;
 const RAM_BASE: u64 = 0x4000_0000;
 const DTB_START: u64 = 0x4400_0000; // Reserve 64MB for kernel
 const INITRD_START: u64 = 0x44200000; // DTB + 2MB
@@ -25,6 +26,8 @@ pub struct AArch64Layout {
     distributor_len: OnceCell<usize>,
     redistributor_start: u64,
     redistributor_region_len: OnceCell<usize>,
+    msi_region_start: u64,
+    msi_region_len: OnceCell<usize>,
     ram_base: u64,
     ram_size: OnceCell<u64>,
     kernel_start: OnceCell<u64>,
@@ -45,6 +48,8 @@ impl Default for AArch64Layout {
             distributor_len: OnceCell::new(),
             redistributor_start: GIC_REDISTRIBUTOR,
             redistributor_region_len: OnceCell::new(),
+            msi_region_start: GIC_MSI,
+            msi_region_len: OnceCell::new(),
             ram_base: RAM_BASE,
             ram_size: OnceCell::new(),
             kernel_start: OnceCell::new(),
@@ -77,6 +82,16 @@ impl AArch64Layout {
         self.redistributor_region_len
             .set(len)
             .map_err(|_| Error::ArchAlreadySet("redistributor region len".to_string()))
+    }
+
+    pub fn get_msi_start(&self) -> u64 {
+        self.msi_region_start
+    }
+
+    pub fn set_msi_region_len(&self, len: usize) -> Result<()> {
+        self.msi_region_len
+            .set(len)
+            .map_err(|_| Error::ArchAlreadySet("msi region len".to_string()))
     }
 }
 
