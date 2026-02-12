@@ -1,13 +1,12 @@
 use strum_macros::FromRepr;
 use vm_core::device::mmio::MmioRange;
 
-use crate::{
-    device::function::type0::{Bar, PciType0Function, Type0Function},
-    types::{
-        configuration_space::header::type0::Type0Header,
-        function::{Callback, PciFunction},
-    },
-};
+use crate::device::function::type0::Bar;
+use crate::device::function::type0::PciType0Function;
+use crate::device::function::type0::Type0Function;
+use crate::types::configuration_space::header::type0::Type0Header;
+use crate::types::function::Callback;
+use crate::types::function::PciFunction;
 
 #[derive(FromRepr)]
 #[repr(u16)]
