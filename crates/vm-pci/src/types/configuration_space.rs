@@ -3,14 +3,11 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
-use crate::types::configuration_space::capability::Capability;
+use crate::device::capability::Capability;
+use crate::device::function::PciTypeFunctionCommon;
 use crate::types::configuration_space::header::CommonHeaderOffset;
 use crate::types::configuration_space::header::HeaderCommon;
 use crate::types::configuration_space::status::PciStatus;
-use crate::types::function::PciTypeFunctionCommon;
-
-pub mod capability;
-pub mod interrupt;
 
 pub(crate) mod header;
 mod status;

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_pci::device::PciDevice;
-use vm_pci::types::function::type0::Type0Function;
+use vm_pci::device::function::type0::Type0Function;
+use vm_pci::device::pci_device::PciDevice;
 
 use crate::device::VirtIoDevice;
 use crate::transport::pci::VirtIoPciFunction;

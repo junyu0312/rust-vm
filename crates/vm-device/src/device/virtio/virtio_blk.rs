@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
-use vm_pci::types::configuration_space::interrupt::InterruptPin;
+use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_virtio::device::VirtIoDevice;
 use vm_virtio::device::blk::config::VirtioBlkConfig;
 use vm_virtio::device::blk::req::VirtIoBlkReqType;

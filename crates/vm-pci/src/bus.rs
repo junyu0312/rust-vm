@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::device::PciDevice;
+use crate::device::pci_device::PciDevice;
 
 #[derive(Default)]
 pub struct PciBus {

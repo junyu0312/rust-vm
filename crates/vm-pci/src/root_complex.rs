@@ -1,7 +1,7 @@
 use tracing::debug;
 
 use crate::bus::PciBus;
-use crate::device::PciDevice;
+use crate::device::pci_device::PciDevice;
 use crate::host_bridge::new_host_bridge;
 use crate::root_complex::mmio_router::MmioRouter;
 use crate::types::function::Callback;

@@ -7,7 +7,7 @@ use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
 
-use crate::device::PciDevice;
+use crate::device::pci_device::PciDevice;
 use crate::root_complex::PciRootComplex;
 use crate::root_complex::mmio::device_mmio_handler::DeviceMmioHandler;
 use crate::root_complex::mmio::ecam_handler::EcamHandler;
@@ -246,7 +246,7 @@ impl MmioDevice for PciRootComplexMmio {
             use vm_core::irq::arch::aarch64::GIC_SPI;
             use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
 
-            use crate::types::configuration_space::interrupt::InterruptPin;
+            use crate::device::interrupt::legacy::InterruptPin;
 
             fdt.property_array_u32("interrupt-map-mask", &[0, 0, 0, 7])?;
             // TODO: hard code, virtio-pci-blk

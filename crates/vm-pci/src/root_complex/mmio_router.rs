@@ -1,7 +1,7 @@
 use vm_core::device::address_space::AddressSpace;
 use vm_core::device::mmio::MmioRange;
 
-use crate::types::function::BarHandler;
+use crate::device::function::BarHandler;
 
 struct Destination {
     _bus: u8,

@@ -1,15 +1,13 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use strum_macros::FromRepr;
 use vm_core::device::mmio::MmioRange;
 
-use crate::types::configuration_space::ConfigurationSpace;
-use crate::types::configuration_space::header::type0::Type0Header;
-use crate::types::function::BarHandler;
-use crate::types::function::Callback;
-use crate::types::function::PciFunction;
-use crate::types::function::PciTypeFunctionCommon;
+use crate::{
+    device::function::type0::{Bar, PciType0Function, Type0Function},
+    types::{
+        configuration_space::header::type0::Type0Header,
+        function::{Callback, PciFunction},
+    },
+};
 
 #[derive(FromRepr)]
 #[repr(u16)]
@@ -36,63 +34,21 @@ enum Type0HeaderOffset {
     RomAddress = 0x30,
 }
 
-#[derive(FromRepr)]
-#[repr(u8)]
-pub enum Bar {
-    Bar0 = 0,
-    Bar1 = 1,
-    Bar2 = 2,
-    Bar3 = 3,
-    Bar4 = 4,
-    Bar5 = 5,
-}
-
-pub trait PciType0Function: PciTypeFunctionCommon {
-    const BAR_SIZE: [Option<u32>; 6];
-
-    fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>>;
-}
-
-pub struct Type0Function<T> {
-    configuration_space: Arc<Mutex<ConfigurationSpace>>,
-    device: T,
-}
-
-impl<T> Type0Function<T>
-where
-    T: PciType0Function,
-{
-    pub fn new(device: T) -> Self {
-        let mut cfg = ConfigurationSpace::new();
-        cfg.init::<T>(0, &device.capabilities()[..]);
-
-        let header = cfg.as_header_mut::<Type0Header>();
-        header.interrupt_line = T::IRQ_LINE;
-        header.interrupt_pin = T::IRQ_PIN;
-
-        Type0Function {
-            configuration_space: Arc::new(Mutex::new(cfg)),
-            device,
-        }
-    }
-}
-
 impl<T> PciFunction for Type0Function<T>
 where
     T: PciType0Function,
 {
     fn write_bar(&self, n: u8, buf: &[u8]) -> Callback {
-        let mut configuration_space = self.configuration_space.lock().unwrap();
+        let mut internal = self.internal.lock().unwrap();
 
         let val = u32::from_le_bytes(buf.try_into().unwrap());
-        let header = configuration_space.as_header_mut::<Type0Header>();
+        let header = internal.configuration_space.as_header_mut::<Type0Header>();
 
         if let Some(bar_size) = T::BAR_SIZE[n as usize] {
             if val == u32::MAX {
                 header.bar[n as usize] = !(bar_size - 1);
                 Callback::Void
             } else {
-                println!("{} {}", n, val);
                 header.bar[n as usize] = val;
                 Callback::RegisterBarClosure((
                     n,
@@ -100,7 +56,10 @@ where
                         start: val as u64,
                         len: bar_size as usize,
                     },
-                    self.bar_handler(n).unwrap(),
+                    internal
+                        .function
+                        .bar_handler(Bar::from_repr(n).unwrap())
+                        .unwrap(),
                 ))
             }
         } else {
@@ -110,7 +69,11 @@ where
     }
 
     fn ecam_read(&self, offset: u16, buf: &mut [u8]) {
-        self.configuration_space.lock().unwrap().read(offset, buf);
+        self.internal
+            .lock()
+            .unwrap()
+            .configuration_space
+            .read(offset, buf);
     }
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Callback {
@@ -123,15 +86,10 @@ where
             Some(Type0HeaderOffset::Bar5) => self.write_bar(5, buf),
             Some(Type0HeaderOffset::RomAddress) => Callback::Void,
             _ => {
-                let mut configuration_space = self.configuration_space.lock().unwrap();
+                let configuration_space = &mut self.internal.lock().unwrap().configuration_space;
                 configuration_space.write(offset, buf);
                 Callback::Void
             }
         }
-    }
-
-    fn bar_handler(&self, n: u8) -> Option<Box<dyn BarHandler>> {
-        let bar = Bar::from_repr(n).unwrap();
-        self.device.bar_handler(bar)
     }
 }

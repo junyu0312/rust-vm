@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use strum_macros::FromRepr;
 use tracing::warn;
-use vm_pci::types::function::BarHandler;
+use vm_pci::device::function::BarHandler;
 
 use crate::device::pci::VirtIoPciDevice;
 use crate::transport::VirtIoTransport;

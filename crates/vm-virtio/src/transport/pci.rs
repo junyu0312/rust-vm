@@ -1,12 +1,12 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_pci::types::configuration_space::capability::Capability;
-use vm_pci::types::configuration_space::capability::PciCapId;
-use vm_pci::types::function::BarHandler;
-use vm_pci::types::function::PciTypeFunctionCommon;
-use vm_pci::types::function::type0::Bar;
-use vm_pci::types::function::type0::PciType0Function;
+use vm_pci::device::capability::Capability;
+use vm_pci::device::capability::PciCapId;
+use vm_pci::device::function::BarHandler;
+use vm_pci::device::function::PciTypeFunctionCommon;
+use vm_pci::device::function::type0::Bar;
+use vm_pci::device::function::type0::PciType0Function;
 
 use crate::device::pci::VirtIoPciDevice;
 use crate::transport::VirtIoTransport;

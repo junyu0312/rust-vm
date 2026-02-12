@@ -1,25 +1,8 @@
 use vm_core::device::mmio::MmioRange;
 
-use crate::types::configuration_space::capability::Capability;
+use crate::device::function::BarHandler;
 
-pub mod type0;
-
-pub trait BarHandler {
-    fn read(&self, offset: u64, data: &mut [u8]);
-
-    fn write(&self, offset: u64, data: &[u8]);
-}
-
-pub trait PciTypeFunctionCommon {
-    const VENDOR_ID: u16;
-    const DEVICE_ID: u16;
-    const CLASS_CODE: u32;
-    const IRQ_LINE: u8;
-    const IRQ_PIN: u8;
-
-    // fn init_capability(_configuration_space: &mut ConfigurationSpace);
-    fn capabilities(&self) -> Vec<Capability>;
-}
+mod type0;
 
 pub enum Callback {
     Void,
@@ -33,6 +16,4 @@ pub trait PciFunction {
     fn ecam_read(&self, offset: u16, buf: &mut [u8]);
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Callback;
-
-    fn bar_handler(&self, bar: u8) -> Option<Box<dyn BarHandler>>;
 }

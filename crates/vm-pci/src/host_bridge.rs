@@ -1,10 +1,10 @@
-use crate::device::PciDevice;
-use crate::types::configuration_space::capability::Capability;
-use crate::types::function::BarHandler;
-use crate::types::function::PciTypeFunctionCommon;
-use crate::types::function::type0::Bar;
-use crate::types::function::type0::PciType0Function;
-use crate::types::function::type0::Type0Function;
+use crate::device::capability::Capability;
+use crate::device::function::BarHandler;
+use crate::device::function::PciTypeFunctionCommon;
+use crate::device::function::type0::Bar;
+use crate::device::function::type0::PciType0Function;
+use crate::device::function::type0::Type0Function;
+use crate::device::pci_device::PciDevice;
 
 struct HostBridgeFunction;
 
