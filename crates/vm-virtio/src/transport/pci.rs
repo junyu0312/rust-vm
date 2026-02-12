@@ -1,13 +1,12 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_pci::types::configuration_space::ConfigurationSpace;
+use vm_pci::types::configuration_space::capability::Capability;
 use vm_pci::types::configuration_space::capability::PciCapId;
 use vm_pci::types::function::BarHandler;
 use vm_pci::types::function::PciTypeFunctionCommon;
 use vm_pci::types::function::type0::Bar;
 use vm_pci::types::function::type0::PciType0Function;
-use zerocopy::FromBytes;
 
 use crate::device::pci::VirtIoPciDevice;
 use crate::transport::VirtIoTransport;
@@ -79,65 +78,61 @@ where
     const IRQ_LINE: u8 = D::IRQ_LINE;
     const IRQ_PIN: u8 = D::IRQ_PIN;
 
-    fn init_capability(cfg: &mut ConfigurationSpace) {
-        {
-            // cap for virtio_pci_common_cfg
-            let cap_len = size_of::<VirtIoPciCap>().try_into().unwrap();
+    fn capabilities(&self) -> Vec<Capability> {
+        let virtio_pci_common_cfg = VirtIoPciCap {
+            cap_vndr: PciCapId::Vndr as u8,
+            cap_len: size_of::<VirtIoPciCap>().try_into().unwrap(),
+            cfg_type: VirtIoPciCapCfgType::VirtioPciCapCommonCfg as u8,
+            bar: 0,
+            id: 0,
+            offset: 0,
+            length: size_of::<VirtIoPciCommonCfg>().try_into().unwrap(),
+            ..Default::default()
+        };
 
-            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
-            let cap = VirtIoPciCap::mut_from_bytes(cap).unwrap();
-            cap.cap_len = cap_len;
-            cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapCommonCfg as u8;
-            cap.bar = 0;
-            cap.id = 0;
-            cap.offset = 0;
-            cap.length = 0x1000;
-            assert!(size_of::<VirtIoPciCommonCfg>() <= 0x1000);
-        }
+        let virtio_pci_notify_cap = VirtIoPciNotifyCap {
+            cap: VirtIoPciCap {
+                cap_vndr: PciCapId::Vndr as u8,
+                cap_len: size_of::<VirtIoPciCap>().try_into().unwrap(),
+                cfg_type: VirtIoPciCapCfgType::VirtioPciCapNotifyCfg as u8,
+                bar: 1,
+                id: 0,
+                offset: 0,
+                length: 0x1000,
+                ..Default::default()
+            },
+            notify_off_multiplier: 0,
+        };
 
-        {
-            // cap for virtio_pci_notify_cap
-            let cap_len = size_of::<VirtIoPciNotifyCap>().try_into().unwrap();
+        let virtio_pci_isr_cap = VirtIoPciCap {
+            cap_vndr: PciCapId::Vndr as u8,
+            cap_len: size_of::<VirtIoPciCap>().try_into().unwrap(),
+            cfg_type: VirtIoPciCapCfgType::VirtioPciCapIsrCfg as u8,
+            bar: 2,
+            id: 0,
+            offset: 0,
+            length: 0x1000,
+            ..Default::default()
+        };
 
-            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
-            let cap = VirtIoPciNotifyCap::mut_from_bytes(cap).unwrap();
-            cap.cap.cap_len = cap_len;
-            cap.cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapNotifyCfg as u8;
-            cap.cap.bar = 1;
-            cap.cap.id = 0;
-            cap.cap.offset = 0;
-            cap.cap.length = 0x1000;
-            cap.notify_off_multiplier = 0;
-        }
+        let virtio_pci_device_cfg_cap = VirtIoPciCap {
+            cap_vndr: PciCapId::Vndr as u8,
+            cap_len: size_of::<VirtIoPciCap>().try_into().unwrap(),
+            cfg_type: VirtIoPciCapCfgType::VirtioPciCapDeviceCfg as u8,
+            bar: 3,
+            id: 0,
+            offset: 0,
+            length: 0x1000,
+            ..Default::default()
+        };
+        assert!(D::DEVICE_SPECIFICATION_CONFIGURATION_LEN <= 0x1000);
 
-        {
-            // cap for virtio_pci_isr_cap
-            let cap_len = size_of::<VirtIoPciCap>().try_into().unwrap();
-
-            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
-            let cap = VirtIoPciCap::mut_from_bytes(cap).unwrap();
-            cap.cap_len = cap_len;
-            cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapIsrCfg as u8;
-            cap.bar = 2;
-            cap.id = 0;
-            cap.offset = 0;
-            cap.length = 0x1000;
-        }
-
-        {
-            // cap for device_spec_cfg
-            let cap_len = size_of::<VirtIoPciCap>().try_into().unwrap();
-
-            let cap = cfg.alloc_capability(PciCapId::Vndr, cap_len);
-            let cap = VirtIoPciCap::mut_from_bytes(cap).unwrap();
-            cap.cap_len = cap_len;
-            cap.cfg_type = VirtIoPciCapCfgType::VirtioPciCapDeviceCfg as u8;
-            cap.bar = 3;
-            cap.id = 0;
-            cap.offset = 0;
-            cap.length = 0x1000;
-            assert!(D::DEVICE_SPECIFICATION_CONFIGURATION_LEN <= 0x1000);
-        }
+        vec![
+            Capability::from(virtio_pci_common_cfg),
+            Capability::from(virtio_pci_notify_cap),
+            Capability::from(virtio_pci_isr_cap),
+            Capability::from(virtio_pci_device_cfg_cap),
+        ]
     }
 }
 

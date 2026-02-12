@@ -1,6 +1,6 @@
 use vm_core::device::mmio::MmioRange;
 
-use crate::types::configuration_space::ConfigurationSpace;
+use crate::types::configuration_space::capability::Capability;
 
 pub mod type0;
 
@@ -17,7 +17,8 @@ pub trait PciTypeFunctionCommon {
     const IRQ_LINE: u8;
     const IRQ_PIN: u8;
 
-    fn init_capability(_configuration_space: &mut ConfigurationSpace);
+    // fn init_capability(_configuration_space: &mut ConfigurationSpace);
+    fn capabilities(&self) -> Vec<Capability>;
 }
 
 pub enum Callback {

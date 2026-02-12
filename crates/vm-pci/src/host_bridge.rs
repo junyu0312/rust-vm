@@ -1,5 +1,5 @@
 use crate::device::PciDevice;
-use crate::types::configuration_space::ConfigurationSpace;
+use crate::types::configuration_space::capability::Capability;
 use crate::types::function::BarHandler;
 use crate::types::function::PciTypeFunctionCommon;
 use crate::types::function::type0::Bar;
@@ -15,8 +15,8 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
     const IRQ_LINE: u8 = 0xff;
     const IRQ_PIN: u8 = 0x00;
 
-    fn init_capability(_configuration_space: &mut ConfigurationSpace) {
-        // Do nothing
+    fn capabilities(&self) -> Vec<Capability> {
+        vec![]
     }
 }
 

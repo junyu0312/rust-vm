@@ -3,18 +3,18 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
-#[derive(FromBytes, IntoBytes, KnownLayout)]
+#[derive(Default, FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct VirtIoPciCap {
-    pub cap_vndr: u8, /* Generic PCI field: PCI_CAP_ID_VNDR */
-    pub cap_next: u8, /* Generic PCI field: next ptr. */
-    pub cap_len: u8,  /* Generic PCI field: capability length */
-    pub cfg_type: u8, /* Identifies the structure. */
-    pub bar: u8,      /* Where to find it. */
-    pub id: u8,       /* Multiple capabilities of the same type */
-    padding: [u8; 2], /* Pad to full dword. */
-    pub offset: u32,  /* Offset within bar. */
-    pub length: u32,  /* Length of the structure, in bytes. */
+    pub cap_vndr: u8,     /* Generic PCI field: PCI_CAP_ID_VNDR */
+    pub cap_next: u8,     /* Generic PCI field: next ptr. */
+    pub cap_len: u8,      /* Generic PCI field: capability length */
+    pub cfg_type: u8,     /* Identifies the structure. */
+    pub bar: u8,          /* Where to find it. */
+    pub id: u8,           /* Multiple capabilities of the same type */
+    pub padding: [u8; 2], /* Pad to full dword. */
+    pub offset: u32,      /* Offset within bar. */
+    pub length: u32,      /* Length of the structure, in bytes. */
 }
 
 #[repr(u8)]
@@ -63,7 +63,7 @@ pub struct VirtIoPciCommonCfg {
     pub admin_queue_num: u16,
 }
 
-#[derive(FromBytes, IntoBytes, KnownLayout)]
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct VirtIoPciNotifyCap {
     pub cap: VirtIoPciCap,
