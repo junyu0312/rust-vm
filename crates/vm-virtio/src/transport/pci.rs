@@ -25,11 +25,11 @@ mod common_config_handler;
 struct NotifyHandler;
 
 impl BarHandler for NotifyHandler {
-    fn read(&self, _offset: u64, _len: usize, _data: &mut [u8]) {
+    fn read(&self, _offset: u64, _data: &mut [u8]) {
         todo!()
     }
 
-    fn write(&self, _offset: u64, _len: usize, _data: &[u8]) {
+    fn write(&self, _offset: u64, _data: &[u8]) {
         todo!()
     }
 }
@@ -37,11 +37,11 @@ impl BarHandler for NotifyHandler {
 struct IsrHandler;
 
 impl BarHandler for IsrHandler {
-    fn read(&self, _offset: u64, _len: usize, _data: &mut [u8]) {
+    fn read(&self, _offset: u64, _data: &mut [u8]) {
         todo!()
     }
 
-    fn write(&self, _offset: u64, _len: usize, _data: &[u8]) {
+    fn write(&self, _offset: u64, _data: &[u8]) {
         todo!()
     }
 }
@@ -54,13 +54,13 @@ impl<D> BarHandler for DeviceHandler<D>
 where
     D: VirtIoPciDevice,
 {
-    fn read(&self, _offset: u64, _len: usize, _data: &mut [u8]) {
+    fn read(&self, _offset: u64, _data: &mut [u8]) {
         let _transport = self.transport.lock().unwrap();
         // todo!("{offset}")
         // data[0] = 1;
     }
 
-    fn write(&self, _offset: u64, _len: usize, _data: &[u8]) {
+    fn write(&self, _offset: u64, _data: &[u8]) {
         todo!()
     }
 }

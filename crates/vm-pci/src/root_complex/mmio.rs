@@ -178,20 +178,22 @@ mod device_mmio_handler {
         }
 
         fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
+            assert_eq!(len, data.len());
             let rc = self.rc.lock().unwrap();
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
             if let Some(handler) = handler {
-                handler.read(offset, len, data);
+                handler.read(offset, data);
             }
         }
 
         fn mmio_write(&self, offset: u64, len: usize, data: &[u8]) {
+            assert_eq!(len, data.len());
             let rc = self.rc.lock().unwrap();
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
             if let Some(handler) = handler {
-                handler.write(offset, len, data);
+                handler.write(offset, data);
             }
         }
     }

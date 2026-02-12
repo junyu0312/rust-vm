@@ -48,7 +48,7 @@ impl<D> BarHandler for CommonConfigHandler<D>
 where
     D: VirtIoPciDevice,
 {
-    fn read(&self, offset: u64, len: usize, data: &mut [u8]) {
+    fn read(&self, offset: u64, data: &mut [u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {
             warn!(offset, "invalid offset");
             return;
@@ -59,7 +59,7 @@ where
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => todo!(),
             CommonCfgOffset::DeviceFeature => {
-                assert_eq!(len, 4);
+                assert_eq!(data.len(), 4);
                 let feat = transport.read_reg(ControlRegister::DeviceFeatures);
                 data.copy_from_slice(&feat.to_le_bytes());
             }
@@ -67,12 +67,12 @@ where
             CommonCfgOffset::DriverFeature => todo!(),
             CommonCfgOffset::ConfigMsixVector => todo!(),
             CommonCfgOffset::NumQueues => {
-                assert_eq!(len, 2);
+                assert_eq!(data.len(), 2);
                 let num_queues: u16 = D::VIRT_QUEUES_SIZE_MAX.len().try_into().unwrap();
                 data.copy_from_slice(&num_queues.to_le_bytes());
             }
             CommonCfgOffset::DeviceStatus => {
-                assert_eq!(len, 1);
+                assert_eq!(data.len(), 1);
                 let status = transport.read_reg(ControlRegister::Status);
                 data[0] = status.try_into().unwrap();
             }
@@ -85,7 +85,7 @@ where
             }
             CommonCfgOffset::QueueSelect => todo!(),
             CommonCfgOffset::QueueSize => {
-                assert_eq!(len, 2);
+                assert_eq!(data.len(), 2);
                 let queue_size: u16 = transport
                     .read_reg(ControlRegister::QueueSize)
                     .try_into()
@@ -94,7 +94,7 @@ where
             }
             CommonCfgOffset::QueueMsixVector => todo!(),
             CommonCfgOffset::QueueEnable => {
-                assert_eq!(len, 2);
+                assert_eq!(data.len(), 2);
                 let queue_ready = transport.read_reg(ControlRegister::QueueReady) as u16;
                 data.copy_from_slice(&queue_ready.to_le_bytes());
             }
@@ -115,7 +115,7 @@ where
         }
     }
 
-    fn write(&self, offset: u64, len: usize, data: &[u8]) {
+    fn write(&self, offset: u64, data: &[u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {
             warn!(offset, "invalid offset");
             return;
@@ -125,21 +125,21 @@ where
 
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => {
-                assert_eq!(len, 4);
+                assert_eq!(data.len(), 4);
                 let sel = u32::from_le_bytes(data.try_into().unwrap());
                 transport
                     .write_reg(ControlRegister::DeviceFeaturesSel, sel)
                     .unwrap();
             }
             CommonCfgOffset::DriverFeatureSelect => {
-                assert_eq!(len, 4);
+                assert_eq!(data.len(), 4);
                 let sel = u32::from_le_bytes(data.try_into().unwrap());
                 transport
                     .write_reg(ControlRegister::DriverFeaturesSel, sel)
                     .unwrap();
             }
             CommonCfgOffset::DriverFeature => {
-                assert_eq!(len, 4);
+                assert_eq!(data.len(), 4);
                 let sel = u32::from_le_bytes(data.try_into().unwrap());
                 transport
                     .write_reg(ControlRegister::DriverFeatures, sel)
@@ -147,21 +147,21 @@ where
             }
             CommonCfgOffset::ConfigMsixVector => todo!(),
             CommonCfgOffset::DeviceStatus => {
-                assert_eq!(len, 1);
+                assert_eq!(data.len(), 1);
                 let status = data[0];
                 transport
                     .write_reg(ControlRegister::Status, status as u32)
                     .unwrap();
             }
             CommonCfgOffset::QueueSelect => {
-                assert_eq!(len, 2);
+                assert_eq!(data.len(), 2);
                 let sel = u16::from_le_bytes(data.try_into().unwrap());
                 transport
                     .write_reg(ControlRegister::QueueSel, sel as u32)
                     .unwrap();
             }
             CommonCfgOffset::QueueSize => {
-                assert_eq!(len, 2);
+                assert_eq!(data.len(), 2);
                 let queue_size = u16::from_le_bytes(data.try_into().unwrap());
                 transport
                     .write_reg(ControlRegister::QueueSize, queue_size as u32)
