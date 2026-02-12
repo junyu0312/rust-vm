@@ -2,6 +2,7 @@ use crate::device::PciDevice;
 use crate::types::configuration_space::ConfigurationSpace;
 use crate::types::function::BarHandler;
 use crate::types::function::PciTypeFunctionCommon;
+use crate::types::function::type0::Bar;
 use crate::types::function::type0::PciType0Function;
 use crate::types::function::type0::Type0Function;
 
@@ -22,7 +23,7 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
 impl PciType0Function for HostBridgeFunction {
     const BAR_SIZE: [Option<u32>; 6] = [None, None, None, None, None, None];
 
-    fn bar_handler(&self, _n: u8) -> Option<Box<dyn BarHandler>> {
+    fn bar_handler(&self, _bar: Bar) -> Option<Box<dyn BarHandler>> {
         None
     }
 }

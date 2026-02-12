@@ -4,7 +4,6 @@ use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
 pub(crate) mod type0;
-pub(crate) mod type1;
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]

@@ -22,7 +22,7 @@ impl Default for PciRootComplex {
         let mut rc = PciRootComplex {
             bus: vec![PciBus::default()],
             mmio_router: Default::default(),
-            allocation: 0, // 0 is reserved for host bridge
+            allocation: 0,
         };
 
         rc.register_device(new_host_bridge())

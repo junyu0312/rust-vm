@@ -3,7 +3,6 @@ use vm_core::device::mmio::MmioRange;
 use crate::types::configuration_space::ConfigurationSpace;
 
 pub mod type0;
-pub mod type1;
 
 pub trait BarHandler {
     fn read(&self, offset: u64, len: usize, data: &mut [u8]);

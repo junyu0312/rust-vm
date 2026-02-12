@@ -5,6 +5,7 @@ use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::capability::PciCapId;
 use vm_pci::types::function::BarHandler;
 use vm_pci::types::function::PciTypeFunctionCommon;
+use vm_pci::types::function::type0::Bar;
 use vm_pci::types::function::type0::PciType0Function;
 use zerocopy::FromBytes;
 
@@ -157,14 +158,14 @@ where
         None,
     ];
 
-    fn bar_handler(&self, n: u8) -> Option<Box<dyn BarHandler>> {
-        match n {
-            0 => Some(Box::new(CommonConfigHandler {
+    fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>> {
+        match bar {
+            Bar::Bar0 => Some(Box::new(CommonConfigHandler {
                 transport: self.transport.clone(),
             })),
-            1 => Some(Box::new(NotifyHandler)),
-            2 => Some(Box::new(IsrHandler)),
-            3 => Some(Box::new(DeviceHandler {
+            Bar::Bar1 => Some(Box::new(NotifyHandler)),
+            Bar::Bar2 => Some(Box::new(IsrHandler)),
+            Bar::Bar3 => Some(Box::new(DeviceHandler {
                 transport: self.transport.clone(),
             })),
             _ => None,

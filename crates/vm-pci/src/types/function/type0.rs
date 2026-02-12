@@ -36,10 +36,21 @@ enum Type0HeaderOffset {
     RomAddress = 0x30,
 }
 
+#[derive(FromRepr)]
+#[repr(u8)]
+pub enum Bar {
+    Bar0 = 0,
+    Bar1 = 1,
+    Bar2 = 2,
+    Bar3 = 3,
+    Bar4 = 4,
+    Bar5 = 5,
+}
+
 pub trait PciType0Function: PciTypeFunctionCommon {
     const BAR_SIZE: [Option<u32>; 6];
 
-    fn bar_handler(&self, n: u8) -> Option<Box<dyn BarHandler>>;
+    fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>>;
 }
 
 pub struct Type0Function<T> {
@@ -118,7 +129,8 @@ where
         }
     }
 
-    fn bar_handler(&self, bar: u8) -> Option<Box<dyn BarHandler>> {
+    fn bar_handler(&self, n: u8) -> Option<Box<dyn BarHandler>> {
+        let bar = Bar::from_repr(n).unwrap();
         self.device.bar_handler(bar)
     }
 }
