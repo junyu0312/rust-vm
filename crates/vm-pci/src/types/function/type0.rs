@@ -5,7 +5,7 @@ use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
 use crate::device::function::type0::Type0Function;
 use crate::types::configuration_space::header::type0::Type0Header;
-use crate::types::function::Callback;
+use crate::types::function::EcamUpdateCallback;
 use crate::types::function::PciFunction;
 
 #[derive(FromRepr)]
@@ -33,11 +33,11 @@ enum Type0HeaderOffset {
     RomAddress = 0x30,
 }
 
-impl<T> PciFunction for Type0Function<T>
+impl<T> Type0Function<T>
 where
     T: PciType0Function,
 {
-    fn write_bar(&self, n: u8, buf: &[u8]) -> Callback {
+    fn write_bar(&self, n: u8, buf: &[u8]) -> Option<EcamUpdateCallback> {
         let mut internal = self.internal.lock().unwrap();
 
         let val = u32::from_le_bytes(buf.try_into().unwrap());
@@ -46,10 +46,10 @@ where
         if let Some(bar_size) = T::BAR_SIZE[n as usize] {
             if val == u32::MAX {
                 header.bar[n as usize] = !(bar_size - 1);
-                Callback::Void
+                None
             } else {
                 header.bar[n as usize] = val;
-                Callback::RegisterBarClosure((
+                Some(EcamUpdateCallback::UpdateMmioRouter((
                     n,
                     MmioRange {
                         start: val as u64,
@@ -59,14 +59,19 @@ where
                         .function
                         .bar_handler(Bar::from_repr(n).unwrap())
                         .unwrap(),
-                ))
+                )))
             }
         } else {
             header.bar[n as usize] = 0;
-            Callback::Void
+            None
         }
     }
+}
 
+impl<T> PciFunction for Type0Function<T>
+where
+    T: PciType0Function,
+{
     fn ecam_read(&self, offset: u16, buf: &mut [u8]) {
         self.internal
             .lock()
@@ -75,7 +80,7 @@ where
             .read(offset, buf);
     }
 
-    fn ecam_write(&self, offset: u16, buf: &[u8]) -> Callback {
+    fn ecam_write(&self, offset: u16, buf: &[u8]) -> Option<EcamUpdateCallback> {
         match Type0HeaderOffset::from_repr(offset) {
             Some(Type0HeaderOffset::Bar0) => self.write_bar(0, buf),
             Some(Type0HeaderOffset::Bar1) => self.write_bar(1, buf),
@@ -83,11 +88,11 @@ where
             Some(Type0HeaderOffset::Bar3) => self.write_bar(3, buf),
             Some(Type0HeaderOffset::Bar4) => self.write_bar(4, buf),
             Some(Type0HeaderOffset::Bar5) => self.write_bar(5, buf),
-            Some(Type0HeaderOffset::RomAddress) => Callback::Void,
+            Some(Type0HeaderOffset::RomAddress) => None,
             _ => {
                 let configuration_space = &mut self.internal.lock().unwrap().configuration_space;
                 configuration_space.write(offset, buf);
-                Callback::Void
+                None
             }
         }
     }
