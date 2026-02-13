@@ -5,8 +5,11 @@ use crate::device::function::BarHandler;
 mod type0;
 
 pub enum EcamUpdateCallback {
-    // bar n, pci address range, handler
-    UpdateMmioRouter((u8, MmioRange, Box<dyn BarHandler>)),
+    UpdateMmioRouter {
+        bar: u8,
+        pci_address_range: MmioRange,
+        handler: Box<dyn BarHandler>,
+    },
 }
 
 pub trait PciFunction {

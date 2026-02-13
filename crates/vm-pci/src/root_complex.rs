@@ -87,9 +87,18 @@ impl PciRootComplex {
 
         if let Some(cb) = function.ecam_write(offset, data) {
             match cb {
-                EcamUpdateCallback::UpdateMmioRouter((bar_n, bar_range, handler)) => self
-                    .mmio_router
-                    .register_handler(bar_range, bus, device, func, bar_n, handler),
+                EcamUpdateCallback::UpdateMmioRouter {
+                    bar,
+                    pci_address_range,
+                    handler,
+                } => self.mmio_router.register_handler(
+                    pci_address_range,
+                    bus,
+                    device,
+                    func,
+                    bar,
+                    handler,
+                ),
             }
         }
     }

@@ -12,8 +12,10 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
     const VENDOR_ID: u16 = 0x1b36; // From qemu log
     const DEVICE_ID: u16 = 0x0008; // From qemu log
     const CLASS_CODE: u32 = 0x060000;
-    const IRQ_LINE: u8 = 0xff;
-    const IRQ_PIN: u8 = 0x00;
+
+    fn legacy_interrupt(&self) -> Option<(u8, u8)> {
+        None
+    }
 
     fn capabilities(&self) -> Vec<Capability> {
         vec![]

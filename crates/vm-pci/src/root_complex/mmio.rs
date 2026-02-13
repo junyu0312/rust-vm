@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use vm_core::device::Device;
+use vm_core::device::address_space::AddressSpace;
 use vm_core::device::mmio::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
@@ -9,8 +10,13 @@ use vm_fdt::FdtWriter;
 
 use crate::device::pci_device::PciDevice;
 use crate::root_complex::PciRootComplex;
-use crate::root_complex::mmio::device_mmio_handler::DeviceMmioHandler;
+use crate::root_complex::mmio::bar_handler::DeviceMmioHandler;
 use crate::root_complex::mmio::ecam_handler::EcamHandler;
+
+mod bar_handler;
+mod ecam_handler;
+
+type PciToGpaMapping = AddressSpace<u64, u64>;
 
 #[cfg(target_arch = "x86_64")]
 fn todo_irq() {
@@ -70,10 +76,7 @@ impl From<u64> for DeviceSel {
 
 pub struct PciRootComplexMmio {
     ecam_range: MmioRange,
-    bar_mmio_ranges: Vec<MmioRange>,
-    physical_address_start: u64,
-    pci_address_space_start: u64,
-    pci_address_space_len: u64,
+    pci_to_gpa_mapping: PciToGpaMapping,
     internal: Arc<Mutex<PciRootComplex>>,
 }
 
@@ -81,17 +84,22 @@ impl PciRootComplexMmio {
     pub fn new(
         ecam_range: MmioRange,
         physical_address_start: u64,
-        pci_address_space_len: u64,
+        pci_address_space_len: usize,
     ) -> Self {
+        let mut pci_to_gpa_mapping = PciToGpaMapping::new();
+        pci_to_gpa_mapping
+            .try_insert(
+                MmioRange {
+                    start: 0,
+                    len: pci_address_space_len,
+                },
+                physical_address_start,
+            )
+            .unwrap();
+
         PciRootComplexMmio {
             ecam_range,
-            bar_mmio_ranges: vec![MmioRange {
-                start: physical_address_start,
-                len: pci_address_space_len.try_into().unwrap(),
-            }],
-            physical_address_start,
-            pci_address_space_start: 0,
-            pci_address_space_len,
+            pci_to_gpa_mapping,
             internal: Default::default(),
         }
     }
@@ -108,109 +116,22 @@ impl Device for PciRootComplexMmio {
     }
 }
 
-mod ecam_handler {
-    use std::sync::Arc;
-    use std::sync::Mutex;
-
-    use vm_core::device::mmio::MmioRange;
-    use vm_core::device::mmio::mmio_device::MmioHandler;
-
-    use crate::root_complex::PciRootComplex;
-    use crate::root_complex::mmio::DeviceSel;
-
-    pub struct EcamHandler {
-        mmio_range: MmioRange,
-        rc: Arc<Mutex<PciRootComplex>>,
-    }
-
-    impl EcamHandler {
-        pub fn new(mmio_range: MmioRange, rc: Arc<Mutex<PciRootComplex>>) -> Self {
-            EcamHandler { mmio_range, rc }
-        }
-    }
-
-    impl MmioHandler for EcamHandler {
-        fn mmio_range(&self) -> MmioRange {
-            self.mmio_range
-        }
-
-        fn mmio_read(&self, offset: u64, _len: usize, data: &mut [u8]) {
-            let sel = DeviceSel::from(offset);
-
-            let rc = self.rc.lock().unwrap();
-
-            rc.handle_ecam_read(sel.bus, sel.device, sel.func, sel.offset, data);
-        }
-
-        fn mmio_write(&self, offset: u64, _len: usize, data: &[u8]) {
-            let sel = DeviceSel::from(offset);
-
-            let mut rc = self.rc.lock().unwrap();
-
-            rc.handle_ecam_write(sel.bus, sel.device, sel.func, sel.offset, data);
-        }
-    }
-}
-
-mod device_mmio_handler {
-    use std::sync::Arc;
-    use std::sync::Mutex;
-
-    use vm_core::device::mmio::MmioRange;
-    use vm_core::device::mmio::mmio_device::MmioHandler;
-
-    use crate::root_complex::PciRootComplex;
-
-    pub struct DeviceMmioHandler {
-        bar_mmio_range: MmioRange,
-        rc: Arc<Mutex<PciRootComplex>>,
-    }
-
-    impl DeviceMmioHandler {
-        pub fn new(bar_mmio_range: MmioRange, rc: Arc<Mutex<PciRootComplex>>) -> Self {
-            DeviceMmioHandler { bar_mmio_range, rc }
-        }
-    }
-
-    impl MmioHandler for DeviceMmioHandler {
-        fn mmio_range(&self) -> MmioRange {
-            self.bar_mmio_range
-        }
-
-        fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
-            assert_eq!(len, data.len());
-            let rc = self.rc.lock().unwrap();
-            // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
-            let handler = rc.mmio_router.get_handler(offset);
-            if let Some((mmio_range, handler)) = handler {
-                handler.read(offset - mmio_range.start, data);
-            }
-        }
-
-        fn mmio_write(&self, offset: u64, len: usize, data: &[u8]) {
-            assert_eq!(len, data.len());
-            let rc = self.rc.lock().unwrap();
-            // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
-            let handler = rc.mmio_router.get_handler(offset);
-            if let Some((mmio_range, handler)) = handler {
-                handler.write(offset - mmio_range.start, data);
-            }
-        }
-    }
-}
-
 impl MmioDevice for PciRootComplexMmio {
     fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
         let mut handlers =
-            Vec::<Box<dyn MmioHandler>>::with_capacity(self.bar_mmio_ranges.len() + 1);
+            Vec::<Box<dyn MmioHandler>>::with_capacity(self.pci_to_gpa_mapping.len() + 1);
 
         handlers.push(Box::new(EcamHandler::new(
             self.ecam_range,
             self.internal.clone(),
         )));
-        for bar_mmio_range in &self.bar_mmio_ranges {
+        for (&pci_address, &(len, gpa)) in self.pci_to_gpa_mapping.iter() {
             handlers.push(Box::new(DeviceMmioHandler::new(
-                *bar_mmio_range,
+                MmioRange { start: gpa, len },
+                MmioRange {
+                    start: pci_address,
+                    len,
+                },
                 self.internal.clone(),
             )));
         }
@@ -225,18 +146,24 @@ impl MmioDevice for PciRootComplexMmio {
         fdt.property_u32("#size-cells", 2)?;
         fdt.property_u32("#address-cells", 3)?;
         fdt.property_u32("#interrupt-cells", 1)?;
-        fdt.property_array_u32(
-            "ranges",
-            &[
-                0x0200_0000,
-                (self.pci_address_space_start >> 32) as u32,
-                (self.pci_address_space_start) as u32,
-                (self.physical_address_start >> 32) as u32,
-                (self.physical_address_start) as u32,
-                (self.pci_address_space_len >> 32) as u32,
-                (self.pci_address_space_len) as u32,
-            ],
-        )?;
+
+        {
+            let mut ranges_vec: Vec<u32> = Vec::new();
+            self.pci_to_gpa_mapping
+                .iter()
+                .for_each(|(&pci_addr, &(len, gpa))| {
+                    ranges_vec.extend_from_slice(&[
+                        0x0200_0000, // MEM
+                        (pci_addr >> 32) as u32,
+                        pci_addr as u32,
+                        (gpa >> 32) as u32,
+                        gpa as u32,
+                        (len >> 32) as u32,
+                        len as u32,
+                    ]);
+                });
+            fdt.property_array_u32("ranges", &ranges_vec[..])?;
+        }
         fdt.property_array_u32("bus-range", &[0, 0])?;
         fdt.property_array_u64("reg", &[self.ecam_range.start, self.ecam_range.len as u64])?;
 

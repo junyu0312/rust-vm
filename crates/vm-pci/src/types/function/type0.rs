@@ -49,17 +49,17 @@ where
                 None
             } else {
                 header.bar[n as usize] = val;
-                Some(EcamUpdateCallback::UpdateMmioRouter((
-                    n,
-                    MmioRange {
+                Some(EcamUpdateCallback::UpdateMmioRouter {
+                    bar: n,
+                    pci_address_range: MmioRange {
                         start: val as u64,
                         len: bar_size as usize,
                     },
-                    internal
+                    handler: internal
                         .function
                         .bar_handler(Bar::from_repr(n).unwrap())
                         .unwrap(),
-                )))
+                })
             }
         } else {
             header.bar[n as usize] = 0;

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::btree_map::Iter;
 use std::fmt::Debug;
 
 use crate::device::Error;
@@ -76,5 +77,17 @@ where
         }
 
         false
+    }
+
+    pub fn iter(&self) -> Iter<'_, K, (usize, V)> {
+        self.0.iter()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }

@@ -31,13 +31,6 @@ where
             0x1000_0000,
         );
 
-        // {
-        //     let function = Type0Function::new(DummyPci::default());
-        //     let pci_device = PciDevice::new(vec![Box::new(function)]);
-        //     pci_rc
-        //         .register_device(pci_device)
-        //         .map_err(|_| anyhow!("failed to register pci device"))?;
-        // }
         {
             let virtio_pci_blk =
                 VirtIoBlkDevice::new(10, irq_chip.clone(), mm.clone()).into_pci_device();
@@ -71,18 +64,6 @@ where
         );
         io_address_space.register_mmio_device(Box::new(virtio_mmio_blk))?;
     }
-
-    // let virtio_mmio_kbd = VirtIOMmioKbd::<48, C>::new(
-    //     mm,
-    //     "virtio-mmio-kbd-01".to_string(),
-    //     MmioRange {
-    //         start: 0x0900_1000,
-    //         len: 0x1000,
-    //     },
-    //     irq_chip,
-    //     rx,
-    // );
-    // io_address_space.register(Box::new(virtio_mmio_kbd))?;
 
     Ok(())
 }
