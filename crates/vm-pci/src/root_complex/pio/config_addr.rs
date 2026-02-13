@@ -10,7 +10,7 @@ impl ConfigAddress {
         self.0 = u32::from_le_bytes(val);
     }
 
-    pub fn read(&mut self, offset: u8, buf: &mut [u8]) {
+    pub fn read(&self, offset: u8, buf: &mut [u8]) {
         let offset = offset as usize;
         let bytes = self.0.to_le_bytes();
         buf.copy_from_slice(&bytes[offset..(offset + buf.len())]);

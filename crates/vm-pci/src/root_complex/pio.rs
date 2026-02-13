@@ -21,7 +21,7 @@ impl PciRootComplexPio {
         self.config_address.write(offset, data);
     }
 
-    fn handle_in_config_address(&mut self, offset: u8, data: &mut [u8]) {
+    fn handle_in_config_address(&self, offset: u8, data: &mut [u8]) {
         self.config_address.read(offset, data);
     }
 

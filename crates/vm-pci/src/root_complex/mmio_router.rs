@@ -27,7 +27,7 @@ impl Default for MmioRouter {
 impl MmioRouter {
     pub fn register_handler(
         &mut self,
-        bar_range: MmioRange,
+        pci_address_range: MmioRange,
         bus: u8,
         device: u8,
         function: u8,
@@ -39,14 +39,14 @@ impl MmioRouter {
             device,
             function,
             bar,
-            ?bar_range,
+            ?pci_address_range,
             "update mmio handler"
         );
 
         if self
             .pci_address_space
             .insert(
-                bar_range,
+                pci_address_range,
                 Destination {
                     bus,
                     device,
@@ -57,14 +57,17 @@ impl MmioRouter {
             )
             .is_err()
         {
-            println!("remap range: {:?} ignored", bar_range);
+            println!("remap range: {:?} ignored", pci_address_range);
         }
     }
 
-    pub fn get_handler(&self, offset: u64) -> Option<(MmioRange, &dyn BarHandler)> {
-        let (range, dst) = self.pci_address_space.try_get_value_by_key(offset).unwrap();
+    pub fn get_handler(&self, pci_address: u64) -> Option<(MmioRange, &dyn BarHandler)> {
+        let (range, dst) = self
+            .pci_address_space
+            .try_get_value_by_key(pci_address)
+            .unwrap();
 
-        debug!(offset, dst.bus, dst.device, dst.function, dst.bar);
+        debug!(pci_address, dst.bus, dst.device, dst.function, dst.bar);
 
         Some((range, dst.handler.as_ref()))
     }

@@ -65,17 +65,5 @@ where
         io_address_space.register_mmio_device(Box::new(virtio_mmio_blk))?;
     }
 
-    // let virtio_mmio_kbd = VirtIOMmioKbd::<48, C>::new(
-    //     mm,
-    //     "virtio-mmio-kbd-01".to_string(),
-    //     MmioRange {
-    //         start: 0x0900_1000,
-    //         len: 0x1000,
-    //     },
-    //     irq_chip,
-    //     rx,
-    // );
-    // io_address_space.register(Box::new(virtio_mmio_kbd))?;
-
     Ok(())
 }
