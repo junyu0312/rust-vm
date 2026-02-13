@@ -31,8 +31,8 @@ impl<D> BarHandler for NotifyHandler<D>
 where
     D: VirtIoPciDevice,
 {
-    fn read(&self, offset: u64, _data: &mut [u8]) {
-        todo!("{offset}")
+    fn read(&self, _offset: u64, _data: &mut [u8]) {
+        unreachable!()
     }
 
     fn write(&self, _offset: u64, data: &[u8]) {
@@ -67,7 +67,7 @@ where
     }
 
     fn write(&self, _offset: u64, _data: &[u8]) {
-        todo!()
+        unreachable!()
     }
 }
 
@@ -107,8 +107,17 @@ where
     const VENDOR_ID: u16 = VENDOR_ID;
     const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID as u16;
     const CLASS_CODE: u32 = D::CLASS_CODE;
-    const IRQ_LINE: u8 = D::IRQ_LINE;
-    const IRQ_PIN: u8 = D::IRQ_PIN;
+
+    fn legacy_interrupt(&self) -> Option<(u8, u8)> {
+        let transport = self.transport.lock().unwrap();
+        transport.device.irq().map(|irq| {
+            (
+                irq.try_into()
+                    .expect("irq is too large for pci legacy interrupt"),
+                D::IRQ_PIN,
+            )
+        })
+    }
 
     fn capabilities(&self) -> Vec<Capability> {
         let virtio_pci_common_cfg = VirtIoPciCap {

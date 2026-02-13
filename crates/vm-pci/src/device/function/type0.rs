@@ -43,8 +43,13 @@ where
         configuration_space.init::<T>(0, &function.capabilities()[..]);
 
         let header = configuration_space.as_header_mut::<Type0Header>();
-        header.interrupt_line = T::IRQ_LINE;
-        header.interrupt_pin = T::IRQ_PIN;
+        if let Some((irq_line, irq_pin)) = function.legacy_interrupt() {
+            header.interrupt_line = irq_line;
+            header.interrupt_pin = irq_pin;
+        } else {
+            header.interrupt_line = 0xff;
+            header.interrupt_pin = 0x00;
+        }
 
         Type0Function {
             internal: Arc::new(Mutex::new(Type0FunctionInternal {

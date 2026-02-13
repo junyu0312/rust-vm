@@ -10,7 +10,6 @@ use crate::transport::pci::VirtIoPciFunction;
 pub trait VirtIoPciDevice: VirtIoDevice {
     const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize;
     const CLASS_CODE: u32;
-    const IRQ_LINE: u8;
     const IRQ_PIN: u8;
 
     fn into_pci_device(self) -> PciDevice {

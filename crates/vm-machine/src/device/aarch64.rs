@@ -31,13 +31,6 @@ where
             0x1000_0000,
         );
 
-        // {
-        //     let function = Type0Function::new(DummyPci::default());
-        //     let pci_device = PciDevice::new(vec![Box::new(function)]);
-        //     pci_rc
-        //         .register_device(pci_device)
-        //         .map_err(|_| anyhow!("failed to register pci device"))?;
-        // }
         {
             let virtio_pci_blk =
                 VirtIoBlkDevice::new(10, irq_chip.clone(), mm.clone()).into_pci_device();

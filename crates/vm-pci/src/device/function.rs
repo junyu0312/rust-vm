@@ -12,9 +12,8 @@ pub trait PciTypeFunctionCommon {
     const VENDOR_ID: u16;
     const DEVICE_ID: u16;
     const CLASS_CODE: u32;
-    const IRQ_LINE: u8;
-    const IRQ_PIN: u8;
 
-    // fn init_capability(_configuration_space: &mut ConfigurationSpace);
+    /// legacy irq_line, irq_pin
+    fn legacy_interrupt(&self) -> Option<(u8, u8)>;
     fn capabilities(&self) -> Vec<Capability>;
 }
