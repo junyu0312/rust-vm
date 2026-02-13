@@ -7,7 +7,7 @@ use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
 
-use crate::device::PciDevice;
+use crate::device::pci_device::PciDevice;
 use crate::root_complex::PciRootComplex;
 use crate::root_complex::mmio::device_mmio_handler::DeviceMmioHandler;
 use crate::root_complex::mmio::ecam_handler::EcamHandler;
@@ -178,20 +178,22 @@ mod device_mmio_handler {
         }
 
         fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
+            assert_eq!(len, data.len());
             let rc = self.rc.lock().unwrap();
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
             if let Some(handler) = handler {
-                handler.read(offset, len, data);
+                handler.read(offset, data);
             }
         }
 
         fn mmio_write(&self, offset: u64, len: usize, data: &[u8]) {
+            assert_eq!(len, data.len());
             let rc = self.rc.lock().unwrap();
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
             if let Some(handler) = handler {
-                handler.write(offset, len, data);
+                handler.write(offset, data);
             }
         }
     }
@@ -244,13 +246,15 @@ impl MmioDevice for PciRootComplexMmio {
             use vm_core::irq::arch::aarch64::GIC_SPI;
             use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
 
+            use crate::device::interrupt::legacy::InterruptPin;
+
             fdt.property_array_u32("interrupt-map-mask", &[0, 0, 0, 7])?;
             // TODO: hard code, virtio-pci-blk
             let entry = InterruptMapEntry {
                 pci_addr_high: 0x800,
                 pci_addr_mid: 0,
                 pci_addr_low: 0,
-                pin: 0x01,
+                pin: InterruptPin::INTA as u32,
                 gic_phandle: Phandle::GIC as u32,
                 gic_addr_high: 0,
                 gic_addr_low: 0,

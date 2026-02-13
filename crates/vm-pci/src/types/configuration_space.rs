@@ -3,20 +3,14 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
-use crate::types::configuration_space::capability::PciCapId;
-use crate::types::configuration_space::capability::msix::MsixCap;
-use crate::types::configuration_space::common::CommonHeaderOffset;
-use crate::types::configuration_space::common::HeaderCommon;
-use crate::types::configuration_space::common::status::PciStatus;
-use crate::types::function::PciTypeFunctionCommon;
+use crate::device::capability::Capability;
+use crate::device::function::PciTypeFunctionCommon;
+use crate::types::configuration_space::header::CommonHeaderOffset;
+use crate::types::configuration_space::header::HeaderCommon;
+use crate::types::configuration_space::status::PciStatus;
 
-pub mod capability;
-pub mod common;
-pub mod interrupt;
-pub mod type0;
-pub mod type1;
-
-const FIRST_CAPABILITY_OFFSET: u8 = 0x40;
+pub(crate) mod header;
+mod status;
 
 pub struct ConfigurationSpace {
     buf: [u8; 4096],
@@ -25,73 +19,56 @@ pub struct ConfigurationSpace {
 }
 
 impl ConfigurationSpace {
-    fn new() -> Self {
-        let mut buf = [0; 4096];
-        buf[CommonHeaderOffset::InterruptLine as usize] = 0xff;
-
+    pub(crate) fn new() -> Self {
         ConfigurationSpace {
-            buf,
+            buf: [0; 4096],
             next_capability_pointer: CommonHeaderOffset::CapabilityPointer as u8,
-            next_available_capability_pointer: FIRST_CAPABILITY_OFFSET,
+            next_available_capability_pointer: CommonHeaderOffset::CapabilityStart as u8,
         }
     }
 
-    pub fn init<T: PciTypeFunctionCommon>(header_type: u8) -> Self {
-        let mut cfg = ConfigurationSpace::new();
-
-        let header = cfg.as_common_header_mut();
+    pub(crate) fn init<T: PciTypeFunctionCommon>(
+        &mut self,
+        header_type: u8,
+        capabilities: &[Capability],
+    ) {
+        let header = self.as_common_header_mut();
         header.vendor_id = T::VENDOR_ID;
         header.device_id = T::DEVICE_ID;
-        header.prog_if = T::PROG_IF;
-        header.subclass = T::SUBCLASS;
-        header.class_code = T::CLASS_CODE;
+        header.prog_if = T::CLASS_CODE as u8;
+        header.subclass = (T::CLASS_CODE >> 8) as u8;
+        header.class_code = (T::CLASS_CODE >> 16) as u8;
         header.header_type = header_type;
 
-        T::init_capability(&mut cfg);
-
-        cfg
+        for cap in capabilities {
+            self.alloc_capability(cap);
+        }
     }
 
-    pub fn as_common_header(&self) -> &HeaderCommon {
-        self.as_header::<HeaderCommon>()
-    }
-
-    pub fn as_common_header_mut(&mut self) -> &mut HeaderCommon {
+    pub(crate) fn as_common_header_mut(&mut self) -> &mut HeaderCommon {
         self.as_header_mut::<HeaderCommon>()
     }
 
-    pub fn as_header<T>(&self) -> &T
-    where
-        T: FromBytes + KnownLayout + Immutable,
-    {
-        T::ref_from_bytes(&self.buf[0..size_of::<T>()]).unwrap()
-    }
-
-    pub fn as_header_mut<T>(&mut self) -> &mut T
+    pub(crate) fn as_header_mut<T>(&mut self) -> &mut T
     where
         T: IntoBytes + FromBytes + KnownLayout + Immutable,
     {
         T::mut_from_bytes(&mut self.buf[0..size_of::<T>()]).unwrap()
     }
 
-    pub fn read(&self, offset: u16, buf: &mut [u8]) {
+    pub(crate) fn read(&self, offset: u16, buf: &mut [u8]) {
         buf.copy_from_slice(&self.buf[offset as usize..offset as usize + buf.len()]);
     }
 
-    pub fn write(&mut self, offset: u16, buf: &[u8]) {
+    pub(crate) fn write(&mut self, offset: u16, buf: &[u8]) {
         self.buf[offset as usize..offset as usize + buf.len()].copy_from_slice(buf);
     }
 
-    pub fn alloc_msix_capability(&mut self) -> &mut MsixCap {
-        let buf = self.alloc_capability(PciCapId::MsiX, size_of::<MsixCap>().try_into().unwrap());
-
-        MsixCap::mut_from_bytes(buf).unwrap()
-    }
-
-    /// len: the whole length of the capability
-    pub fn alloc_capability(&mut self, cap_id: PciCapId, cap_len: u8) -> &mut [u8] {
+    /// cap: The whole cap including cap_id and next
+    fn alloc_capability(&mut self, cap: &Capability) {
+        let cap_len: u8 = cap.0.len().try_into().unwrap();
         let header = self.as_common_header_mut();
-        header.status |= PciStatus::PciStatusCapList as u16;
+        header.status |= PciStatus::CapList as u16;
 
         let offset = self.next_available_capability_pointer;
 
@@ -99,10 +76,8 @@ impl ConfigurationSpace {
         self.next_capability_pointer = offset + 1;
         self.next_available_capability_pointer = offset + cap_len;
 
-        let cap = &mut self.buf[(offset as usize)..((offset + cap_len) as usize)];
-        cap[0] = cap_id as u8;
-        cap[1] = 0; // next
-
-        cap
+        let new_cap = &mut self.buf[(offset as usize)..((offset + cap_len) as usize)];
+        new_cap.copy_from_slice(&cap.0);
+        new_cap[1] = 0; // next
     }
 }

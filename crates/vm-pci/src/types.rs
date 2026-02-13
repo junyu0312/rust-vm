@@ -1,2 +1,2 @@
-pub mod configuration_space;
-pub mod function;
+pub(crate) mod configuration_space;
+pub(crate) mod function;

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_pci::device::PciDevice;
-use vm_pci::types::function::type0::Type0Function;
+use vm_pci::device::function::type0::Type0Function;
+use vm_pci::device::pci_device::PciDevice;
 
 use crate::device::VirtIoDevice;
 use crate::transport::pci::VirtIoPciFunction;
@@ -18,6 +18,6 @@ pub trait VirtIoPciDevice: VirtIoDevice {
             transport: Arc::new(Mutex::new(self.into())),
         };
         let function = Type0Function::new(virtio_function);
-        PciDevice::new(vec![Box::new(function)])
+        PciDevice::from_single_function(Box::new(function))
     }
 }
