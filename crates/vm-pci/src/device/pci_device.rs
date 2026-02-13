@@ -1,3 +1,5 @@
+use std::slice::Iter;
+
 use crate::types::function::PciFunction;
 
 pub struct PciDevice {
@@ -21,5 +23,9 @@ impl PciDevice {
         self.functions
             .get_mut(func as usize)
             .map(|r| r.as_mut() as _)
+    }
+
+    pub(crate) fn functions(&self) -> Iter<'_, Box<dyn PciFunction>> {
+        self.functions.iter()
     }
 }

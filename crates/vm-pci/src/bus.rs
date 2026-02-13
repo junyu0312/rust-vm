@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::btree_map::Iter;
 
 use crate::device::pci_device::PciDevice;
 
@@ -14,6 +15,10 @@ impl PciBus {
 
     pub fn get_device_mut(&mut self, device_number: u8) -> Option<&mut PciDevice> {
         self.devices.get_mut(&device_number)
+    }
+
+    pub fn devices(&self) -> Iter<'_, u8, PciDevice> {
+        self.devices.iter()
     }
 
     pub fn register_device(&mut self, device_id: u8, device: PciDevice) {
