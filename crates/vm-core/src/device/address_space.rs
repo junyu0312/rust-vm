@@ -35,6 +35,16 @@ where
         Ok(())
     }
 
+    pub fn insert(&mut self, range: Range<K>, value: V) -> Result<()> {
+        if range.len == 0 {
+            return Err(Error::InvalidLen);
+        }
+
+        self.0.insert(range.start, (range.len, value));
+
+        Ok(())
+    }
+
     pub fn try_get_value_by_key(&self, key: K) -> Option<(Range<K>, &V)> {
         let (&start, &(len, ref value)) = self.0.range(..=key).next_back()?;
 

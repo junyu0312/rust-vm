@@ -40,7 +40,7 @@ where
         // }
         {
             let virtio_pci_blk =
-                VirtIoBlkDevice::new(3, irq_chip.clone(), mm.clone()).into_pci_device();
+                VirtIoBlkDevice::new(10, irq_chip.clone(), mm.clone()).into_pci_device();
 
             pci_rc
                 .register_device(virtio_pci_blk)

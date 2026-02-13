@@ -10,8 +10,10 @@ use vm_pci::device::function::type0::PciType0Function;
 
 use crate::device::pci::VirtIoPciDevice;
 use crate::transport::VirtIoTransport;
+use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::common_config_handler::CommonConfigHandler;
 use crate::transport::pci::pci_header::VENDOR_ID;
+use crate::types::interrupt_status::InterruptStatus;
 use crate::types::pci::VirtIoPciCap;
 use crate::types::pci::VirtIoPciCapCfgType;
 use crate::types::pci::VirtIoPciCommonCfg;
@@ -21,23 +23,47 @@ pub mod pci_header;
 
 mod common_config_handler;
 
-struct NotifyHandler;
+struct NotifyHandler<D: VirtIoPciDevice> {
+    transport: Arc<Mutex<VirtIoTransport<D>>>,
+}
 
-impl BarHandler for NotifyHandler {
-    fn read(&self, _offset: u64, _data: &mut [u8]) {
-        todo!()
+impl<D> BarHandler for NotifyHandler<D>
+where
+    D: VirtIoPciDevice,
+{
+    fn read(&self, offset: u64, _data: &mut [u8]) {
+        todo!("{offset}")
     }
 
-    fn write(&self, _offset: u64, _data: &[u8]) {
-        todo!()
+    fn write(&self, _offset: u64, data: &[u8]) {
+        assert_eq!(data.len(), 2);
+        let queue_index = u16::from_le_bytes(data.try_into().unwrap());
+        let mut transport = self.transport.lock().unwrap();
+        transport
+            .write_reg(ControlRegister::QueueNotify, queue_index.into())
+            .unwrap();
     }
 }
 
-struct IsrHandler;
+struct IsrHandler<D: VirtIoPciDevice> {
+    transport: Arc<Mutex<VirtIoTransport<D>>>,
+}
 
-impl BarHandler for IsrHandler {
-    fn read(&self, _offset: u64, _data: &mut [u8]) {
-        todo!()
+impl<D> BarHandler for IsrHandler<D>
+where
+    D: VirtIoPciDevice,
+{
+    fn read(&self, _offset: u64, data: &mut [u8]) {
+        let mut transport = self.transport.lock().unwrap();
+        let isr = transport.read_reg(ControlRegister::InterruptStatus);
+        data[0] = isr as u8;
+        transport
+            .interrupt_status
+            .remove(InterruptStatus::from_bits_truncate(isr));
+
+        if transport.interrupt_status.is_empty() {
+            transport.device.trigger_irq(false);
+        }
     }
 
     fn write(&self, _offset: u64, _data: &[u8]) {
@@ -53,14 +79,20 @@ impl<D> BarHandler for DeviceHandler<D>
 where
     D: VirtIoPciDevice,
 {
-    fn read(&self, _offset: u64, _data: &mut [u8]) {
-        let _transport = self.transport.lock().unwrap();
-        // todo!("{offset}")
-        // data[0] = 1;
+    fn read(&self, offset: u64, data: &mut [u8]) {
+        let transport = self.transport.lock().unwrap();
+
+        transport
+            .read_config(offset.try_into().unwrap(), data.len(), data)
+            .unwrap();
     }
 
-    fn write(&self, _offset: u64, _data: &[u8]) {
-        todo!()
+    fn write(&self, offset: u64, data: &[u8]) {
+        let mut transport = self.transport.lock().unwrap();
+
+        transport
+            .write_config(offset.try_into().unwrap(), data.len(), data)
+            .unwrap();
     }
 }
 
@@ -158,8 +190,12 @@ where
             Bar::Bar0 => Some(Box::new(CommonConfigHandler {
                 transport: self.transport.clone(),
             })),
-            Bar::Bar1 => Some(Box::new(NotifyHandler)),
-            Bar::Bar2 => Some(Box::new(IsrHandler)),
+            Bar::Bar1 => Some(Box::new(NotifyHandler {
+                transport: self.transport.clone(),
+            })),
+            Bar::Bar2 => Some(Box::new(IsrHandler {
+                transport: self.transport.clone(),
+            })),
             Bar::Bar3 => Some(Box::new(DeviceHandler {
                 transport: self.transport.clone(),
             })),

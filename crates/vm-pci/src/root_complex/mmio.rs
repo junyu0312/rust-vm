@@ -182,8 +182,8 @@ mod device_mmio_handler {
             let rc = self.rc.lock().unwrap();
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
-            if let Some(handler) = handler {
-                handler.read(offset, data);
+            if let Some((mmio_range, handler)) = handler {
+                handler.read(offset - mmio_range.start, data);
             }
         }
 
@@ -192,8 +192,8 @@ mod device_mmio_handler {
             let rc = self.rc.lock().unwrap();
             // TODO: It's incorrect, it's working because we only have one pci-physical address mapping
             let handler = rc.mmio_router.get_handler(offset);
-            if let Some(handler) = handler {
-                handler.write(offset, data);
+            if let Some((mmio_range, handler)) = handler {
+                handler.write(offset - mmio_range.start, data);
             }
         }
     }
