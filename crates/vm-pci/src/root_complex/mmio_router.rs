@@ -1,13 +1,14 @@
+use tracing::debug;
 use vm_core::device::address_space::AddressSpace;
 use vm_core::device::mmio::MmioRange;
 
 use crate::device::function::BarHandler;
 
 struct Destination {
-    _bus: u8,
-    _device: u8,
-    _function: u8,
-    _bar: u8,
+    bus: u8,
+    device: u8,
+    function: u8,
+    bar: u8,
     handler: Box<dyn BarHandler>,
 }
 
@@ -33,15 +34,24 @@ impl MmioRouter {
         bar: u8,
         handler: Box<dyn BarHandler>,
     ) {
+        debug!(
+            bus,
+            device,
+            function,
+            bar,
+            ?bar_range,
+            "update mmio handler"
+        );
+
         if self
             .pci_address_space
-            .try_insert(
+            .insert(
                 bar_range,
                 Destination {
-                    _bus: bus,
-                    _device: device,
-                    _function: function,
-                    _bar: bar,
+                    bus,
+                    device,
+                    function,
+                    bar,
                     handler,
                 },
             )
@@ -51,14 +61,11 @@ impl MmioRouter {
         }
     }
 
-    pub fn get_handler(&self, offset: u64) -> Option<&dyn BarHandler> {
-        Some(
-            self.pci_address_space
-                .try_get_value_by_key(offset)
-                .unwrap()
-                .1
-                .handler
-                .as_ref(),
-        )
+    pub fn get_handler(&self, offset: u64) -> Option<(MmioRange, &dyn BarHandler)> {
+        let (range, dst) = self.pci_address_space.try_get_value_by_key(offset).unwrap();
+
+        debug!(offset, dst.bus, dst.device, dst.function, dst.bar);
+
+        Some((range, dst.handler.as_ref()))
     }
 }

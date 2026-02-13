@@ -166,6 +166,7 @@ where
                 self.virtqueues[sel as usize].write_queue_ready(val != 0);
             }
             ControlRegister::QueueNotify => {
+                // TODO: async
                 if let Some(interrupt_status) = self.device.queue_notify(&mut self.virtqueues, val)
                 {
                     self.interrupt_status.insert(interrupt_status);
