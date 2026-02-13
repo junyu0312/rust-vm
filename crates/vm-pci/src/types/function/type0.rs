@@ -8,6 +8,8 @@ use crate::types::configuration_space::header::type0::Type0Header;
 use crate::types::function::EcamUpdateCallback;
 use crate::types::function::PciFunction;
 
+mod arch;
+
 #[derive(FromRepr)]
 #[repr(u16)]
 enum Type0HeaderOffset {
