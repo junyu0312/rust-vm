@@ -1,14 +1,12 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_pci::device::capability::PciCapId;
 use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
 use vm_pci::device::function::type0::PciType0Function;
 use vm_pci::error::Error;
 use vm_pci::types::configuration_space::ConfigurationSpace;
-use zerocopy::IntoBytes;
 
 use crate::device::pci::VirtIoPciDevice;
 use crate::transport::VirtIoTransport;
@@ -132,7 +130,7 @@ where
                 ..Default::default()
             };
 
-            cfg.alloc_capability(PciCapId::Vndr, &virtio_pci_common_cfg.as_bytes()[2..])?;
+            cfg.alloc_capability(virtio_pci_common_cfg.into())?;
         }
 
         {
@@ -149,7 +147,7 @@ where
                 notify_off_multiplier: 0,
             };
 
-            cfg.alloc_capability(PciCapId::Vndr, &virtio_pci_notify_cap.as_bytes()[2..])?;
+            cfg.alloc_capability(virtio_pci_notify_cap.into())?;
         }
 
         {
@@ -162,7 +160,7 @@ where
                 ..Default::default()
             };
 
-            cfg.alloc_capability(PciCapId::Vndr, &virtio_pci_isr_cap.as_bytes()[2..])?;
+            cfg.alloc_capability(virtio_pci_isr_cap.into())?;
         }
 
         {
@@ -176,7 +174,7 @@ where
             };
             assert!(D::DEVICE_SPECIFICATION_CONFIGURATION_LEN <= 0x1000);
 
-            cfg.alloc_capability(PciCapId::Vndr, &virtio_pci_device_cfg_cap.as_bytes()[2..])?;
+            cfg.alloc_capability(virtio_pci_device_cfg_cap.into())?;
         }
 
         Ok(())

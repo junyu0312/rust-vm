@@ -1,4 +1,5 @@
 use vm_pci::device::capability::PciCapId;
+use vm_pci::types::configuration_space::capability::StandardCapability;
 use zerocopy::FromBytes;
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
@@ -31,6 +32,12 @@ impl Default for VirtIoPciCap {
             offset: Default::default(),
             length: Default::default(),
         }
+    }
+}
+
+impl From<VirtIoPciCap> for StandardCapability {
+    fn from(val: VirtIoPciCap) -> StandardCapability {
+        StandardCapability::new(val.cap_vndr, val.as_bytes()[2..].to_vec())
     }
 }
 
@@ -85,4 +92,10 @@ pub struct VirtIoPciCommonCfg {
 pub struct VirtIoPciNotifyCap {
     pub cap: VirtIoPciCap,
     pub notify_off_multiplier: u32,
+}
+
+impl From<VirtIoPciNotifyCap> for StandardCapability {
+    fn from(val: VirtIoPciNotifyCap) -> StandardCapability {
+        StandardCapability::new(val.cap.cap_vndr, val.as_bytes()[2..].to_vec())
+    }
 }
