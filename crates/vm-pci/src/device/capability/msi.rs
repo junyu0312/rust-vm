@@ -1,4 +1,5 @@
-use zerocopy::{Immutable, IntoBytes};
+use zerocopy::Immutable;
+use zerocopy::IntoBytes;
 
 use crate::device::capability::PciCapId;
 
