@@ -1,10 +1,11 @@
-use crate::device::capability::Capability;
 use crate::device::function::BarHandler;
 use crate::device::function::PciTypeFunctionCommon;
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
 use crate::device::function::type0::Type0Function;
 use crate::device::pci_device::PciDevice;
+use crate::error::Error;
+use crate::types::configuration_space::ConfigurationSpace;
 
 struct HostBridgeFunction;
 
@@ -17,8 +18,8 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
         None
     }
 
-    fn capabilities(&self) -> Vec<Capability> {
-        vec![]
+    fn init_capability(&self, _cfg: &mut ConfigurationSpace) -> Result<(), Error> {
+        Ok(())
     }
 }
 
@@ -30,7 +31,7 @@ impl PciType0Function for HostBridgeFunction {
     }
 }
 
-pub fn new_host_bridge() -> PciDevice {
-    let function = Type0Function::new(HostBridgeFunction);
-    PciDevice::from_single_function(Box::new(function))
+pub fn new_host_bridge() -> Result<PciDevice, Error> {
+    let function = Type0Function::new(HostBridgeFunction)?;
+    Ok(PciDevice::from_single_function(Box::new(function)))
 }

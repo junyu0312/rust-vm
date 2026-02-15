@@ -1,4 +1,5 @@
-use crate::device::capability::Capability;
+use crate::error::Error;
+use crate::types::configuration_space::ConfigurationSpace;
 
 pub mod type0;
 
@@ -15,5 +16,6 @@ pub trait PciTypeFunctionCommon {
 
     /// legacy irq_line, irq_pin
     fn legacy_interrupt(&self) -> Option<(u8, u8)>;
-    fn capabilities(&self) -> Vec<Capability>;
+
+    fn init_capability(&self, cfg: &mut ConfigurationSpace) -> Result<(), Error>;
 }

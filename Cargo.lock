@@ -551,6 +551,7 @@ name = "vm-pci"
 version = "0.1.0"
 dependencies = [
  "strum_macros",
+ "thiserror",
  "tracing",
  "vm-core",
  "vm-fdt",

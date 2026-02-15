@@ -16,7 +16,7 @@ pub trait VirtIoPciDevice: VirtIoDevice {
         let virtio_function = VirtIoPciFunction {
             transport: Arc::new(Mutex::new(self.into())),
         };
-        let function = Type0Function::new(virtio_function);
+        let function = Type0Function::new(virtio_function).unwrap();
         PciDevice::from_single_function(Box::new(function))
     }
 }
