@@ -1,9 +1,10 @@
+use vm_pci::device::capability::PciCapId;
 use zerocopy::FromBytes;
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
-#[derive(Default, FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct VirtIoPciCap {
     pub cap_vndr: u8,     /* Generic PCI field: PCI_CAP_ID_VNDR */
@@ -15,6 +16,22 @@ pub struct VirtIoPciCap {
     pub padding: [u8; 2], /* Pad to full dword. */
     pub offset: u32,      /* Offset within bar. */
     pub length: u32,      /* Length of the structure, in bytes. */
+}
+
+impl Default for VirtIoPciCap {
+    fn default() -> Self {
+        Self {
+            cap_vndr: PciCapId::Vndr as u8,
+            cap_next: Default::default(),
+            cap_len: size_of::<VirtIoPciCap>().try_into().unwrap(),
+            cfg_type: Default::default(),
+            bar: Default::default(),
+            id: Default::default(),
+            padding: Default::default(),
+            offset: Default::default(),
+            length: Default::default(),
+        }
+    }
 }
 
 #[repr(u8)]

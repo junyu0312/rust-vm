@@ -101,7 +101,7 @@ impl AArch64IrqChip for HvpGicV3 {
         ))?;
         fdt.property_string("compatible", "arm,gic-v3-its")?;
         fdt.property_null("msi-controller")?;
-        fdt.property_u32("#msi-cells", 1)?;
+        // fdt.property_u32("#msi-cells", 1)?;
         fdt.property_array_u64(
             "reg",
             &[
