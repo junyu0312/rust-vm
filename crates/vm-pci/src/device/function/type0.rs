@@ -5,6 +5,7 @@ use strum_macros::FromRepr;
 
 use crate::device::function::BarHandler;
 use crate::device::function::PciTypeFunctionCommon;
+use crate::error::Error;
 use crate::types::configuration_space::ConfigurationSpace;
 use crate::types::configuration_space::header::type0::Type0Header;
 
@@ -38,9 +39,10 @@ impl<T> Type0Function<T>
 where
     T: PciType0Function,
 {
-    pub fn new(function: T) -> Self {
+    pub fn new(function: T) -> Result<Self, Error> {
         let mut configuration_space = ConfigurationSpace::new();
-        configuration_space.init::<T>(0, &function.capabilities()[..]);
+        configuration_space.init::<T>(0);
+        function.init_capability(&mut configuration_space)?;
 
         let header = configuration_space.as_header_mut::<Type0Header>();
         if let Some((irq_line, irq_pin)) = function.legacy_interrupt() {
@@ -51,11 +53,13 @@ where
             header.interrupt_pin = 0x00;
         }
 
-        Type0Function {
+        let function = Type0Function {
             internal: Arc::new(Mutex::new(Type0FunctionInternal {
                 configuration_space,
                 function,
             })),
-        }
+        };
+
+        Ok(function)
     }
 }

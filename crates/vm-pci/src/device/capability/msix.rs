@@ -27,8 +27,8 @@ impl PciMsixCap {
             cap: PciCapId::MsiX as u8,
             next: Default::default(),
             ctrl,
-            table_offset: (table_offset << 3) | (table_bar as u32),
-            pba_offset: (pba_offset << 3) | (pba_offset as u32),
+            table_offset: (table_offset << 3) | ((table_bar & 0x7) as u32),
+            pba_offset: (pba_offset << 3) | (pba_offset & 0x7),
         }
     }
 }

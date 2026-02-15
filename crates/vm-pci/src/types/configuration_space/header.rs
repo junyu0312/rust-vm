@@ -25,4 +25,5 @@ pub struct HeaderCommon {
 pub enum CommonHeaderOffset {
     CapabilityPointer = 0x34,
     CapabilityStart = 0x40,
+    ExtendedCapabilityStart = 0x100,
 }

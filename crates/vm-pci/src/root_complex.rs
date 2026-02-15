@@ -25,7 +25,7 @@ impl Default for PciRootComplex {
             allocation: 0,
         };
 
-        rc.register_device(new_host_bridge())
+        rc.register_device(new_host_bridge().unwrap())
             .map_err(|_| "failed to register host bridge")
             .unwrap();
 
