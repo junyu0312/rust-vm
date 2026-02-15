@@ -29,6 +29,7 @@ impl PciRootComplexMmio {
         if !entries.is_empty() {
             fdt.property_array_u32("interrupt-map-mask", &[0, 0, 0, 7])?;
         }
+        fdt.property_array_u32("msi-map", &[0, Phandle::MSI as u32, 0, 0x10000])?;
 
         Ok(())
     }
