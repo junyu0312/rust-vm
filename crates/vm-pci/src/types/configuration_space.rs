@@ -108,7 +108,7 @@ impl ConfigurationSpace {
             return Err(Error::CapNoSpace);
         }
 
-        if cap_version & 0b1111 != cap_version {
+        if cap_version & !0xf != 0 {
             return Err(Error::InvalidCapVersion);
         }
 
