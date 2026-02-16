@@ -1,11 +1,10 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use async_trait::async_trait;
 use tokio::sync::Notify;
 
 use crate::result::Result;
-use crate::types::interrupt_status::InterruptStatus;
+use crate::transport::VirtIoDev;
 use crate::virt_queue::VirtQueue;
 
 pub mod blk;
@@ -31,9 +30,8 @@ pub trait VirtIoDevice: Sized + 'static {
     fn virtqueue_handler(
         &self,
         queue: usize,
-        notify: Arc<Notify>,
-        interrupt_status: Arc<Mutex<InterruptStatus>>,
-        virtqueue: Arc<Mutex<VirtQueue>>,
+        notifier: Arc<Notify>,
+        transport: VirtIoDev<Self>,
     ) -> Option<impl Future<Output = ()> + Send + 'static>;
 
     fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()>;

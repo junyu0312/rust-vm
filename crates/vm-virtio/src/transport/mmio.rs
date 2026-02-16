@@ -1,6 +1,4 @@
 use std::marker::PhantomData;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioRange;
@@ -9,7 +7,7 @@ use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
 
 use crate::device::VirtIoDevice;
-use crate::transport::VirtIoTransport;
+use crate::transport::VirtIoDev;
 use crate::transport::mmio::handler::Handler;
 
 mod control_register;
@@ -17,9 +15,6 @@ mod control_register;
 const CONFIGURATION_SPACE_OFFSET: usize = 0x100;
 
 mod handler {
-    use std::sync::Arc;
-    use std::sync::Mutex;
-
     use tracing::error;
     use tracing::warn;
     use vm_core::device::mmio::MmioRange;
@@ -27,7 +22,8 @@ mod handler {
 
     use crate::device::VirtIoDevice;
     use crate::result::Result as VirtIoResult;
-    use crate::transport::VirtIoTransport;
+    use crate::transport::VirtIoDev;
+    use crate::transport::VirtIoDevInternal;
     use crate::transport::control_register::ControlRegister;
     use crate::transport::mmio::CONFIGURATION_SPACE_OFFSET;
     use crate::transport::mmio::control_register::MmioControlRegister;
@@ -35,21 +31,21 @@ mod handler {
 
     pub struct Handler<D> {
         mmio_range: MmioRange,
-        transport: Arc<Mutex<VirtIoTransport<D>>>,
+        transport: VirtIoDev<D>,
     }
 
     impl<D> Handler<D>
     where
         D: VirtIoDevice,
     {
-        pub fn new(mmio_range: MmioRange, transport: Arc<Mutex<VirtIoTransport<D>>>) -> Self {
+        pub fn new(mmio_range: MmioRange, transport: VirtIoDev<D>) -> Self {
             Handler {
                 mmio_range,
                 transport,
             }
         }
 
-        fn read_reg(&self, transport: &VirtIoTransport<D>, reg: MmioControlRegister) -> u32 {
+        fn read_reg(&self, transport: &VirtIoDevInternal<D>, reg: MmioControlRegister) -> u32 {
             match reg {
                 MmioControlRegister::MagicValue => u32::from_le_bytes(*b"virt"),
                 MmioControlRegister::Version => 0x2,
@@ -76,7 +72,7 @@ mod handler {
 
         fn write_reg(
             &self,
-            transport: &mut VirtIoTransport<D>,
+            transport: &mut VirtIoDevInternal<D>,
             reg: MmioControlRegister,
             val: u32,
         ) -> VirtIoResult<()> {
@@ -103,11 +99,11 @@ mod handler {
                     transport.write_reg(ControlRegister::QueueNotify, val)
                 }
                 MmioControlRegister::InterruptAck => {
-                    let mut interrupt_status = transport.interrupt_status.lock().unwrap();
+                    transport
+                        .interrupt_status
+                        .remove(InterruptStatus::from_bits_truncate(val));
 
-                    interrupt_status.remove(InterruptStatus::from_bits_truncate(val));
-
-                    if interrupt_status.is_empty() {
+                    if transport.interrupt_status.is_empty() {
                         transport.device.trigger_irq(false);
                     }
 
@@ -148,7 +144,7 @@ mod handler {
         }
 
         fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
-            let transport = self.transport.lock().unwrap();
+            let transport = self.transport.blocking_lock();
 
             let offset: usize = offset.try_into().unwrap();
             if offset < CONFIGURATION_SPACE_OFFSET {
@@ -179,7 +175,7 @@ mod handler {
         }
 
         fn mmio_write(&self, offset: u64, len: usize, data: &[u8]) {
-            let mut transport = self.transport.lock().unwrap();
+            let mut transport = self.transport.blocking_lock();
 
             let offset: usize = offset.try_into().unwrap();
             if offset < CONFIGURATION_SPACE_OFFSET {
@@ -217,7 +213,7 @@ mod handler {
 pub struct VirtIoMmioTransport<D> {
     mmio_range: MmioRange,
     irq: Option<u32>,
-    transport: Arc<Mutex<VirtIoTransport<D>>>,
+    transport: VirtIoDev<D>,
     _mark: PhantomData<D>,
 }
 
@@ -229,7 +225,7 @@ where
         VirtIoMmioTransport {
             mmio_range,
             irq: device.irq(),
-            transport: Arc::new(Mutex::new(device.into())),
+            transport: device.into(),
             _mark: PhantomData,
         }
     }

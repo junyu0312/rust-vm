@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
@@ -9,7 +6,7 @@ use vm_pci::error::Error;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 
 use crate::device::pci::VirtIoPciDevice;
-use crate::transport::VirtIoTransport;
+use crate::transport::VirtIoDev;
 use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::common_config_handler::CommonConfigHandler;
 use crate::transport::pci::pci_header::VENDOR_ID;
@@ -23,7 +20,7 @@ pub mod pci_header;
 mod common_config_handler;
 
 struct NotifyHandler<D: VirtIoPciDevice> {
-    transport: Arc<Mutex<VirtIoTransport<D>>>,
+    transport: VirtIoDev<D>,
 }
 
 impl<D> BarHandler for NotifyHandler<D>
@@ -37,7 +34,7 @@ where
     fn write(&self, _offset: u64, data: &[u8]) {
         assert_eq!(data.len(), 2);
         let queue_index = u16::from_le_bytes(data.try_into().unwrap());
-        let mut transport = self.transport.lock().unwrap();
+        let mut transport = self.transport.blocking_lock();
         transport
             .write_reg(ControlRegister::QueueNotify, queue_index.into())
             .unwrap();
@@ -45,7 +42,7 @@ where
 }
 
 struct IsrHandler<D: VirtIoPciDevice> {
-    transport: Arc<Mutex<VirtIoTransport<D>>>,
+    transport: VirtIoDev<D>,
 }
 
 impl<D> BarHandler for IsrHandler<D>
@@ -53,7 +50,7 @@ where
     D: VirtIoPciDevice,
 {
     fn read(&self, _offset: u64, data: &mut [u8]) {
-        let mut transport = self.transport.lock().unwrap();
+        let mut transport = self.transport.blocking_lock();
 
         let isr = transport.read_reg(ControlRegister::InterruptStatus);
         data[0] = isr as u8;
@@ -74,7 +71,7 @@ where
 }
 
 struct DeviceHandler<D: VirtIoPciDevice> {
-    transport: Arc<Mutex<VirtIoTransport<D>>>,
+    transport: VirtIoDev<D>,
 }
 
 impl<D> BarHandler for DeviceHandler<D>
@@ -82,7 +79,7 @@ where
     D: VirtIoPciDevice,
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
-        let transport = self.transport.lock().unwrap();
+        let transport = self.transport.blocking_lock();
 
         transport
             .read_config(offset.try_into().unwrap(), data.len(), data)
@@ -90,7 +87,7 @@ where
     }
 
     fn write(&self, offset: u64, data: &[u8]) {
-        let mut transport = self.transport.lock().unwrap();
+        let mut transport = self.transport.blocking_lock();
 
         transport
             .write_config(offset.try_into().unwrap(), data.len(), data)
@@ -99,7 +96,7 @@ where
 }
 
 pub struct VirtIoPciFunction<D: VirtIoPciDevice> {
-    pub transport: Arc<Mutex<VirtIoTransport<D>>>,
+    pub transport: VirtIoDev<D>,
 }
 
 impl<D> PciTypeFunctionCommon for VirtIoPciFunction<D>
@@ -111,7 +108,7 @@ where
     const CLASS_CODE: u32 = D::CLASS_CODE;
 
     fn legacy_interrupt(&self) -> Option<(u8, u8)> {
-        let transport = self.transport.lock().unwrap();
+        let transport = self.transport.blocking_lock();
         transport.device.irq().map(|irq| {
             (
                 irq.try_into()

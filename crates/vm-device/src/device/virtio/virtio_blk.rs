@@ -12,11 +12,11 @@ use vm_virtio::device::blk::req::VirtIoBlkReqType;
 use vm_virtio::device::blk::req::VirtioBlkReq;
 use vm_virtio::device::pci::VirtIoPciDevice;
 use vm_virtio::result::Result;
+use vm_virtio::transport::VirtIoDev;
 use vm_virtio::transport::mmio::VirtIoMmioTransport;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
 use vm_virtio::types::device_id::DeviceId;
 use vm_virtio::types::interrupt_status::InterruptStatus;
-use vm_virtio::virt_queue::VirtQueue;
 use zerocopy::IntoBytes;
 
 pub struct VirtIoBlkDevice<C> {
@@ -72,8 +72,7 @@ where
         &self,
         queue_sel: usize,
         notify: Arc<Notify>,
-        interrupt_status: Arc<Mutex<InterruptStatus>>,
-        virtqueue: Arc<Mutex<VirtQueue>>,
+        dev: VirtIoDev<Self>,
     ) -> Option<impl Future<Output = ()> + Send + 'static> {
         if queue_sel != 0 {
             return None;
@@ -88,14 +87,15 @@ where
                 loop {
                     notify.notified().await;
 
+                    let mut dev = dev.lock().await;
                     let mut mm = mm.lock().unwrap();
-                    let mut q = virtqueue.lock().unwrap();
+                    let q = dev.get_virt_queue_mut(queue_sel).unwrap();
 
                     let avail_ring = q.avail_ring(&mut mm).unwrap();
                     let desc_ring = q.desc_table_ref(&mut mm).unwrap();
                     let mut used_ring = q.used_ring(&mut mm).unwrap();
 
-                    let mut isr = interrupt_status.lock().unwrap();
+                    let mut updated = false;
 
                     while q.last_available_idx() != avail_ring.idx() {
                         let last_available_idx = q.last_available_idx();
@@ -134,10 +134,13 @@ where
 
                         q.incr_last_available_idx();
 
-                        isr.insert(InterruptStatus::VIRTIO_MMIO_INT_VRING);
+                        updated = true;
                     }
 
-                    if !isr.is_empty() {
+                    if updated {
+                        let mut isr = dev.get_interrupt_status();
+                        isr.insert(InterruptStatus::VIRTIO_MMIO_INT_VRING);
+                        dev.set_interrupt_status(isr);
                         irq_chip.trigger_irq(irq_line, true);
                     }
                 }
