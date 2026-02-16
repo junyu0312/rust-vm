@@ -1,8 +1,9 @@
 use std::sync::Arc;
+use std::sync::LockResult;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
 
 use bitflags::Flags;
-use tokio::sync::Mutex;
-use tokio::sync::MutexGuard;
 use tokio::sync::Notify;
 use tracing::warn;
 
@@ -26,12 +27,8 @@ impl<D> Clone for VirtIoDev<D> {
 }
 
 impl<D> VirtIoDev<D> {
-    pub fn blocking_lock(&self) -> MutexGuard<'_, VirtIoDevInternal<D>> {
-        self.0.blocking_lock()
-    }
-
-    pub async fn lock(&self) -> MutexGuard<'_, VirtIoDevInternal<D>> {
-        self.0.lock().await
+    pub fn lock(&self) -> LockResult<MutexGuard<'_, VirtIoDevInternal<D>>> {
+        self.0.lock()
     }
 }
 
@@ -40,6 +37,11 @@ where
     D: VirtIoDevice,
 {
     fn from(device: D) -> Self {
+        let virtqueue_notifiers = D::VIRT_QUEUES_SIZE_MAX
+            .iter()
+            .map(|_| Arc::new(Notify::new()))
+            .collect::<Vec<_>>();
+
         let internal = Arc::new(Mutex::new(VirtIoDevInternal {
             device,
             device_feature_sel: Default::default(),
@@ -50,10 +52,7 @@ where
                 .iter()
                 .map(|&size_max| VirtQueue::new(size_max))
                 .collect(),
-            virtqueue_notifiers: D::VIRT_QUEUES_SIZE_MAX
-                .iter()
-                .map(|_| Arc::new(Notify::new()))
-                .collect(),
+            virtqueue_notifiers: virtqueue_notifiers.clone(),
             interrupt_status: Default::default(),
             status: Default::default(),
             config_generation: Default::default(),
@@ -62,14 +61,16 @@ where
         let virtio_dev = VirtIoDev(internal);
 
         {
-            let dev = virtio_dev.blocking_lock();
+            let dev = virtio_dev.lock().unwrap();
 
-            for (queue, _) in D::VIRT_QUEUES_SIZE_MAX.iter().enumerate() {
-                let notify = dev.get_queue_notifier(queue).unwrap();
-
+            for (queue, (_, notifier)) in D::VIRT_QUEUES_SIZE_MAX
+                .iter()
+                .zip(virtqueue_notifiers.into_iter())
+                .enumerate()
+            {
                 let fut = dev
                     .device
-                    .virtqueue_handler(queue, notify, virtio_dev.clone())
+                    .virtqueue_handler(queue, notifier, virtio_dev.clone())
                     .unwrap();
 
                 // TODO: Who will handle the lifecycle of the thread

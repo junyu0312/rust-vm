@@ -51,7 +51,7 @@ where
             return;
         };
 
-        let transport = self.transport.blocking_lock();
+        let transport = self.transport.lock().unwrap();
 
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => todo!(),
@@ -118,7 +118,7 @@ where
             return;
         };
 
-        let mut transport = self.transport.blocking_lock();
+        let mut transport = self.transport.lock().unwrap();
 
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => {

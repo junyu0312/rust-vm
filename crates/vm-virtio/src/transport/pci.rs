@@ -34,7 +34,7 @@ where
     fn write(&self, _offset: u64, data: &[u8]) {
         assert_eq!(data.len(), 2);
         let queue_index = u16::from_le_bytes(data.try_into().unwrap());
-        let mut transport = self.transport.blocking_lock();
+        let mut transport = self.transport.lock().unwrap();
         transport
             .write_reg(ControlRegister::QueueNotify, queue_index.into())
             .unwrap();
@@ -50,7 +50,7 @@ where
     D: VirtIoPciDevice,
 {
     fn read(&self, _offset: u64, data: &mut [u8]) {
-        let mut transport = self.transport.blocking_lock();
+        let mut transport = self.transport.lock().unwrap();
 
         let isr = transport.read_reg(ControlRegister::InterruptStatus);
         data[0] = isr as u8;
@@ -79,7 +79,7 @@ where
     D: VirtIoPciDevice,
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
-        let transport = self.transport.blocking_lock();
+        let transport = self.transport.lock().unwrap();
 
         transport
             .read_config(offset.try_into().unwrap(), data.len(), data)
@@ -87,7 +87,7 @@ where
     }
 
     fn write(&self, offset: u64, data: &[u8]) {
-        let mut transport = self.transport.blocking_lock();
+        let mut transport = self.transport.lock().unwrap();
 
         transport
             .write_config(offset.try_into().unwrap(), data.len(), data)
@@ -108,7 +108,7 @@ where
     const CLASS_CODE: u32 = D::CLASS_CODE;
 
     fn legacy_interrupt(&self) -> Option<(u8, u8)> {
-        let transport = self.transport.blocking_lock();
+        let transport = self.transport.lock().unwrap();
         transport.device.irq().map(|irq| {
             (
                 irq.try_into()

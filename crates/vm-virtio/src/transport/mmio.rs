@@ -144,7 +144,7 @@ mod handler {
         }
 
         fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
-            let transport = self.transport.blocking_lock();
+            let transport = self.transport.lock().unwrap();
 
             let offset: usize = offset.try_into().unwrap();
             if offset < CONFIGURATION_SPACE_OFFSET {
@@ -175,7 +175,7 @@ mod handler {
         }
 
         fn mmio_write(&self, offset: u64, len: usize, data: &[u8]) {
-            let mut transport = self.transport.blocking_lock();
+            let mut transport = self.transport.lock().unwrap();
 
             let offset: usize = offset.try_into().unwrap();
             if offset < CONFIGURATION_SPACE_OFFSET {

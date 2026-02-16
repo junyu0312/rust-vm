@@ -87,7 +87,7 @@ where
                 loop {
                     notify.notified().await;
 
-                    let mut dev = dev.lock().await;
+                    let mut dev = dev.lock().unwrap();
                     let mut mm = mm.lock().unwrap();
                     let q = dev.get_virt_queue_mut(queue_sel).unwrap();
 
