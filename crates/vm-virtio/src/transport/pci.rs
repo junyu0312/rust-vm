@@ -13,7 +13,6 @@ use crate::transport::VirtIoTransport;
 use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::common_config_handler::CommonConfigHandler;
 use crate::transport::pci::pci_header::VENDOR_ID;
-use crate::types::interrupt_status::InterruptStatus;
 use crate::types::pci::VirtIoPciCap;
 use crate::types::pci::VirtIoPciCapCfgType;
 use crate::types::pci::VirtIoPciCommonCfg;
@@ -55,15 +54,18 @@ where
 {
     fn read(&self, _offset: u64, data: &mut [u8]) {
         let mut transport = self.transport.lock().unwrap();
+
         let isr = transport.read_reg(ControlRegister::InterruptStatus);
         data[0] = isr as u8;
-        transport
-            .interrupt_status
-            .remove(InterruptStatus::from_bits_truncate(isr));
 
-        if transport.interrupt_status.is_empty() {
-            transport.device.trigger_irq(false);
-        }
+        /*
+         * From `4.1.4.5.1 Device Requirements: ISR status capability`
+         * - The device MUST reset ISR status to 0 on driver read.
+         */
+        transport
+            .write_reg(ControlRegister::InterruptStatus, 0)
+            .unwrap();
+        transport.device.trigger_irq(false);
     }
 
     fn write(&self, _offset: u64, _data: &[u8]) {

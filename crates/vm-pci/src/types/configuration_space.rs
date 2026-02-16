@@ -75,15 +75,15 @@ impl ConfigurationSpace {
         let cap_len = cap.cap_len();
         let cap_len = u16::try_from(cap_len).map_err(|_| Error::CapTooLarge)?;
 
-        if offset as u16 + cap_len > 0x100 {
+        if offset + cap_len > 0x100 {
             return Err(Error::CapNoSpace);
         }
 
         self.buf[self.last_capability_next_pointer as usize] = offset as u8;
         self.last_capability_next_pointer = offset as u8 + 1;
-        self.next_available_capability_pointer = offset + cap_len as u16;
+        self.next_available_capability_pointer = offset + cap_len;
 
-        let new_cap = &mut self.buf[(offset as usize)..((offset + cap_len as u16) as usize)];
+        let new_cap = &mut self.buf[(offset as usize)..((offset + cap_len) as usize)];
         new_cap[0] = cap.cap_id;
         new_cap[1] = 0;
         new_cap[2..].copy_from_slice(&cap.data);
@@ -98,7 +98,7 @@ impl ConfigurationSpace {
         let cap_len = cap.cap_len();
         let cap_len = u16::try_from(cap_len).map_err(|_| Error::CapTooLarge)?;
 
-        if offset as u16 + cap_len > 4096 {
+        if offset + cap_len > 4096 {
             return Err(Error::CapNoSpace);
         }
 
@@ -111,9 +111,9 @@ impl ConfigurationSpace {
             self.buf[ptr as usize..ptr as usize + 2].copy_from_slice(&val.to_le_bytes());
         }
         self.last_ext_capability_next_pointer = Some(offset + 2);
-        self.next_available_ext_capability_pointer = offset + cap_len as u16;
+        self.next_available_ext_capability_pointer = offset + cap_len;
 
-        let new_cap = &mut self.buf[(offset as usize)..((offset + cap_len as u16) as usize)];
+        let new_cap = &mut self.buf[(offset as usize)..((offset + cap_len) as usize)];
         new_cap[0..2].copy_from_slice(&cap.cap_id.to_le_bytes());
         new_cap[2..4].copy_from_slice(&cap.next_or_ver.to_le_bytes());
         new_cap[4..].copy_from_slice(&cap.data);

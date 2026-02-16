@@ -103,11 +103,11 @@ mod handler {
                     transport.write_reg(ControlRegister::QueueNotify, val)
                 }
                 MmioControlRegister::InterruptAck => {
-                    transport
-                        .interrupt_status
-                        .remove(InterruptStatus::from_bits_truncate(val));
+                    let mut interrupt_status = transport.interrupt_status.lock().unwrap();
 
-                    if transport.interrupt_status.is_empty() {
+                    interrupt_status.remove(InterruptStatus::from_bits_truncate(val));
+
+                    if interrupt_status.is_empty() {
                         transport.device.trigger_irq(false);
                     }
 

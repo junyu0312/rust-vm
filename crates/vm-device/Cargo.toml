@@ -10,6 +10,7 @@ lazy_static.workspace = true
 maplit.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
