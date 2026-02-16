@@ -1,9 +1,19 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use tokio::sync::Notify;
+
 use crate::result::Result;
-use crate::types::interrupt_status::InterruptStatus;
+use crate::transport::VirtIoDev;
 use crate::virt_queue::VirtQueue;
 
 pub mod blk;
 pub mod pci;
+
+#[async_trait]
+pub trait VirtQueueHandler {
+    async fn handler(&self, virt_queue: &mut VirtQueue);
+}
 
 pub trait VirtIoDevice: Sized + 'static {
     const NAME: &str;
@@ -17,7 +27,12 @@ pub trait VirtIoDevice: Sized + 'static {
 
     fn reset(&mut self);
 
-    fn queue_notify(&mut self, virt_queues: &mut [VirtQueue], val: u32) -> Option<InterruptStatus>;
+    fn virtqueue_handler(
+        &self,
+        queue: usize,
+        notifier: Arc<Notify>,
+        transport: VirtIoDev<Self>,
+    ) -> Option<impl Future<Output = ()> + Send + 'static>;
 
     fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()>;
 

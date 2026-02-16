@@ -1,12 +1,9 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use strum_macros::FromRepr;
 use tracing::warn;
 use vm_pci::device::function::BarHandler;
 
 use crate::device::pci::VirtIoPciDevice;
-use crate::transport::VirtIoTransport;
+use crate::transport::VirtIoDev;
 use crate::transport::control_register::ControlRegister;
 
 #[derive(Debug, FromRepr)]
@@ -41,7 +38,7 @@ enum CommonCfgOffset {
 }
 
 pub struct CommonConfigHandler<D: VirtIoPciDevice> {
-    pub transport: Arc<Mutex<VirtIoTransport<D>>>,
+    pub transport: VirtIoDev<D>,
 }
 
 impl<D> BarHandler for CommonConfigHandler<D>

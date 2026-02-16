@@ -8,6 +8,7 @@ anyhow.workspace = true
 clap.workspace = true
 termios.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 vm-bootloader.workspace = true

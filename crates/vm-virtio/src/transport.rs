@@ -1,3 +1,10 @@
+use std::sync::Arc;
+use std::sync::LockResult;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
+
+use bitflags::Flags;
+use tokio::sync::Notify;
 use tracing::warn;
 
 use crate::device::VirtIoDevice;
@@ -11,25 +18,31 @@ pub mod control_register;
 pub mod mmio;
 pub mod pci;
 
-pub struct VirtIoTransport<D> {
-    device: D,
+pub struct VirtIoDev<D>(Arc<Mutex<VirtIoDevInternal<D>>>);
 
-    device_feature_sel: Option<u32>,
-    driver_features: u64,
-    driver_feature_sel: Option<u32>,
-    queue_sel: Option<u32>,
-    virtqueues: Vec<VirtQueue>,
-    interrupt_status: InterruptStatus,
-    status: Status,
-    config_generation: u32,
+impl<D> Clone for VirtIoDev<D> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
 }
 
-impl<D> From<D> for VirtIoTransport<D>
+impl<D> VirtIoDev<D> {
+    pub fn lock(&self) -> LockResult<MutexGuard<'_, VirtIoDevInternal<D>>> {
+        self.0.lock()
+    }
+}
+
+impl<D> From<D> for VirtIoDev<D>
 where
     D: VirtIoDevice,
 {
     fn from(device: D) -> Self {
-        VirtIoTransport {
+        let virtqueue_notifiers = D::VIRT_QUEUES_SIZE_MAX
+            .iter()
+            .map(|_| Arc::new(Notify::new()))
+            .collect::<Vec<_>>();
+
+        let internal = Arc::new(Mutex::new(VirtIoDevInternal {
             device,
             device_feature_sel: Default::default(),
             driver_features: Default::default(),
@@ -39,14 +52,51 @@ where
                 .iter()
                 .map(|&size_max| VirtQueue::new(size_max))
                 .collect(),
+            virtqueue_notifiers: virtqueue_notifiers.clone(),
             interrupt_status: Default::default(),
             status: Default::default(),
             config_generation: Default::default(),
+        }));
+
+        let virtio_dev = VirtIoDev(internal);
+
+        {
+            let dev = virtio_dev.lock().unwrap();
+
+            for (queue, (_, notifier)) in D::VIRT_QUEUES_SIZE_MAX
+                .iter()
+                .zip(virtqueue_notifiers.into_iter())
+                .enumerate()
+            {
+                let fut = dev
+                    .device
+                    .virtqueue_handler(queue, notifier, virtio_dev.clone())
+                    .unwrap();
+
+                // TODO: Who will handle the lifecycle of the thread
+                let _fut = tokio::spawn(fut);
+            }
         }
+
+        virtio_dev
     }
 }
 
-impl<D> VirtIoTransport<D>
+pub struct VirtIoDevInternal<D> {
+    device: D,
+
+    device_feature_sel: Option<u32>,
+    driver_features: u64,
+    driver_feature_sel: Option<u32>,
+    queue_sel: Option<u32>,
+    virtqueues: Vec<VirtQueue>,
+    virtqueue_notifiers: Vec<Arc<Notify>>,
+    interrupt_status: InterruptStatus,
+    status: Status,
+    config_generation: u32,
+}
+
+impl<D> VirtIoDevInternal<D>
 where
     D: VirtIoDevice,
 {
@@ -56,11 +106,10 @@ where
         self.driver_features = Default::default();
         self.driver_feature_sel = Default::default();
         self.queue_sel = Default::default();
-        self.virtqueues = D::VIRT_QUEUES_SIZE_MAX
-            .iter()
-            .map(|&size_max| VirtQueue::new(size_max))
-            .collect();
-        self.interrupt_status = Default::default();
+        for virtqueue in &mut self.virtqueues {
+            virtqueue.reset();
+        }
+        self.interrupt_status.clear();
         self.status = Default::default();
         self.config_generation = Default::default();
     }
@@ -166,16 +215,12 @@ where
                 self.virtqueues[sel as usize].write_queue_ready(val != 0);
             }
             ControlRegister::QueueNotify => {
-                // TODO: async
-                if let Some(interrupt_status) = self.device.queue_notify(&mut self.virtqueues, val)
-                {
-                    self.interrupt_status.insert(interrupt_status);
-                    if !self.interrupt_status.is_empty() {
-                        self.device.trigger_irq(true);
-                    }
-                }
+                let queue_sel = val; // since VIRTIO_F_NOTIFICATION_DATA is not enabled
+                self.virtqueue_notifiers[queue_sel as usize].notify_one();
             }
-            ControlRegister::InterruptStatus => todo!(),
+            ControlRegister::InterruptStatus => {
+                self.interrupt_status = InterruptStatus::from_bits_truncate(val)
+            }
             ControlRegister::Status => {
                 if val == 0 {
                     self.reset();
@@ -225,5 +270,25 @@ where
 
     pub fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
         self.device.write_config(offset, len, buf)
+    }
+
+    pub fn get_queue_notifier(&self, queue_sel: usize) -> Option<Arc<Notify>> {
+        self.virtqueue_notifiers.get(queue_sel).cloned()
+    }
+
+    pub fn get_virt_queue(&self, queue_sel: usize) -> Option<&VirtQueue> {
+        self.virtqueues.get(queue_sel)
+    }
+
+    pub fn get_virt_queue_mut(&mut self, queue_sel: usize) -> Option<&mut VirtQueue> {
+        self.virtqueues.get_mut(queue_sel)
+    }
+
+    pub fn get_interrupt_status(&self) -> InterruptStatus {
+        self.interrupt_status
+    }
+
+    pub fn set_interrupt_status(&mut self, is: InterruptStatus) {
+        self.interrupt_status = is;
     }
 }

@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+async-trait.workspace = true
 bitflags.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
