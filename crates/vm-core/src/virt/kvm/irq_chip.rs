@@ -4,6 +4,7 @@ use kvm_ioctls::VmFd;
 use tracing::error;
 
 use crate::irq::InterruptController;
+use crate::irq::Phandle;
 
 mod arch;
 
@@ -36,6 +37,10 @@ impl InterruptController for KvmIRQ {
     }
 
     fn send_msi(&self, _intid: u32) {
+        todo!()
+    }
+
+    fn write_device_tree(&self, _fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<Phandle> {
         todo!()
     }
 }

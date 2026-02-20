@@ -1,5 +1,3 @@
-use vm_fdt::FdtWriter;
-
 use crate::irq::InterruptController;
 
 pub const GIC_SPI: u32 = 0;
@@ -17,6 +15,4 @@ pub trait AArch64IrqChip: InterruptController {
     fn get_msi_region_base(&self) -> u64;
 
     fn get_msi_region_size(&self) -> anyhow::Result<usize>;
-
-    fn write_device_tree(&self, fdt: &mut FdtWriter) -> anyhow::Result<u32>;
 }

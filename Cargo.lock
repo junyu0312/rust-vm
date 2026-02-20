@@ -617,6 +617,7 @@ dependencies = [
  "tracing-subscriber",
  "vm-bootloader",
  "vm-core",
+ "vm-device",
  "vm-machine",
 ]
 

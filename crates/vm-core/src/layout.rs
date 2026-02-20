@@ -34,7 +34,7 @@ pub enum Error {
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub trait MemoryLayout {
+pub trait MemoryLayout: Clone {
     fn get_mmio_start(&self) -> u64;
     fn get_mmio_len(&self) -> usize;
 

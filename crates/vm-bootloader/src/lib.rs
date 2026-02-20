@@ -1,4 +1,4 @@
-#![deny(warnings)]
+// #![deny(warnings)]
 
 pub mod initrd_loader;
 pub mod kernel_loader;

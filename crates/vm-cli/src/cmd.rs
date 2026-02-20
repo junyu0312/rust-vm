@@ -12,6 +12,19 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, ValueEnum)]
+pub enum Device {
+    GicV3,
+}
+
+impl From<Device> for vm_device::device::Device {
+    fn from(device: Device) -> Self {
+        match device {
+            Device::GicV3 => vm_device::device::Device::GicV3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, ValueEnum)]
 pub enum Accel {
     #[cfg(feature = "kvm")]
     Kvm,
@@ -29,6 +42,9 @@ pub struct Command {
 
     #[arg(short, long)]
     pub accel: Accel,
+
+    #[arg(long)]
+    pub device: Vec<Device>,
 
     #[arg(short, long)]
     pub kernel: PathBuf,

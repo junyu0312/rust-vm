@@ -25,8 +25,4 @@ impl AArch64IrqChip for KvmIRQ {
     fn get_msi_region_size(&self) -> anyhow::Result<usize> {
         todo!()
     }
-
-    fn write_device_tree(&self, _fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<u32> {
-        todo!()
-    }
 }
