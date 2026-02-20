@@ -82,9 +82,16 @@ async fn main() -> anyhow::Result<()> {
             #[cfg(target_arch = "aarch64")]
             {
                 use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
-                use vm_core::virt::hvp::Hvp;
 
-                build_and_run_vm::<Hvp, AArch64BootLoader>(args)?;
+                if args.device.iter().any(|device| device.is_irq_chip()) {
+                    use vm_core::virt::hvp::HvpWithoutGic;
+
+                    build_and_run_vm::<HvpWithoutGic, AArch64BootLoader>(args)?;
+                } else {
+                    use vm_core::virt::hvp::HvpWithGic;
+
+                    build_and_run_vm::<HvpWithGic, AArch64BootLoader>(args)?;
+                }
             }
         }
     };

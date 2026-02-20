@@ -5,6 +5,8 @@ use anyhow::anyhow;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
 use vm_core::irq::InterruptController;
+use vm_core::layout::aarch64::GIC_DISTRIBUTOR;
+use vm_core::layout::aarch64::GIC_REDISTRIBUTOR;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_device::device::Device;
@@ -44,7 +46,12 @@ impl InitDevice for DeviceManager {
                     .ok_or(anyhow!("irq_chip must be specified"))?;
 
                 match irq_chip {
-                    Device::GicV3 => Arc::new(GicV3::default()),
+                    #[cfg(target_arch = "aarch64")]
+                    Device::GicV3 => {
+                        let gic_v3 = GicV3::new(GIC_DISTRIBUTOR, GIC_REDISTRIBUTOR);
+                        self.register_mmio_device(gic_v3.get_device())?;
+                        Arc::new(gic_v3)
+                    }
                 }
             }
         };

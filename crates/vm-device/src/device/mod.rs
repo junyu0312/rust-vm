@@ -13,6 +13,7 @@ pub mod virtio;
 pub mod pl011;
 
 pub enum Device {
+    #[cfg(target_arch = "aarch64")]
     GicV3,
 }
 

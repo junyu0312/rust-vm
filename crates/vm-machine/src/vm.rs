@@ -71,8 +71,9 @@ where
 
         let irq_chip = if !self.devices.iter().any(Device::is_irq_chip) {
             Some(
-                virt.init_irq()
-                    .map_err(|err| Error::InitIrqchip(err.to_string()))?,
+                virt.builtin_irq_chip()
+                    .map_err(|err| Error::InitIrqchip(err.to_string()))?
+                    .unwrap(),
             )
         } else {
             None

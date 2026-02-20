@@ -4,6 +4,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
+use applevisor::vm::GicDisabled;
 use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineConfig;
@@ -24,6 +25,7 @@ use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::virt::Virt;
+use crate::virt::VirtBuilder;
 use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
@@ -35,18 +37,14 @@ pub(crate) mod vcpu;
 mod irq_chip;
 mod mm;
 
-pub struct Hvp {
+pub struct Hvp<Gic> {
     arch: AArch64,
-    vm: Arc<VirtualMachineInstance<GicEnabled>>,
-    gic_chip: Arc<HvpGicV3>,
+    vm: Arc<VirtualMachineInstance<Gic>>,
+    gic_chip: Option<Arc<HvpGicV3>>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
 }
 
-impl Virt for Hvp {
-    type Arch = AArch64;
-    type Vcpu = HvpVcpu;
-    type Memory = MemoryWrapper;
-
+impl VirtBuilder for Hvp<GicEnabled> {
     fn new() -> Result<Self, VirtError> {
         let layout = AArch64Layout::default();
 
@@ -162,13 +160,50 @@ impl Virt for Hvp {
         Ok(Hvp {
             arch: AArch64 { layout },
             vm,
-            gic_chip,
+            gic_chip: Some(gic_chip),
             vcpus: OnceCell::default(),
         })
     }
+}
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
-        Ok(self.gic_chip.clone())
+impl VirtBuilder for Hvp<GicDisabled> {
+    fn new() -> Result<Self, VirtError> {
+        let layout = AArch64Layout::default();
+
+        let mut vm_config = VirtualMachineConfig::default();
+        vm_config
+            .set_el2_enabled(true)
+            .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+
+        let vm = VirtualMachine::with_config(vm_config).map_err(|err| {
+            VirtError::FailedInitialize(
+                format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
+            )
+        })?;
+        let vm = Arc::new(vm);
+
+        Ok(Hvp {
+            arch: AArch64 { layout },
+            vm,
+            gic_chip: None,
+            vcpus: OnceCell::default(),
+        })
+    }
+}
+
+impl<Gic> Virt for Hvp<Gic>
+where
+    Hvp<Gic>: VirtBuilder,
+{
+    type Arch = AArch64;
+    type Vcpu = HvpVcpu;
+    type Memory = MemoryWrapper;
+
+    fn builtin_irq_chip(&mut self) -> anyhow::Result<Option<Arc<dyn InterruptController>>> {
+        match self.gic_chip.clone() {
+            Some(gic_chip) => Ok(Some(gic_chip)),
+            None => Ok(None),
+        }
     }
 
     fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
@@ -269,3 +304,6 @@ impl Virt for Hvp {
         }
     }
 }
+
+pub type HvpWithGic = Hvp<GicEnabled>;
+pub type HvpWithoutGic = Hvp<GicDisabled>;

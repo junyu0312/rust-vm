@@ -17,14 +17,16 @@ pub mod kvm;
 #[cfg(feature = "hvp")]
 pub mod hvp;
 
-pub trait Virt: Sized {
+pub trait VirtBuilder: Sized {
+    fn new() -> Result<Self, VirtError>;
+}
+
+pub trait Virt: VirtBuilder {
     type Arch: Arch;
     type Vcpu: Vcpu<Self::Arch>;
     type Memory: MemoryContainer;
 
-    fn new() -> Result<Self, VirtError>;
-
-    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>>;
+    fn builtin_irq_chip(&mut self) -> anyhow::Result<Option<Arc<dyn InterruptController>>>;
     fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()>;
     fn init_memory(
         &mut self,

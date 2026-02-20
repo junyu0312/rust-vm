@@ -16,6 +16,14 @@ pub enum Device {
     GicV3,
 }
 
+impl Device {
+    pub fn is_irq_chip(&self) -> bool {
+        match self {
+            Device::GicV3 => true,
+        }
+    }
+}
+
 impl From<Device> for vm_device::device::Device {
     fn from(device: Device) -> Self {
         match device {
