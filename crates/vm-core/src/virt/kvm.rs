@@ -10,6 +10,7 @@ use memmap2::MmapMut;
 use crate::arch::Arch;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::irq::InterruptController;
 use crate::mm::allocator::mmap_allocator::MmapAllocator;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
@@ -53,7 +54,6 @@ where
     type Arch = A;
     type Vcpu = KvmVcpu;
     type Memory = MmapMut;
-    type Irq = KvmIRQ;
 
     fn new() -> Result<Self, VirtError> {
         let kvm = Kvm::new()
@@ -72,7 +72,7 @@ where
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<KvmIRQ>> {
+    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
         Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
     }
 

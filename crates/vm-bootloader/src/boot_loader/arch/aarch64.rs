@@ -3,7 +3,7 @@ use std::slice::Iter;
 
 use vm_core::arch::Arch;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::irq::arch::aarch64::AArch64IrqChip;
+use vm_core::irq::InterruptController;
 use vm_core::layout::MemoryLayout;
 use vm_core::layout::aarch64::AArch64Layout;
 use vm_core::mm::allocator::MemoryContainer;
@@ -201,7 +201,7 @@ impl AArch64BootLoader {
         &self,
         layout: &AArch64Layout,
         vcpus: usize,
-        irq_chip: &dyn AArch64IrqChip,
+        irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<Vec<u8>> {
         let mut fdt = FdtWriter::new()?;
@@ -232,14 +232,16 @@ impl AArch64BootLoader {
             fdt.end_node(cpu_node)?;
         }
 
-        let irq_phandle = irq_chip.write_device_tree(&mut fdt).unwrap();
+        let irq_phandle = irq_chip
+            .write_device_tree(&mut fdt)
+            .map_err(|err| Error::LoadDtbFailed(err.to_string()))?;
 
         {
             let soc_node = fdt.begin_node("soc")?;
             fdt.property_string("compatible", "simple-bus")?;
             fdt.property_u32("#address-cells", 2)?;
             fdt.property_u32("#size-cells", 2)?;
-            fdt.property_u32("interrupt-parent", irq_phandle)?;
+            fdt.property_u32("interrupt-parent", irq_phandle as u32)?;
             fdt.property_null("ranges")?;
 
             {
@@ -299,7 +301,6 @@ impl<V> BootLoaderBuilder<V> for AArch64BootLoader
 where
     V: Virt,
     V::Vcpu: AArch64Vcpu,
-    V::Irq: AArch64IrqChip,
     V::Arch: Arch<Layout = AArch64Layout>,
 {
     fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self {
@@ -315,14 +316,13 @@ impl<V> BootLoader<V> for AArch64BootLoader
 where
     V: Virt,
     V::Vcpu: AArch64Vcpu,
-    V::Irq: AArch64IrqChip,
     V::Arch: Arch<Layout = AArch64Layout>,
 {
     fn load(
         &self,
         virt: &mut V,
         memory: &mut MemoryAddressSpace<V::Memory>,
-        irq_chip: &V::Irq,
+        irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<()> {
         {

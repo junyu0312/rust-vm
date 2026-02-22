@@ -20,7 +20,11 @@ where
     V: Virt,
     Loader: BootLoaderBuilder<V>,
 {
-    let vm_builder = VmBuilder::<V>::new(parse_memory(&args.memory)?, args.cpus);
+    let vm_builder = VmBuilder::<V>::new(
+        parse_memory(&args.memory)?,
+        args.cpus,
+        args.device.into_iter().map(Into::into).collect(),
+    );
     let mut vm = vm_builder.build()?;
 
     let bootloader = Loader::new(args.kernel, args.initramfs, args.cmdline);

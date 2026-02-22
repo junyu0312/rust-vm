@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::slice::Iter;
 
 use vm_core::device::mmio::mmio_device::MmioDevice;
+use vm_core::irq::InterruptController;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::virt::Virt;
 
@@ -28,7 +29,7 @@ where
         &self,
         _virt: &mut V,
         _memory: &mut MemoryAddressSpace<V::Memory>,
-        _irq_chip: &V::Irq,
+        _irq_chip: &dyn InterruptController,
         _devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<()> {
         todo!()

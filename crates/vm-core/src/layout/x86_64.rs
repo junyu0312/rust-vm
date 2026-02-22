@@ -1,6 +1,7 @@
 use crate::layout::MemoryLayout;
 use crate::layout::Result;
 
+#[derive(Clone)]
 pub struct X86_64Layout {}
 
 impl MemoryLayout for X86_64Layout {

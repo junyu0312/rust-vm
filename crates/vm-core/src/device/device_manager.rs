@@ -1,4 +1,6 @@
+use std::cell::OnceCell;
 use std::slice::Iter;
+use std::sync::Arc;
 
 use crate::device::Error;
 use crate::device::Result;
@@ -8,8 +10,10 @@ use crate::device::mmio::mmio_device::MmioDevice;
 use crate::device::pio::pio_as_manager::PioAddressSpaceManager;
 use crate::device::pio::pio_device::PioDevice;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::irq::InterruptController;
 
 pub struct DeviceManager {
+    irq_chip: OnceCell<Arc<dyn InterruptController>>,
     pio_manager: PioAddressSpaceManager,
     mmio_manager: MmioAddressSpaceManager,
 }
@@ -91,9 +95,20 @@ impl DeviceVmExitHandler for DeviceManager {
 impl DeviceManager {
     pub fn new(mmio_layout: MmioLayout) -> Self {
         DeviceManager {
+            irq_chip: Default::default(),
             pio_manager: PioAddressSpaceManager::default(),
             mmio_manager: MmioAddressSpaceManager::new(mmio_layout),
         }
+    }
+
+    pub fn register_irq_chip(&mut self, irq_chip: Arc<dyn InterruptController>) -> Result<()> {
+        self.irq_chip
+            .set(irq_chip)
+            .map_err(|_| Error::IrqChipAlreadyExists)
+    }
+
+    pub fn get_irq_chip(&self) -> Option<Arc<dyn InterruptController>> {
+        self.irq_chip.get().cloned()
     }
 
     pub fn register_pio_device(&mut self, device: Box<dyn PioDevice>) -> Result<()> {

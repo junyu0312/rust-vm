@@ -44,36 +44,8 @@ impl InterruptController for HvpGicV3 {
     fn send_msi(&self, intid: u32) {
         self.vm.gic_send_msi(self.msi_base, intid).unwrap();
     }
-}
 
-impl AArch64IrqChip for HvpGicV3 {
-    fn get_distributor_base(&self) -> u64 {
-        self.distributor_base
-    }
-
-    fn get_distributor_size(&self) -> anyhow::Result<usize> {
-        let size = GicConfig::get_distributor_size()?;
-        Ok(size)
-    }
-
-    fn get_redistributor_base(&self) -> u64 {
-        self.redistributor_base
-    }
-
-    fn get_redistributor_region_size(&self) -> anyhow::Result<usize> {
-        let size = GicConfig::get_redistributor_region_size()?;
-        Ok(size)
-    }
-
-    fn get_msi_region_base(&self) -> u64 {
-        self.msi_base
-    }
-
-    fn get_msi_region_size(&self) -> anyhow::Result<usize> {
-        Ok(GicConfig::get_msi_region_size()?)
-    }
-
-    fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<u32> {
+    fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<Phandle> {
         let gic_node = fdt.begin_node(&format!(
             "interrupt-controller@{:016x}",
             self.get_distributor_base()
@@ -114,6 +86,34 @@ impl AArch64IrqChip for HvpGicV3 {
 
         fdt.end_node(gic_node)?;
 
-        Ok(Phandle::GIC as u32)
+        Ok(Phandle::GIC)
+    }
+}
+
+impl AArch64IrqChip for HvpGicV3 {
+    fn get_distributor_base(&self) -> u64 {
+        self.distributor_base
+    }
+
+    fn get_distributor_size(&self) -> anyhow::Result<usize> {
+        let size = GicConfig::get_distributor_size()?;
+        Ok(size)
+    }
+
+    fn get_redistributor_base(&self) -> u64 {
+        self.redistributor_base
+    }
+
+    fn get_redistributor_region_size(&self) -> anyhow::Result<usize> {
+        let size = GicConfig::get_redistributor_region_size()?;
+        Ok(size)
+    }
+
+    fn get_msi_region_base(&self) -> u64 {
+        self.msi_base
+    }
+
+    fn get_msi_region_size(&self) -> anyhow::Result<usize> {
+        Ok(GicConfig::get_msi_region_size()?)
     }
 }

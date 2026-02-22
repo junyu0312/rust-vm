@@ -19,6 +19,7 @@ const KERNEL_MAX: usize = 0x0400_0000;
 
 const_assert_eq!(RAM_BASE + KERNEL_MAX as u64, DTB_START);
 
+#[derive(Clone)]
 pub struct AArch64Layout {
     mmio_start: u64,
     mmio_len: usize,

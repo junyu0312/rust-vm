@@ -16,6 +16,7 @@ use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::irq::InterruptController;
 use crate::layout::MemoryLayout;
 use crate::layout::aarch64::AArch64Layout;
 use crate::mm::manager::MemoryAddressSpace;
@@ -45,7 +46,6 @@ impl Virt for Hvp {
     type Arch = AArch64;
     type Vcpu = HvpVcpu;
     type Memory = MemoryWrapper;
-    type Irq = HvpGicV3;
 
     fn new() -> Result<Self, VirtError> {
         let layout = AArch64Layout::default();
@@ -167,7 +167,7 @@ impl Virt for Hvp {
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<Self::Irq>> {
+    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
         Ok(self.gic_chip.clone())
     }
 

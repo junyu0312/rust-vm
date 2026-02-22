@@ -11,8 +11,9 @@ use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::mm::region::MemoryRegion;
 use vm_core::virt::Virt;
+use vm_device::device::Device;
 
-use crate::device::init_device;
+use crate::device::InitDevice;
 use crate::vm::error::Error;
 
 pub mod error;
@@ -22,14 +23,16 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub struct VmBuilder<V> {
     memory_size: usize,
     vcpus: usize,
+    devices: Vec<Device>,
     _mark: PhantomData<V>,
 }
 
 impl<V> VmBuilder<V> {
-    pub fn new(memory_size: usize, vcpus: usize) -> Self {
+    pub fn new(memory_size: usize, vcpus: usize, devices: Vec<Device>) -> Self {
         VmBuilder {
             memory_size,
             vcpus,
+            devices,
             _mark: PhantomData,
         }
     }
@@ -38,7 +41,6 @@ impl<V> VmBuilder<V> {
 pub struct Vm<V: Virt> {
     memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
     virt: V,
-    irq_chip: Arc<V::Irq>,
     device_manager: DeviceManager,
 }
 
@@ -61,18 +63,23 @@ where
         Ok(memory_regions)
     }
 
-    pub fn build(&self) -> Result<Vm<V>> {
+    pub fn build(self) -> Result<Vm<V>> {
         let mut virt = V::new()?;
 
-        let irq_chip = virt
-            .init_irq()
-            .map_err(|err| Error::InitIrqchip(err.to_string()))?;
+        let layout = virt.get_layout().clone();
+        let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
+
+        let irq_chip = if !self.devices.iter().any(Device::is_irq_chip) {
+            Some(
+                virt.init_irq()
+                    .map_err(|err| Error::InitIrqchip(err.to_string()))?,
+            )
+        } else {
+            None
+        };
 
         virt.init_vcpus(self.vcpus)
             .map_err(|err| Error::InitCpu(err.to_string()))?;
-
-        let layout = virt.get_layout();
-        let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
 
         let mut memory = self.init_mm(layout.get_ram_base())?;
         virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)
@@ -83,13 +90,13 @@ where
             .map_err(|err| Error::PostInit(err.to_string()))?;
 
         let mut device_manager = DeviceManager::new(mmio_layout);
-        init_device(memory.clone(), &mut device_manager, irq_chip.clone())
+        device_manager
+            .init_devices(memory.clone(), self.devices, irq_chip)
             .map_err(|err| Error::InitDevice(err.to_string()))?;
 
         let vm = Vm {
             memory,
             virt,
-            irq_chip,
             device_manager,
         };
 
@@ -107,7 +114,10 @@ where
         boot_loader.load(
             &mut self.virt,
             &mut memory,
-            &self.irq_chip,
+            self.device_manager
+                .get_irq_chip()
+                .ok_or_else(|| Error::InitIrqchip("irq_chip is not exists".to_string()))?
+                .as_ref(),
             self.device_manager.mmio_devices(),
         )?;
 
