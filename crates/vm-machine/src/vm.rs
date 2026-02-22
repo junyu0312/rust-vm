@@ -92,7 +92,7 @@ where
 
         let mut device_manager = DeviceManager::new(mmio_layout);
         device_manager
-            .init_devices(memory.clone(), self.devices, irq_chip)
+            .init_devices(memory.clone(), self.vcpus, self.devices, irq_chip)
             .map_err(|err| Error::InitDevice(err.to_string()))?;
 
         let vm = Vm {

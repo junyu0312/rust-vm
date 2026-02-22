@@ -17,6 +17,6 @@ vm-device.workspace = true
 vm-machine.workspace = true
 
 [features]
-default = ["hvp"]
+default = ["kvm"]
 kvm = ["vm-core/kvm"]
 hvp = ["vm-core/hvp"]

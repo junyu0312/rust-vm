@@ -1,3 +1,5 @@
+use applevisor::gic::GicIccReg;
+
 pub mod esr_el2;
 
 #[derive(Debug)]
@@ -47,32 +49,90 @@ impl CoreRegister {
             3 => CoreRegister::X3,
             4 => CoreRegister::X4,
             5 => CoreRegister::X5,
+            6 => CoreRegister::X6,
+            7 => CoreRegister::X7,
+            8 => CoreRegister::X8,
+            9 => CoreRegister::X9,
+            10 => CoreRegister::X10,
+            11 => CoreRegister::X11,
+            12 => CoreRegister::X12,
+            13 => CoreRegister::X13,
+            14 => CoreRegister::X14,
+            15 => CoreRegister::X15,
+            16 => CoreRegister::X16,
+            17 => CoreRegister::X17,
+            18 => CoreRegister::X18,
             19 => CoreRegister::X19,
+            20 => CoreRegister::X20,
+            21 => CoreRegister::X21,
+            22 => CoreRegister::X22,
+            23 => CoreRegister::X23,
+            24 => CoreRegister::X24,
+            25 => CoreRegister::X25,
+            26 => CoreRegister::X26,
+            27 => CoreRegister::X27,
+            28 => CoreRegister::X28,
+            29 => CoreRegister::X29,
+            30 => CoreRegister::X30,
             _ => unimplemented!("{srt}"),
         }
     }
 }
 
 #[derive(Debug)]
-pub enum SysRegister {
+pub enum NonDebugSysRegister {
     SctlrEl1,
     CnthctlEl2,
+}
+
+#[derive(Debug)]
+pub enum DebugSysRegister {
     OslarEl1,
     OslsrEl1,
     OsdlrEl1,
 }
 
-impl SysRegister {
-    pub fn decode(op0: u8, op1: u8, crn: u8, crm: u8, op2: u8) -> Self {
+impl DebugSysRegister {
+    pub fn decode(op0: u8, op1: u8, crn: u8, crm: u8, op2: u8) -> Option<Self> {
         if op0 == 0b10 {
             /*
              * Refer to `Table D23-1  Instruction encodings for debug System register access in the (op0==0b10) encoding space`
              */
             match (op1, crn, crm, op2) {
-                (0b000, 0b0001, 0b0000, 0b100) => SysRegister::OslarEl1,
-                (0b000, 0b0001, 0b0001, 0b100) => SysRegister::OslsrEl1,
-                (0b000, 0b0001, 0b0011, 0b100) => SysRegister::OsdlrEl1,
+                (0b000, 0b0001, 0b0000, 0b100) => Some(DebugSysRegister::OslarEl1),
+                (0b000, 0b0001, 0b0001, 0b100) => Some(DebugSysRegister::OslsrEl1),
+                (0b000, 0b0001, 0b0011, 0b100) => Some(DebugSysRegister::OsdlrEl1),
                 _ => unimplemented!(),
+            }
+        } else {
+            None
+        }
+    }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug)]
+pub enum SpecialPurposeRegister {
+    ICC_PMR_EL1,
+}
+
+impl From<SpecialPurposeRegister> for GicIccReg {
+    fn from(reg: SpecialPurposeRegister) -> Self {
+        match reg {
+            SpecialPurposeRegister::ICC_PMR_EL1 => GicIccReg::PMR_EL1,
+        }
+    }
+}
+
+impl SpecialPurposeRegister {
+    pub fn decode(op0: u8, op1: u8, crn: u8, crm: u8, op2: u8) -> Option<Self> {
+        if op0 == 0b11 {
+            match crn {
+                0b0100 => match (op1, crn, crm, op2) {
+                    (0b000, 0b0100, 0b0110, 0b0000) => Some(SpecialPurposeRegister::ICC_PMR_EL1),
+                    _ => todo!("{op1} {crn} {crm} {op2}"),
+                },
+                _ => todo!("crn: {crn}"),
             }
         } else {
             unimplemented!()
@@ -193,4 +253,10 @@ pub mod cnthctl_el2 {
             const EVNTIS = 1 << 17;
         }
     }
+}
+
+#[derive(Debug)]
+pub enum AArch64TrappedRegister {
+    DebugSys(DebugSysRegister),
+    SpecialPurpose(SpecialPurposeRegister),
 }

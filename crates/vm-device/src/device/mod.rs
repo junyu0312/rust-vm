@@ -1,7 +1,7 @@
 pub mod cmos;
 pub mod coprocessor;
 pub mod dummy;
-pub mod gic_v3;
+pub mod gic;
 pub mod i8042;
 pub mod pic;
 pub mod post_debug;

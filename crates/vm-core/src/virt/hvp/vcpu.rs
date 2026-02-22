@@ -10,8 +10,11 @@ use crate::arch::vm_exit::aarch64::VmExitReason;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
+use crate::vcpu::arch::aarch64::reg::AArch64TrappedRegister;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
-use crate::vcpu::arch::aarch64::reg::SysRegister;
+use crate::vcpu::arch::aarch64::reg::DebugSysRegister;
+use crate::vcpu::arch::aarch64::reg::NonDebugSysRegister;
+use crate::vcpu::arch::aarch64::reg::SpecialPurposeRegister;
 use crate::vcpu::arch::aarch64::reg::esr_el2;
 use crate::vcpu::arch::aarch64::reg::esr_el2::EsrEl2;
 
@@ -61,14 +64,11 @@ impl CoreRegister {
     }
 }
 
-impl SysRegister {
+impl NonDebugSysRegister {
     fn to_hvp_reg(&self) -> hv_sys_reg_t {
         match self {
-            SysRegister::SctlrEl1 => hv_sys_reg_t::SCTLR_EL1,
-            SysRegister::CnthctlEl2 => hv_sys_reg_t::CNTHCTL_EL2,
-            SysRegister::OslarEl1 => todo!(),
-            SysRegister::OslsrEl1 => todo!(),
-            SysRegister::OsdlrEl1 => todo!(),
+            NonDebugSysRegister::SctlrEl1 => hv_sys_reg_t::SCTLR_EL1,
+            NonDebugSysRegister::CnthctlEl2 => hv_sys_reg_t::CNTHCTL_EL2,
         }
     }
 }
@@ -99,14 +99,26 @@ impl AArch64Vcpu for HvpVcpu {
         }
     }
 
-    fn get_sys_reg(&self, reg: SysRegister) -> anyhow::Result<u64> {
+    fn get_non_debug_sys_reg(&self, reg: NonDebugSysRegister) -> anyhow::Result<u64> {
         Ok(self.vcpu.get_sys_reg(reg.to_hvp_reg())?)
     }
 
-    fn set_sys_reg(&self, reg: SysRegister, value: u64) -> anyhow::Result<()> {
+    fn set_non_debug_sys_reg(&self, reg: NonDebugSysRegister, value: u64) -> anyhow::Result<()> {
         self.vcpu.set_sys_reg(reg.to_hvp_reg(), value)?;
 
         Ok(())
+    }
+
+    fn get_special_purpose_reg(&self, reg: SpecialPurposeRegister) -> anyhow::Result<u64> {
+        Ok(self.vcpu.get_icc_reg(reg.into())?)
+    }
+
+    fn set_special_purpose_reg(
+        &self,
+        _reg: SpecialPurposeRegister,
+        _value: u64,
+    ) -> anyhow::Result<u64> {
+        todo!()
     }
 }
 
@@ -136,18 +148,37 @@ impl Vcpu<AArch64> for HvpVcpu {
                         let op2 = (iss >> 17) & 0x7;
                         let op0 = (iss >> 20) & 0x3;
                         debug!(read, crm, rt, crn, op1, op2, op0);
-                        let reg = SysRegister::decode(
+
+                        if let Some(reg) = DebugSysRegister::decode(
                             op0 as u8, op1 as u8, crn as u8, crm as u8, op2 as u8,
-                        );
-                        if read {
-                            todo!()
-                        } else {
-                            let data = if rt == 0b11111 {
-                                0
+                        ) {
+                            if read {
+                                todo!()
                             } else {
-                                self.get_core_reg(CoreRegister::from_srt(rt))?
-                            };
-                            Ok(VmExitReason::TrappedWrite { reg, data })
+                                let data = if rt == 0b11111 {
+                                    0
+                                } else {
+                                    self.get_core_reg(CoreRegister::from_srt(rt))?
+                                };
+
+                                Ok(VmExitReason::TrappedWrite {
+                                    reg: AArch64TrappedRegister::DebugSys(reg),
+                                    data,
+                                })
+                            }
+                        } else if let Some(reg) = SpecialPurposeRegister::decode(
+                            op0 as u8, op1 as u8, crn as u8, crm as u8, op2 as u8,
+                        ) {
+                            if read {
+                                Ok(VmExitReason::TrappedRead {
+                                    reg: AArch64TrappedRegister::SpecialPurpose(reg),
+                                    rt: CoreRegister::from_srt(rt),
+                                })
+                            } else {
+                                todo!()
+                            }
+                        } else {
+                            todo!()
                         }
                     }
                     esr_el2::Ec::DA => {
@@ -177,8 +208,11 @@ impl Vcpu<AArch64> for HvpVcpu {
                                 5 => self.vcpu.get_reg(hv_reg_t::X5),
                                 6 => self.vcpu.get_reg(hv_reg_t::X6),
                                 19 => self.vcpu.get_reg(hv_reg_t::X19),
+                                20 => self.vcpu.get_reg(hv_reg_t::X20),
                                 21 => self.vcpu.get_reg(hv_reg_t::X21),
                                 22 => self.vcpu.get_reg(hv_reg_t::X22),
+                                23 => self.vcpu.get_reg(hv_reg_t::X23),
+                                24 => self.vcpu.get_reg(hv_reg_t::X24),
                                 31 => Ok(0), // xzr
                                 _ => unimplemented!("{srt}"),
                             }?;

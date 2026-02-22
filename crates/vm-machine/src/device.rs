@@ -10,7 +10,6 @@ use vm_core::layout::aarch64::GIC_REDISTRIBUTOR;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_device::device::Device;
-use vm_device::device::gic_v3::GicV3;
 use vm_device::device::virtio::virtio_blk::VirtIoBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtIoMmioBlkDevice;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
@@ -20,6 +19,7 @@ pub trait InitDevice {
     fn init_devices<C>(
         &mut self,
         mm: Arc<Mutex<MemoryAddressSpace<C>>>,
+        vcpus: usize,
         devices: Vec<Device>,
         irq_chip: Option<Arc<dyn InterruptController>>,
     ) -> anyhow::Result<()>
@@ -31,6 +31,7 @@ impl InitDevice for DeviceManager {
     fn init_devices<C>(
         &mut self,
         mm: Arc<Mutex<MemoryAddressSpace<C>>>,
+        vcpus: usize,
         devices: Vec<Device>,
         irq_chip: Option<Arc<dyn InterruptController>>,
     ) -> anyhow::Result<()>
@@ -48,7 +49,22 @@ impl InitDevice for DeviceManager {
                 match irq_chip {
                     #[cfg(target_arch = "aarch64")]
                     Device::GicV3 => {
-                        let gic_v3 = GicV3::new(GIC_DISTRIBUTOR, GIC_REDISTRIBUTOR);
+                        use vm_device::device::gic::{
+                            gic_common::config::GicConfig, gic_v3::GicV3,
+                        };
+
+                        let gic_v3 = GicV3::new(GicConfig {
+                            distributor_base: GIC_DISTRIBUTOR,
+                            redistributor_base: GIC_REDISTRIBUTOR,
+                            are: false,
+                            mbis: true,
+                            security_extn: false,
+                            nmi: true,
+                            extended_spi: false,
+                            cpu_number: vcpus,
+                            redist_stride: None,
+                            vlpis: false,
+                        });
                         self.register_mmio_device(gic_v3.get_device())?;
                         Arc::new(gic_v3)
                     }

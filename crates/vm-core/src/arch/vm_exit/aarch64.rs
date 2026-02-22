@@ -2,13 +2,16 @@ use tracing::trace;
 
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
-use crate::vcpu::arch::aarch64::reg::CoreRegister;
-use crate::vcpu::arch::aarch64::reg::SysRegister;
+use crate::vcpu::arch::aarch64::reg::{
+    AArch64TrappedRegister, CoreRegister, DebugSysRegister, SpecialPurposeRegister,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to handle mmio, err: {0}")]
     MmioErr(String),
+    #[error("Failed to handle trapped register, err: {0}")]
+    TrappedRegisterErr(String),
 }
 
 #[derive(Debug)]
@@ -26,11 +29,11 @@ pub enum VmExitReason {
         len: usize,
     },
     TrappedRead {
-        reg: SysRegister,
+        reg: AArch64TrappedRegister,
         rt: CoreRegister,
     },
     TrappedWrite {
-        reg: SysRegister,
+        reg: AArch64TrappedRegister,
         data: u64,
     },
 }
@@ -65,12 +68,32 @@ pub fn handle_vm_exit(
                 .map_err(|err| Error::MmioErr(err.to_string()))?;
             Ok(HandleVmExitResult::NextInstruction)
         }
-        VmExitReason::TrappedRead { .. } => Ok(HandleVmExitResult::NextInstruction),
+        VmExitReason::TrappedRead { reg, rt } => {
+            match reg {
+                AArch64TrappedRegister::DebugSys(reg) => todo!(),
+                AArch64TrappedRegister::SpecialPurpose(reg) => match reg {
+                    SpecialPurposeRegister::ICC_PMR_EL1 => {
+                        let value = vcpu
+                            .get_icc_pmr_el1()
+                            .map_err(|err| Error::TrappedRegisterErr(err.to_string()))?;
+                        vcpu.set_core_reg(rt, value)
+                            .map_err(|err| Error::TrappedRegisterErr(err.to_string()))?;
+                    }
+                },
+            }
+
+            Ok(HandleVmExitResult::NextInstruction)
+        }
         VmExitReason::TrappedWrite { reg, .. } => {
             match reg {
-                SysRegister::OslarEl1 => (),
-                SysRegister::OsdlrEl1 => (),
-                _ => unimplemented!(),
+                AArch64TrappedRegister::DebugSys(reg) => match reg {
+                    DebugSysRegister::OslarEl1 => todo!(),
+                    DebugSysRegister::OslsrEl1 => todo!(),
+                    DebugSysRegister::OsdlrEl1 => todo!(),
+                },
+                AArch64TrappedRegister::SpecialPurpose(reg) => match reg {
+                    SpecialPurposeRegister::ICC_PMR_EL1 => todo!(),
+                },
             }
             Ok(HandleVmExitResult::NextInstruction)
         }
