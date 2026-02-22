@@ -1,4 +1,5 @@
 use std::slice::Iter;
+use std::sync::Arc;
 
 use crate::device::Error;
 use crate::device::Result;
@@ -9,7 +10,7 @@ use crate::device::mmio::mmio_device::MmioDevice;
 use crate::device::mmio::mmio_device::MmioHandler;
 
 pub struct MmioAddressSpaceManager {
-    mmio_layout: MmioLayout,
+    mmio_layout: Arc<MmioLayout>,
     devices: Vec<Box<dyn MmioDevice>>,
     address_space: AddressSpace<u64, Box<dyn MmioHandler>>,
 }
@@ -17,7 +18,7 @@ pub struct MmioAddressSpaceManager {
 impl MmioAddressSpaceManager {
     pub fn new(mmio_layout: MmioLayout) -> Self {
         MmioAddressSpaceManager {
-            mmio_layout,
+            mmio_layout: mmio_layout.into(),
             devices: Default::default(),
             address_space: AddressSpace::new(),
         }
@@ -58,8 +59,8 @@ impl MmioAddressSpaceManager {
         Some((range, handler.as_ref()))
     }
 
-    pub fn in_mmio_range(&self, addr: u64) -> bool {
-        self.mmio_layout.contains(addr)
+    pub fn mmio_layout(&self) -> Arc<MmioLayout> {
+        self.mmio_layout.clone()
     }
 
     pub fn devices(&self) -> Iter<'_, Box<dyn MmioDevice>> {

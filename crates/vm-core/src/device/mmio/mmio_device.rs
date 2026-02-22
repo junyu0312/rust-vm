@@ -3,7 +3,7 @@ use vm_fdt::FdtWriter;
 use crate::device::Device;
 use crate::device::mmio::MmioRange;
 
-pub trait MmioHandler {
+pub trait MmioHandler: Send {
     fn mmio_range(&self) -> MmioRange;
 
     fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]);

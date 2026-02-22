@@ -13,7 +13,7 @@ pub enum EcamUpdateCallback {
     },
 }
 
-pub trait PciFunction: PciFunctionArch {
+pub trait PciFunction: PciFunctionArch + Send {
     fn ecam_read(&self, offset: u16, buf: &mut [u8]);
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Option<EcamUpdateCallback>;

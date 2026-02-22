@@ -3,13 +3,13 @@ use crate::types::configuration_space::ConfigurationSpace;
 
 pub mod type0;
 
-pub trait BarHandler {
+pub trait BarHandler: Send {
     fn read(&self, offset: u64, data: &mut [u8]);
 
     fn write(&self, offset: u64, data: &[u8]);
 }
 
-pub trait PciTypeFunctionCommon {
+pub trait PciTypeFunctionCommon: Send {
     const VENDOR_ID: u16;
     const DEVICE_ID: u16;
     const CLASS_CODE: u32;

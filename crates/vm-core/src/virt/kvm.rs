@@ -1,6 +1,7 @@
 use std::cell::OnceCell;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::anyhow;
 use kvm_bindings::*;
@@ -153,7 +154,7 @@ where
             .ok_or_else(|| anyhow!("vcpus is not init"))
     }
 
-    fn run(&mut self, device: &mut dyn DeviceVmExitHandler) -> anyhow::Result<()> {
+    fn run(&mut self, device: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()
@@ -161,7 +162,9 @@ where
 
         assert_eq!(vcpus.len(), 1);
 
-        vcpus.get_mut(0).unwrap().run(device)?;
+        let mmio_layout = device.lock().unwrap().mmio_layout();
+
+        vcpus.get_mut(0).unwrap().run(mmio_layout.as_ref())?;
 
         Ok(())
     }

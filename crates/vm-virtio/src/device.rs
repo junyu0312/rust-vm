@@ -15,7 +15,7 @@ pub trait VirtQueueHandler {
     async fn handler(&self, virt_queue: &mut VirtQueue);
 }
 
-pub trait VirtIoDevice: Sized + 'static {
+pub trait VirtIoDevice: Sized + Send + 'static {
     const NAME: &str;
     const DEVICE_ID: u32;
     const VIRT_QUEUES_SIZE_MAX: &[u32];
