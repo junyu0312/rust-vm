@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::arch::Arch;
 use crate::device::mmio::MmioLayout;
@@ -41,5 +42,5 @@ pub trait Virt: Sized {
     fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>>;
     fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<Self::Vcpu>>;
 
-    fn run(&mut self, device_manager: &mut dyn DeviceVmExitHandler) -> anyhow::Result<()>;
+    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()>;
 }

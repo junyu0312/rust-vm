@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use tracing::trace;
 
 use crate::device::vm_exit::DeviceVmExitHandler;
@@ -43,7 +46,7 @@ pub enum HandleVmExitResult {
 pub fn handle_vm_exit(
     vcpu: &dyn AArch64Vcpu,
     exit_reason: VmExitReason,
-    device: &mut dyn DeviceVmExitHandler,
+    device: Arc<Mutex<dyn DeviceVmExitHandler>>,
 ) -> Result<HandleVmExitResult, Error> {
     trace!(?exit_reason);
 
@@ -51,6 +54,8 @@ pub fn handle_vm_exit(
         VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
         VmExitReason::Wf => Ok(HandleVmExitResult::NextInstruction),
         VmExitReason::MMIORead { gpa, srt, len } => {
+            let device = device.lock().unwrap();
+
             let mut buf = [0; 8];
             device
                 .mmio_read(gpa, len, &mut buf[0..len])
@@ -60,6 +65,8 @@ pub fn handle_vm_exit(
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMIOWrite { gpa, buf, len } => {
+            let device = device.lock().unwrap();
+
             device
                 .mmio_write(gpa, len, &buf)
                 .map_err(|err| Error::MmioErr(err.to_string()))?;

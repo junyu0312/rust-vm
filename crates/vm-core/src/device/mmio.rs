@@ -55,4 +55,8 @@ impl MmioLayout {
             range.start >= s.start && range.start + range.len as u64 <= s.start + s.len as u64
         })
     }
+
+    pub fn in_mmio_region(&self, addr: u64) -> bool {
+        self.contains(addr)
+    }
 }

@@ -1,5 +1,6 @@
 use std::cell::OnceCell;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use anyhow::anyhow;
 use applevisor::gic::GicConfig;
@@ -249,14 +250,16 @@ impl Virt for Hvp {
         Ok(vcpus)
     }
 
-    fn run(&mut self, device_manager: &mut dyn DeviceVmExitHandler) -> anyhow::Result<()> {
+    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
         // TODO: support smp, fork for per vcpu
         {
+            let mmio_layout = device_manager.lock().unwrap().mmio_layout();
+
             loop {
                 let vcpu = self.get_vcpu_mut(0)?.unwrap();
-                let vm_exit_info = vcpu.run(device_manager)?;
+                let vm_exit_info = vcpu.run(mmio_layout.as_ref())?;
 
-                let r = handle_vm_exit(vcpu, vm_exit_info, device_manager)?;
+                let r = handle_vm_exit(vcpu, vm_exit_info, device_manager.clone())?;
 
                 match r {
                     HandleVmExitResult::Continue => (),

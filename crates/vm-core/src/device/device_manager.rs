@@ -88,7 +88,11 @@ impl DeviceVmExitHandler for DeviceManager {
     }
 
     fn in_mmio_range(&self, addr: u64) -> bool {
-        self.mmio_manager.in_mmio_range(addr)
+        self.mmio_manager.mmio_layout().in_mmio_region(addr)
+    }
+
+    fn mmio_layout(&self) -> Arc<MmioLayout> {
+        self.mmio_manager.mmio_layout()
     }
 }
 

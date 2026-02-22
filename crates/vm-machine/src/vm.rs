@@ -41,7 +41,7 @@ impl<V> VmBuilder<V> {
 pub struct Vm<V: Virt> {
     memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
     virt: V,
-    device_manager: DeviceManager,
+    device_manager: Arc<Mutex<DeviceManager>>,
 }
 
 impl<V> VmBuilder<V>
@@ -97,7 +97,7 @@ where
         let vm = Vm {
             memory,
             virt,
-            device_manager,
+            device_manager: Arc::new(Mutex::new(device_manager)),
         };
 
         Ok(vm)
@@ -111,14 +111,16 @@ where
     pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
         let mut memory = self.memory.lock().unwrap();
 
+        let device_manager = self.device_manager.lock().unwrap();
+
         boot_loader.load(
             &mut self.virt,
             &mut memory,
-            self.device_manager
+            device_manager
                 .get_irq_chip()
                 .ok_or_else(|| Error::InitIrqchip("irq_chip is not exists".to_string()))?
                 .as_ref(),
-            self.device_manager.mmio_devices(),
+            device_manager.mmio_devices(),
         )?;
 
         Ok(())
@@ -126,7 +128,7 @@ where
 
     pub fn run(&mut self) -> Result<()> {
         self.virt
-            .run(&mut self.device_manager)
+            .run(self.device_manager.clone())
             .map_err(|err| Error::Run(err.to_string()))?;
 
         Ok(())
