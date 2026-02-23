@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use applevisor::gic::GicConfig;
 use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachineInstance;
@@ -13,7 +11,7 @@ pub struct HvpGicV3 {
     distributor_base: u64,
     redistributor_base: u64,
     msi_base: u64,
-    vm: Arc<VirtualMachineInstance<GicEnabled>>,
+    vm: VirtualMachineInstance<GicEnabled>,
 }
 
 impl HvpGicV3 {
@@ -21,7 +19,7 @@ impl HvpGicV3 {
         distributor_base: u64,
         redistributor_base: u64,
         msi_base: u64,
-        vm: Arc<VirtualMachineInstance<GicEnabled>>,
+        vm: VirtualMachineInstance<GicEnabled>,
     ) -> Self {
         HvpGicV3 {
             distributor_base,

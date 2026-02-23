@@ -64,7 +64,7 @@ where
     }
 
     pub fn build(self) -> Result<Vm<V>> {
-        let mut virt = V::new()?;
+        let mut virt = V::new(self.vcpus)?;
 
         let layout = virt.get_layout().clone();
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
@@ -77,9 +77,6 @@ where
         } else {
             None
         };
-
-        virt.init_vcpus(self.vcpus)
-            .map_err(|err| Error::InitCpu(err.to_string()))?;
 
         let mut memory = self.init_mm(layout.get_ram_base())?;
         virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)
@@ -108,7 +105,7 @@ impl<V> Vm<V>
 where
     V: Virt,
 {
-    pub fn load(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
+    pub fn run(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
         let mut memory = self.memory.lock().unwrap();
 
         let device_manager = self.device_manager.lock().unwrap();
@@ -123,10 +120,6 @@ where
             device_manager.mmio_devices(),
         )?;
 
-        Ok(())
-    }
-
-    pub fn run(&mut self) -> Result<()> {
         self.virt
             .run(self.device_manager.clone())
             .map_err(|err| Error::Run(err.to_string()))?;

@@ -23,10 +23,9 @@ pub trait Virt: Sized {
     type Vcpu: Vcpu<Self::Arch>;
     type Memory: MemoryContainer;
 
-    fn new() -> Result<Self, VirtError>;
+    fn new(num_vcpus: usize) -> Result<Self, VirtError>;
 
     fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>>;
-    fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()>;
     fn init_memory(
         &mut self,
         mmio_layout: &MmioLayout,

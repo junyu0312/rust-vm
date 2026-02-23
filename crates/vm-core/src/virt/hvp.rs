@@ -1,6 +1,8 @@
 use std::cell::OnceCell;
 use std::sync::Arc;
+use std::sync::Barrier;
 use std::sync::Mutex;
+use std::thread;
 
 use anyhow::anyhow;
 use applevisor::gic::GicConfig;
@@ -38,9 +40,10 @@ mod mm;
 
 pub struct Hvp {
     arch: AArch64,
-    vm: Arc<VirtualMachineInstance<GicEnabled>>,
+    vm: VirtualMachineInstance<GicEnabled>,
     gic_chip: Arc<HvpGicV3>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
+    num_vcpus: usize,
 }
 
 impl Virt for Hvp {
@@ -48,7 +51,7 @@ impl Virt for Hvp {
     type Vcpu = HvpVcpu;
     type Memory = MemoryWrapper;
 
-    fn new() -> Result<Self, VirtError> {
+    fn new(num_vcpus: usize) -> Result<Self, VirtError> {
         let layout = AArch64Layout::default();
 
         let mut vm_config = VirtualMachineConfig::default();
@@ -155,7 +158,6 @@ impl Virt for Hvp {
                 format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
             )
         })?;
-        let vm = Arc::new(vm);
 
         let gic_chip = HvpGicV3::new(distributor_base, redistributor_base, msi_base, vm.clone());
         let gic_chip = Arc::new(gic_chip);
@@ -165,27 +167,12 @@ impl Virt for Hvp {
             vm,
             gic_chip,
             vcpus: OnceCell::default(),
+            num_vcpus,
         })
     }
 
     fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
         Ok(self.gic_chip.clone())
-    }
-
-    fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
-        let mut vcpus = Vec::with_capacity(num_vcpus);
-
-        for vcpu_id in 0..num_vcpus {
-            let vcpu = self.vm.vcpu_create()?;
-            vcpu.set_sys_reg(hv_sys_reg_t::MPIDR_EL1, vcpu_id as u64)?;
-            vcpus.push(HvpVcpu::new(vcpu_id as u64, vcpu));
-        }
-
-        self.vcpus
-            .set(vcpus)
-            .map_err(|_| anyhow!("vcpu is ready initialized"))?;
-
-        Ok(())
     }
 
     fn init_memory(
@@ -194,9 +181,7 @@ impl Virt for Hvp {
         memory: &mut MemoryAddressSpace<MemoryWrapper>,
         memory_size: u64,
     ) -> anyhow::Result<()> {
-        let allocator = HvpAllocator {
-            vm: self.vm.as_ref(),
-        };
+        let allocator = HvpAllocator { vm: &self.vm };
 
         for region in memory {
             region.alloc(&allocator)?;
@@ -251,24 +236,40 @@ impl Virt for Hvp {
     }
 
     fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
-        // TODO: support smp, fork for per vcpu
-        {
-            let mmio_layout = device_manager.lock().unwrap().mmio_layout();
+        let mmio_layout = device_manager.lock().unwrap().mmio_layout();
 
-            loop {
-                let vcpu = self.get_vcpu_mut(0)?.unwrap();
-                let vm_exit_info = vcpu.run(mmio_layout.as_ref())?;
+        let barrier = Barrier::new(self.num_vcpus);
 
-                let r = handle_vm_exit(vcpu, vm_exit_info, device_manager.clone())?;
+        thread::scope(|s| {
+            for vcpu_id in 0..self.num_vcpus {
+                let mmio_layout = mmio_layout.clone();
+                let device_manager = device_manager.clone();
+                let vm = self.vm.clone();
+                let barrier = &barrier;
 
-                match r {
-                    HandleVmExitResult::Continue => (),
-                    HandleVmExitResult::NextInstruction => {
-                        let pc = vcpu.get_core_reg(CoreRegister::PC)?;
-                        vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
+                s.spawn(move || -> anyhow::Result<()> {
+                    let vcpu = vm.vcpu_create()?;
+                    vcpu.set_sys_reg(hv_sys_reg_t::MPIDR_EL1, vcpu_id as u64)?;
+
+                    let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu);
+
+                    barrier.wait();
+
+                    loop {
+                        let vm_exit_info = vcpu.run(&mmio_layout)?;
+
+                        match handle_vm_exit(&vcpu, vm_exit_info, device_manager.clone())? {
+                            HandleVmExitResult::Continue => (),
+                            HandleVmExitResult::NextInstruction => {
+                                let pc = vcpu.get_core_reg(CoreRegister::PC)?;
+                                vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
+                            }
+                        }
                     }
-                }
+                });
             }
-        }
+        });
+
+        Ok(())
     }
 }
