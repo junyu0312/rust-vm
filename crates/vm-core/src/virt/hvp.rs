@@ -26,6 +26,8 @@ use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
+use crate::vcpu::arch::aarch64::reg::cnthctl_el2::CnthctlEl2;
+use crate::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
 use crate::virt::Virt;
 use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
@@ -37,6 +39,77 @@ pub(crate) mod vcpu;
 
 mod irq_chip;
 mod mm;
+
+fn setup_cpu<C>(dtb_start: u64, start_pc: u64, _cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
+where
+    C: AArch64Vcpu,
+{
+    {
+        // Setup general-purpose register
+        vcpu.set_core_reg(CoreRegister::X0, dtb_start)?;
+        vcpu.set_core_reg(CoreRegister::X1, 0)?;
+        vcpu.set_core_reg(CoreRegister::X2, 0)?;
+        vcpu.set_core_reg(CoreRegister::X3, 0)?;
+        vcpu.set_core_reg(CoreRegister::PC, start_pc)?;
+    }
+
+    {
+        // CPU mode
+
+        let mut pstate = vcpu.get_core_reg(CoreRegister::PState)?;
+        pstate |= 0x03C0; // DAIF
+        pstate &= !0xf; // Clear low 4 bits
+        pstate |= 0x0005; // El1h
+        vcpu.set_core_reg(CoreRegister::PState, pstate)?;
+
+        // more, non secure el1
+        if false {
+            todo!()
+        }
+    }
+
+    {
+        // Caches, MMUs
+
+        let mut sctlr_el1 = vcpu.get_sctlr_el1()?;
+        sctlr_el1.remove(SctlrEl1::M); // Disable MMU
+        sctlr_el1.remove(SctlrEl1::I); // Disable I-cache
+        vcpu.set_sctlr_el1(sctlr_el1)?;
+    }
+
+    {
+        // Architected timers
+
+        if false {
+            todo!(
+                "CNTFRQ must be programmed with the timer frequency and CNTVOFF must be programmed with a consistent value on all CPUs."
+            );
+        }
+
+        if false {
+            // MacOS get panic, should we enable this in Linux?
+            let mut cnthctl_el2 = vcpu.get_cnthctl_el2()?;
+            cnthctl_el2.insert(CnthctlEl2::EL1PCTEN); // TODO: or bit0?(https://www.kernel.org/doc/html/v5.3/arm64/booting.html)
+            vcpu.set_cnthctl_el2(cnthctl_el2)?;
+        }
+    }
+
+    {
+        // Coherency
+
+        // Do nothing
+    }
+
+    {
+        // System registers
+
+        if false {
+            todo!()
+        }
+    }
+
+    anyhow::Ok(())
+}
 
 pub struct Hvp {
     arch: AArch64,
@@ -207,6 +280,10 @@ impl Virt for Hvp {
         self.arch.get_layout_mut()
     }
 
+    fn get_vcpu_number(&self) -> usize {
+        self.num_vcpus
+    }
+
     fn get_vcpu_mut(&mut self, vcpu_id: u64) -> anyhow::Result<Option<&mut HvpVcpu>> {
         let vcpu = self
             .vcpus
@@ -247,12 +324,20 @@ impl Virt for Hvp {
                 let vm = self.vm.clone();
                 let barrier = &barrier;
 
+                let layout = self.get_layout().clone();
+
                 s.spawn(move || -> anyhow::Result<()> {
                     let vcpu = vm.vcpu_create()?;
                     vcpu.set_sys_reg(hv_sys_reg_t::MPIDR_EL1, vcpu_id as u64)?;
 
                     let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu);
 
+                    setup_cpu(
+                        layout.get_dtb_start(),
+                        layout.get_start_pc().unwrap(),
+                        vcpu_id,
+                        &mut vcpu,
+                    )?;
                     barrier.wait();
 
                     loop {

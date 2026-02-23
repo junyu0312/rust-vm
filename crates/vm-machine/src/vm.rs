@@ -106,19 +106,21 @@ where
     V: Virt,
 {
     pub fn run(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
-        let mut memory = self.memory.lock().unwrap();
+        {
+            let mut memory = self.memory.lock().unwrap();
 
-        let device_manager = self.device_manager.lock().unwrap();
+            let device_manager = self.device_manager.lock().unwrap();
 
-        boot_loader.load(
-            &mut self.virt,
-            &mut memory,
-            device_manager
-                .get_irq_chip()
-                .ok_or_else(|| Error::InitIrqchip("irq_chip is not exists".to_string()))?
-                .as_ref(),
-            device_manager.mmio_devices(),
-        )?;
+            boot_loader.load(
+                &mut self.virt,
+                &mut memory,
+                device_manager
+                    .get_irq_chip()
+                    .ok_or_else(|| Error::InitIrqchip("irq_chip is not exists".to_string()))?
+                    .as_ref(),
+                device_manager.mmio_devices(),
+            )?;
+        }
 
         self.virt
             .run(self.device_manager.clone())
