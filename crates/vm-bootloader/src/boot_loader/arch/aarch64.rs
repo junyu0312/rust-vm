@@ -145,9 +145,26 @@ impl AArch64BootLoader {
                 fdt.property_string("device_type", "cpu")?;
                 fdt.property_string("compatible", "arm,cortex-a72")?;
                 fdt.property_u32("reg", i as u32)?;
+                if vcpus > 1 {
+                    fdt.property_string("enable-method", "psci")?;
+                }
                 fdt.end_node(cpu_node)?;
             }
             fdt.end_node(cpu_node)?;
+        }
+
+        {
+            let psci_node = fdt.begin_node("psci")?;
+            fdt.property_string_list(
+                "compatible",
+                vec!["arm,psci-0.2".to_string(), "arm,psci".to_string()],
+            )?;
+            fdt.property_string("method", "smc")?;
+            fdt.property_u32("cpu_suspend", 0x84000001)?;
+            fdt.property_u32("cpu_off", 0x84000002)?;
+            fdt.property_u32("cpu_on", 0x84000003)?;
+
+            fdt.end_node(psci_node)?;
         }
 
         let irq_phandle = irq_chip

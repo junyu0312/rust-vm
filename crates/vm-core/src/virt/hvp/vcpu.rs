@@ -64,6 +64,7 @@ impl CoreRegister {
 impl SysRegister {
     fn to_hvp_reg(&self) -> hv_sys_reg_t {
         match self {
+            SysRegister::MpidrEl1 => hv_sys_reg_t::MPIDR_EL1,
             SysRegister::SctlrEl1 => hv_sys_reg_t::SCTLR_EL1,
             SysRegister::CnthctlEl2 => hv_sys_reg_t::CNTHCTL_EL2,
             SysRegister::OslarEl1 => todo!(),
@@ -127,6 +128,16 @@ impl Vcpu<AArch64> for HvpVcpu {
                 match esr_el2.ec()? {
                     esr_el2::Ec::Unknown => Ok(VmExitReason::Unknown),
                     esr_el2::Ec::Wf => Ok(VmExitReason::Wf),
+                    esr_el2::Ec::Hvc => todo!(),
+                    esr_el2::Ec::Smc => {
+                        let imm16 = iss as u16;
+                        let function_id = self.get_core_reg(CoreRegister::X0)?;
+                        let arg0 = self.get_core_reg(CoreRegister::X1)?;
+                        let arg1 = self.get_core_reg(CoreRegister::X2)?;
+                        let arg2 = self.get_core_reg(CoreRegister::X3)?;
+                        println!("{imm16:x}, {function_id:x} {arg0} {arg1} {arg2}");
+                        todo!()
+                    }
                     esr_el2::Ec::Trapped => {
                         let read = (iss & 0x1) != 0;
                         let crm = (iss >> 1) & 0xf;

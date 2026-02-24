@@ -11,7 +11,6 @@ use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineConfig;
 use applevisor::vm::VirtualMachineInstance;
-use applevisor_sys::hv_sys_reg_t;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
@@ -26,6 +25,7 @@ use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
+use crate::vcpu::arch::aarch64::reg::SysRegister;
 use crate::vcpu::arch::aarch64::reg::cnthctl_el2::CnthctlEl2;
 use crate::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
 use crate::virt::Virt;
@@ -40,17 +40,25 @@ pub(crate) mod vcpu;
 mod irq_chip;
 mod mm;
 
-fn setup_cpu<C>(dtb_start: u64, start_pc: u64, _cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
+fn setup_cpu<C>(dtb_start: u64, start_pc: u64, cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
 where
     C: AArch64Vcpu,
 {
-    {
+    vcpu.set_sys_reg(SysRegister::MpidrEl1, cpu_id as u64)?;
+
+    if cpu_id == 0 {
         // Setup general-purpose register
         vcpu.set_core_reg(CoreRegister::X0, dtb_start)?;
         vcpu.set_core_reg(CoreRegister::X1, 0)?;
         vcpu.set_core_reg(CoreRegister::X2, 0)?;
         vcpu.set_core_reg(CoreRegister::X3, 0)?;
         vcpu.set_core_reg(CoreRegister::PC, start_pc)?;
+    } else {
+        vcpu.set_core_reg(CoreRegister::X0, 0)?;
+        vcpu.set_core_reg(CoreRegister::X1, 0)?;
+        vcpu.set_core_reg(CoreRegister::X2, 0)?;
+        vcpu.set_core_reg(CoreRegister::X3, 0)?;
+        vcpu.set_core_reg(CoreRegister::PC, 0)?;
     }
 
     {
@@ -328,7 +336,6 @@ impl Virt for Hvp {
 
                 s.spawn(move || -> anyhow::Result<()> {
                     let vcpu = vm.vcpu_create()?;
-                    vcpu.set_sys_reg(hv_sys_reg_t::MPIDR_EL1, vcpu_id as u64)?;
 
                     let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu);
 
