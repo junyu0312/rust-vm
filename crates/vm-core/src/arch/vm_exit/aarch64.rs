@@ -3,15 +3,21 @@ use std::sync::Mutex;
 
 use tracing::trace;
 
+use crate::arch::vm_exit::aarch64::smc::handle_smc;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::firmware::psci::Psci;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
 use crate::vcpu::arch::aarch64::reg::SysRegister;
+
+pub mod smc;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to handle mmio, err: {0}")]
     MmioErr(String),
+    #[error("Failed to handle smc, err: {0}")]
+    SmcErr(String),
 }
 
 #[derive(Debug)]
@@ -36,6 +42,7 @@ pub enum VmExitReason {
         reg: SysRegister,
         data: u64,
     },
+    Smc,
 }
 
 pub enum HandleVmExitResult {
@@ -46,6 +53,7 @@ pub enum HandleVmExitResult {
 pub fn handle_vm_exit(
     vcpu: &dyn AArch64Vcpu,
     exit_reason: VmExitReason,
+    psci: Arc<Mutex<dyn Psci>>,
     device: Arc<Mutex<dyn DeviceVmExitHandler>>,
 ) -> Result<HandleVmExitResult, Error> {
     trace!(?exit_reason);
@@ -79,6 +87,11 @@ pub fn handle_vm_exit(
                 SysRegister::OsdlrEl1 => (),
                 _ => unimplemented!(),
             }
+            Ok(HandleVmExitResult::NextInstruction)
+        }
+        VmExitReason::Smc => {
+            handle_smc(psci, vcpu)?;
+
             Ok(HandleVmExitResult::NextInstruction)
         }
     }

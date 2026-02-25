@@ -15,6 +15,8 @@ impl From<u64> for EsrEl2 {
 pub enum Ec {
     Unknown = 0x00,
     Wf = 0x01,
+    Hvc = 0x16,
+    Smc = 0x17,
     Trapped = 0x18,
     DA = 0x24,
 }

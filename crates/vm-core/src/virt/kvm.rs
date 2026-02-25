@@ -28,22 +28,12 @@ pub trait KvmArch {
     fn arch_post_init(&mut self) -> anyhow::Result<()>;
 }
 
+#[allow(unused)]
 pub struct KvmVirt<A: Arch> {
     kvm: Kvm,
     vm_fd: Arc<VmFd>,
     vcpus: OnceCell<Vec<KvmVcpu>>,
     _mark: PhantomData<A>,
-}
-
-impl<A> KvmVirt<A>
-where
-    A: Arch,
-{
-    fn create_vcpu(&self, vcpu_id: u64) -> anyhow::Result<KvmVcpu> {
-        let vcpu_fd = self.vm_fd.create_vcpu(vcpu_id)?;
-
-        Ok(KvmVcpu { vcpu_id, vcpu_fd })
-    }
 }
 
 impl<A> Virt for KvmVirt<A>
@@ -56,7 +46,7 @@ where
     type Vcpu = KvmVcpu;
     type Memory = MmapMut;
 
-    fn new() -> Result<Self, VirtError> {
+    fn new(_cpu_number: usize) -> Result<Self, VirtError> {
         let kvm = Kvm::new()
             .map_err(|_| VirtError::FailedInitialize("kvm: Failed to open /dev/kvm".to_string()))?;
 
@@ -75,24 +65,6 @@ where
 
     fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
         Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
-    }
-
-    fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
-        let mut vcpus = Vec::with_capacity(num_vcpus);
-
-        for vcpu_id in 0..num_vcpus {
-            let vcpu = self.create_vcpu(vcpu_id as u64)?;
-
-            vcpu.init_arch_vcpu(&self.kvm)?;
-
-            vcpus.push(vcpu);
-        }
-
-        self.vcpus
-            .set(vcpus)
-            .map_err(|_| anyhow!("vcpus is already init"))?;
-
-        Ok(())
     }
 
     fn init_memory(
@@ -132,6 +104,10 @@ where
     }
 
     fn get_layout_mut(&mut self) -> &mut <Self::Arch as Arch>::Layout {
+        todo!()
+    }
+
+    fn get_vcpu_number(&self) -> usize {
         todo!()
     }
 

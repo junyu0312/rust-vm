@@ -55,6 +55,7 @@ impl CoreRegister {
 
 #[derive(Debug)]
 pub enum SysRegister {
+    MpidrEl1,
     SctlrEl1,
     CnthctlEl2,
     OslarEl1,

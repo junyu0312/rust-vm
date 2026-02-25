@@ -4,6 +4,7 @@ use applevisor_sys::hv_sys_reg_t;
 use tracing::debug;
 use tracing::error;
 use tracing::trace;
+use tracing::warn;
 
 use crate::arch::aarch64::AArch64;
 use crate::arch::vm_exit::aarch64::VmExitReason;
@@ -64,6 +65,7 @@ impl CoreRegister {
 impl SysRegister {
     fn to_hvp_reg(&self) -> hv_sys_reg_t {
         match self {
+            SysRegister::MpidrEl1 => hv_sys_reg_t::MPIDR_EL1,
             SysRegister::SctlrEl1 => hv_sys_reg_t::SCTLR_EL1,
             SysRegister::CnthctlEl2 => hv_sys_reg_t::CNTHCTL_EL2,
             SysRegister::OslarEl1 => todo!(),
@@ -127,6 +129,14 @@ impl Vcpu<AArch64> for HvpVcpu {
                 match esr_el2.ec()? {
                     esr_el2::Ec::Unknown => Ok(VmExitReason::Unknown),
                     esr_el2::Ec::Wf => Ok(VmExitReason::Wf),
+                    esr_el2::Ec::Hvc => todo!(),
+                    esr_el2::Ec::Smc => {
+                        let imm16 = iss as u16;
+                        if imm16 != 0 {
+                            warn!("smc imm is not zero");
+                        }
+                        Ok(VmExitReason::Smc)
+                    }
                     esr_el2::Ec::Trapped => {
                         let read = (iss & 0x1) != 0;
                         let crm = (iss >> 1) & 0xf;

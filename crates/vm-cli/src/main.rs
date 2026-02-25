@@ -28,9 +28,8 @@ where
     let mut vm = vm_builder.build()?;
 
     let bootloader = Loader::new(args.kernel, args.initramfs, args.cmdline);
-    vm.load(&bootloader)?;
 
-    vm.run()?;
+    vm.run(&bootloader)?;
 
     Ok(())
 }

@@ -39,4 +39,29 @@ pub trait AArch64Vcpu: Vcpu<AArch64> {
 
         Ok(())
     }
+
+    fn get_smc_function_id(&self) -> anyhow::Result<u32> {
+        Ok(self.get_core_reg(CoreRegister::X0)? as u32)
+    }
+
+    fn get_smc_arg1(&self) -> anyhow::Result<u64> {
+        self.get_core_reg(CoreRegister::X1)
+    }
+
+    fn get_smc_arg2(&self) -> anyhow::Result<u64> {
+        self.get_core_reg(CoreRegister::X2)
+    }
+
+    fn get_smc_arg3(&self) -> anyhow::Result<u64> {
+        self.get_core_reg(CoreRegister::X3)
+    }
+
+    fn set_smc_return_value(&self, x0: u32, x1: u32, x2: u32, x3: u32) -> anyhow::Result<()> {
+        self.set_core_reg(CoreRegister::X0, x0 as u64)?;
+        self.set_core_reg(CoreRegister::X1, x1 as u64)?;
+        self.set_core_reg(CoreRegister::X2, x2 as u64)?;
+        self.set_core_reg(CoreRegister::X3, x3 as u64)?;
+
+        Ok(())
+    }
 }

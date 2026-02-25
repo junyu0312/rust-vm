@@ -9,9 +9,6 @@ use vm_core::layout::aarch64::AArch64Layout;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
-use vm_core::vcpu::arch::aarch64::reg::CoreRegister;
-use vm_core::vcpu::arch::aarch64::reg::cnthctl_el2::CnthctlEl2;
-use vm_core::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
 use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
 
@@ -118,85 +115,6 @@ impl AArch64BootLoader {
         Ok(())
     }
 
-    fn setup_boot_cpu<C>(&self, dtb_start: u64, start_pc: u64, vcpus: &mut [C]) -> Result<()>
-    where
-        C: AArch64Vcpu,
-    {
-        let mut setup = || {
-            let boot_cpu = vcpus.get_mut(0).unwrap();
-
-            {
-                // Setup general-purpose register
-                boot_cpu.set_core_reg(CoreRegister::X0, dtb_start)?;
-                boot_cpu.set_core_reg(CoreRegister::X1, 0)?;
-                boot_cpu.set_core_reg(CoreRegister::X2, 0)?;
-                boot_cpu.set_core_reg(CoreRegister::X3, 0)?;
-                boot_cpu.set_core_reg(CoreRegister::PC, start_pc)?;
-            }
-
-            {
-                // CPU mode
-
-                let mut pstate = boot_cpu.get_core_reg(CoreRegister::PState)?;
-                pstate |= 0x03C0; // DAIF
-                pstate &= !0xf; // Clear low 4 bits
-                pstate |= 0x0005; // El1h
-                boot_cpu.set_core_reg(CoreRegister::PState, pstate)?;
-
-                // more, non secure el1
-                if false {
-                    todo!()
-                }
-            }
-
-            {
-                // Caches, MMUs
-
-                let mut sctlr_el1 = boot_cpu.get_sctlr_el1()?;
-                sctlr_el1.remove(SctlrEl1::M); // Disable MMU
-                sctlr_el1.remove(SctlrEl1::I); // Disable I-cache
-                boot_cpu.set_sctlr_el1(sctlr_el1)?;
-            }
-
-            {
-                // Architected timers
-
-                if false {
-                    todo!(
-                        "CNTFRQ must be programmed with the timer frequency and CNTVOFF must be programmed with a consistent value on all CPUs."
-                    );
-                }
-
-                if false {
-                    // MacOS get panic, should we enable this in Linux?
-                    let mut cnthctl_el2 = boot_cpu.get_cnthctl_el2()?;
-                    cnthctl_el2.insert(CnthctlEl2::EL1PCTEN); // TODO: or bit0?(https://www.kernel.org/doc/html/v5.3/arm64/booting.html)
-                    boot_cpu.set_cnthctl_el2(cnthctl_el2)?;
-                }
-            }
-
-            {
-                // Coherency
-
-                // Do nothing
-            }
-
-            {
-                // System registers
-
-                if false {
-                    todo!()
-                }
-            }
-
-            anyhow::Ok(())
-        };
-
-        setup().map_err(|err| Error::SetupBootCpuFailed(err.to_string()))?;
-
-        Ok(())
-    }
-
     fn generate_dtb(
         &self,
         layout: &AArch64Layout,
@@ -227,9 +145,26 @@ impl AArch64BootLoader {
                 fdt.property_string("device_type", "cpu")?;
                 fdt.property_string("compatible", "arm,cortex-a72")?;
                 fdt.property_u32("reg", i as u32)?;
+                if vcpus > 1 {
+                    fdt.property_string("enable-method", "psci")?;
+                }
                 fdt.end_node(cpu_node)?;
             }
             fdt.end_node(cpu_node)?;
+        }
+
+        {
+            let psci_node = fdt.begin_node("psci")?;
+            fdt.property_string_list(
+                "compatible",
+                vec!["arm,psci-0.2".to_string(), "arm,psci".to_string()],
+            )?;
+            fdt.property_string("method", "smc")?;
+            fdt.property_u32("cpu_suspend", 0x84000001)?;
+            fdt.property_u32("cpu_off", 0x84000002)?;
+            fdt.property_u32("cpu_on", 0x84000003)?;
+
+            fdt.end_node(psci_node)?;
         }
 
         let irq_phandle = irq_chip
@@ -333,26 +268,11 @@ where
         }
 
         {
-            let vcpus = virt
-                .get_vcpus()
-                .map_err(|err| Error::SetupBootCpuFailed(err.to_string()))?
-                .len();
-
+            let vcpus = virt.get_vcpu_number();
             let layout = virt.get_layout_mut();
 
             let dtb = self.generate_dtb(layout, vcpus, irq_chip, devices)?;
             self.load_dtb(layout, memory, dtb)?;
-        }
-
-        {
-            let dtb_start = virt.get_layout().get_dtb_start();
-            let start_pc = virt.get_layout().get_start_pc()?;
-
-            let vcpus = virt
-                .get_vcpus_mut()
-                .map_err(|err| Error::SetupBootCpuFailed(err.to_string()))?;
-
-            self.setup_boot_cpu(dtb_start, start_pc, vcpus)?;
         }
 
         let layout = virt.get_layout();

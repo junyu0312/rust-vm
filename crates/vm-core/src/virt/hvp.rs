@@ -1,6 +1,9 @@
 use std::cell::OnceCell;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::mpsc;
+use std::sync::mpsc::Receiver;
+use std::thread;
 
 use anyhow::anyhow;
 use applevisor::gic::GicConfig;
@@ -9,7 +12,6 @@ use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineConfig;
 use applevisor::vm::VirtualMachineInstance;
-use applevisor_sys::hv_sys_reg_t;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
@@ -17,6 +19,7 @@ use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::firmware::psci::psci_0_2::Psci02;
 use crate::irq::InterruptController;
 use crate::layout::MemoryLayout;
 use crate::layout::aarch64::AArch64Layout;
@@ -24,6 +27,9 @@ use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 use crate::vcpu::arch::aarch64::reg::CoreRegister;
+use crate::vcpu::arch::aarch64::reg::SysRegister;
+use crate::vcpu::arch::aarch64::reg::cnthctl_el2::CnthctlEl2;
+use crate::vcpu::arch::aarch64::reg::sctlr_el1::SctlrEl1;
 use crate::virt::Virt;
 use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
@@ -36,11 +42,93 @@ pub(crate) mod vcpu;
 mod irq_chip;
 mod mm;
 
+fn setup_cpu<C>(dtb_start: u64, start_pc: u64, cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
+where
+    C: AArch64Vcpu,
+{
+    vcpu.set_sys_reg(SysRegister::MpidrEl1, cpu_id as u64)?;
+
+    if cpu_id == 0 {
+        // Setup general-purpose register
+        vcpu.set_core_reg(CoreRegister::X0, dtb_start)?;
+        vcpu.set_core_reg(CoreRegister::X1, 0)?;
+        vcpu.set_core_reg(CoreRegister::X2, 0)?;
+        vcpu.set_core_reg(CoreRegister::X3, 0)?;
+        vcpu.set_core_reg(CoreRegister::PC, start_pc)?;
+    } else {
+        vcpu.set_core_reg(CoreRegister::X0, 0)?;
+        vcpu.set_core_reg(CoreRegister::X1, 0)?;
+        vcpu.set_core_reg(CoreRegister::X2, 0)?;
+        vcpu.set_core_reg(CoreRegister::X3, 0)?;
+        vcpu.set_core_reg(CoreRegister::PC, 0)?;
+    }
+
+    {
+        // CPU mode
+
+        let mut pstate = vcpu.get_core_reg(CoreRegister::PState)?;
+        pstate |= 0x03C0; // DAIF
+        pstate &= !0xf; // Clear low 4 bits
+        pstate |= 0x0005; // El1h
+        vcpu.set_core_reg(CoreRegister::PState, pstate)?;
+
+        // more, non secure el1
+        if false {
+            todo!()
+        }
+    }
+
+    {
+        // Caches, MMUs
+
+        let mut sctlr_el1 = vcpu.get_sctlr_el1()?;
+        sctlr_el1.remove(SctlrEl1::M); // Disable MMU
+        sctlr_el1.remove(SctlrEl1::I); // Disable I-cache
+        vcpu.set_sctlr_el1(sctlr_el1)?;
+    }
+
+    {
+        // Architected timers
+
+        if false {
+            todo!(
+                "CNTFRQ must be programmed with the timer frequency and CNTVOFF must be programmed with a consistent value on all CPUs."
+            );
+        }
+
+        if false {
+            // MacOS get panic, should we enable this in Linux?
+            let mut cnthctl_el2 = vcpu.get_cnthctl_el2()?;
+            cnthctl_el2.insert(CnthctlEl2::EL1PCTEN); // TODO: or bit0?(https://www.kernel.org/doc/html/v5.3/arm64/booting.html)
+            vcpu.set_cnthctl_el2(cnthctl_el2)?;
+        }
+    }
+
+    {
+        // Coherency
+
+        // Do nothing
+    }
+
+    {
+        // System registers
+
+        if false {
+            todo!()
+        }
+    }
+
+    anyhow::Ok(())
+}
+
 pub struct Hvp {
     arch: AArch64,
-    vm: Arc<VirtualMachineInstance<GicEnabled>>,
+    vm: VirtualMachineInstance<GicEnabled>,
     gic_chip: Arc<HvpGicV3>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
+    num_vcpus: usize,
+    psci: Arc<Mutex<Psci02>>,
+    cpu_on_receiver: Option<Vec<Receiver<(u64, u64)>>>,
 }
 
 impl Virt for Hvp {
@@ -48,7 +136,7 @@ impl Virt for Hvp {
     type Vcpu = HvpVcpu;
     type Memory = MemoryWrapper;
 
-    fn new() -> Result<Self, VirtError> {
+    fn new(num_vcpus: usize) -> Result<Self, VirtError> {
         let layout = AArch64Layout::default();
 
         let mut vm_config = VirtualMachineConfig::default();
@@ -155,37 +243,31 @@ impl Virt for Hvp {
                 format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
             )
         })?;
-        let vm = Arc::new(vm);
 
         let gic_chip = HvpGicV3::new(distributor_base, redistributor_base, msi_base, vm.clone());
         let gic_chip = Arc::new(gic_chip);
+
+        let mut cpu_on_receiver = vec![];
+        let mut cpu_on_barrier = vec![];
+        for _ in 0..num_vcpus {
+            let (tx, rx) = mpsc::channel();
+            cpu_on_receiver.push(rx);
+            cpu_on_barrier.push(tx);
+        }
 
         Ok(Hvp {
             arch: AArch64 { layout },
             vm,
             gic_chip,
             vcpus: OnceCell::default(),
+            num_vcpus,
+            psci: Arc::new(Mutex::new(Psci02 { cpu_on_barrier })),
+            cpu_on_receiver: Some(cpu_on_receiver),
         })
     }
 
     fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
         Ok(self.gic_chip.clone())
-    }
-
-    fn init_vcpus(&mut self, num_vcpus: usize) -> anyhow::Result<()> {
-        let mut vcpus = Vec::with_capacity(num_vcpus);
-
-        for vcpu_id in 0..num_vcpus {
-            let vcpu = self.vm.vcpu_create()?;
-            vcpu.set_sys_reg(hv_sys_reg_t::MPIDR_EL1, vcpu_id as u64)?;
-            vcpus.push(HvpVcpu::new(vcpu_id as u64, vcpu));
-        }
-
-        self.vcpus
-            .set(vcpus)
-            .map_err(|_| anyhow!("vcpu is ready initialized"))?;
-
-        Ok(())
     }
 
     fn init_memory(
@@ -194,9 +276,7 @@ impl Virt for Hvp {
         memory: &mut MemoryAddressSpace<MemoryWrapper>,
         memory_size: u64,
     ) -> anyhow::Result<()> {
-        let allocator = HvpAllocator {
-            vm: self.vm.as_ref(),
-        };
+        let allocator = HvpAllocator { vm: &self.vm };
 
         for region in memory {
             region.alloc(&allocator)?;
@@ -220,6 +300,10 @@ impl Virt for Hvp {
 
     fn get_layout_mut(&mut self) -> &mut AArch64Layout {
         self.arch.get_layout_mut()
+    }
+
+    fn get_vcpu_number(&self) -> usize {
+        self.num_vcpus
     }
 
     fn get_vcpu_mut(&mut self, vcpu_id: u64) -> anyhow::Result<Option<&mut HvpVcpu>> {
@@ -251,24 +335,57 @@ impl Virt for Hvp {
     }
 
     fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
-        // TODO: support smp, fork for per vcpu
-        {
-            let mmio_layout = device_manager.lock().unwrap().mmio_layout();
+        let mmio_layout = device_manager.lock().unwrap().mmio_layout();
 
-            loop {
-                let vcpu = self.get_vcpu_mut(0)?.unwrap();
-                let vm_exit_info = vcpu.run(mmio_layout.as_ref())?;
+        thread::scope(|s| {
+            let cpu_on_receiver = self.cpu_on_receiver.take().unwrap();
 
-                let r = handle_vm_exit(vcpu, vm_exit_info, device_manager.clone())?;
+            for (vcpu_id, rx) in (0..self.num_vcpus).zip(cpu_on_receiver.into_iter()) {
+                let mmio_layout = mmio_layout.clone();
+                let device_manager = device_manager.clone();
+                let vm = self.vm.clone();
+                let psci = self.psci.clone();
 
-                match r {
-                    HandleVmExitResult::Continue => (),
-                    HandleVmExitResult::NextInstruction => {
-                        let pc = vcpu.get_core_reg(CoreRegister::PC)?;
-                        vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
+                let layout = self.get_layout().clone();
+
+                s.spawn(move || -> anyhow::Result<()> {
+                    let vcpu = vm.vcpu_create()?;
+
+                    let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu);
+
+                    setup_cpu(
+                        layout.get_dtb_start(),
+                        layout.get_start_pc().unwrap(),
+                        vcpu_id,
+                        &mut vcpu,
+                    )?;
+
+                    if vcpu_id != 0 {
+                        let (pc, context_id) = rx.recv().unwrap();
+                        vcpu.set_core_reg(CoreRegister::PC, pc)?;
+                        vcpu.set_core_reg(CoreRegister::X0, context_id)?;
                     }
-                }
+
+                    loop {
+                        let vm_exit_info = vcpu.run(&mmio_layout)?;
+
+                        match handle_vm_exit(
+                            &vcpu,
+                            vm_exit_info,
+                            psci.clone(),
+                            device_manager.clone(),
+                        )? {
+                            HandleVmExitResult::Continue => (),
+                            HandleVmExitResult::NextInstruction => {
+                                let pc = vcpu.get_core_reg(CoreRegister::PC)?;
+                                vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
+                            }
+                        }
+                    }
+                });
             }
-        }
+        });
+
+        Ok(())
     }
 }
