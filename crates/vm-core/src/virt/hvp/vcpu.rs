@@ -4,6 +4,7 @@ use applevisor_sys::hv_sys_reg_t;
 use tracing::debug;
 use tracing::error;
 use tracing::trace;
+use tracing::warn;
 
 use crate::arch::aarch64::AArch64;
 use crate::arch::vm_exit::aarch64::VmExitReason;
@@ -131,12 +132,10 @@ impl Vcpu<AArch64> for HvpVcpu {
                     esr_el2::Ec::Hvc => todo!(),
                     esr_el2::Ec::Smc => {
                         let imm16 = iss as u16;
-                        let function_id = self.get_core_reg(CoreRegister::X0)?;
-                        let arg0 = self.get_core_reg(CoreRegister::X1)?;
-                        let arg1 = self.get_core_reg(CoreRegister::X2)?;
-                        let arg2 = self.get_core_reg(CoreRegister::X3)?;
-                        println!("{imm16:x}, {function_id:x} {arg0} {arg1} {arg2}");
-                        todo!()
+                        if imm16 != 0 {
+                            warn!("smc imm is not zero");
+                        }
+                        Ok(VmExitReason::Smc)
                     }
                     esr_el2::Ec::Trapped => {
                         let read = (iss & 0x1) != 0;

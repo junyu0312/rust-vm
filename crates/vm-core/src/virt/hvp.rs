@@ -1,7 +1,8 @@
 use std::cell::OnceCell;
 use std::sync::Arc;
-use std::sync::Barrier;
 use std::sync::Mutex;
+use std::sync::mpsc;
+use std::sync::mpsc::Receiver;
 use std::thread;
 
 use anyhow::anyhow;
@@ -18,6 +19,7 @@ use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::firmware::psci::psci_0_2::Psci02;
 use crate::irq::InterruptController;
 use crate::layout::MemoryLayout;
 use crate::layout::aarch64::AArch64Layout;
@@ -125,6 +127,8 @@ pub struct Hvp {
     gic_chip: Arc<HvpGicV3>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
     num_vcpus: usize,
+    psci: Arc<Mutex<Psci02>>,
+    cpu_on_receiver: Option<Vec<Receiver<(u64, u64)>>>,
 }
 
 impl Virt for Hvp {
@@ -243,12 +247,22 @@ impl Virt for Hvp {
         let gic_chip = HvpGicV3::new(distributor_base, redistributor_base, msi_base, vm.clone());
         let gic_chip = Arc::new(gic_chip);
 
+        let mut cpu_on_receiver = vec![];
+        let mut cpu_on_barrier = vec![];
+        for _ in 0..num_vcpus {
+            let (tx, rx) = mpsc::channel();
+            cpu_on_receiver.push(rx);
+            cpu_on_barrier.push(tx);
+        }
+
         Ok(Hvp {
             arch: AArch64 { layout },
             vm,
             gic_chip,
             vcpus: OnceCell::default(),
             num_vcpus,
+            psci: Arc::new(Mutex::new(Psci02 { cpu_on_barrier })),
+            cpu_on_receiver: Some(cpu_on_receiver),
         })
     }
 
@@ -323,14 +337,14 @@ impl Virt for Hvp {
     fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
         let mmio_layout = device_manager.lock().unwrap().mmio_layout();
 
-        let barrier = Barrier::new(self.num_vcpus);
-
         thread::scope(|s| {
-            for vcpu_id in 0..self.num_vcpus {
+            let cpu_on_receiver = self.cpu_on_receiver.take().unwrap();
+
+            for (vcpu_id, rx) in (0..self.num_vcpus).zip(cpu_on_receiver.into_iter()) {
                 let mmio_layout = mmio_layout.clone();
                 let device_manager = device_manager.clone();
                 let vm = self.vm.clone();
-                let barrier = &barrier;
+                let psci = self.psci.clone();
 
                 let layout = self.get_layout().clone();
 
@@ -345,12 +359,22 @@ impl Virt for Hvp {
                         vcpu_id,
                         &mut vcpu,
                     )?;
-                    barrier.wait();
+
+                    if vcpu_id != 0 {
+                        let (pc, context_id) = rx.recv().unwrap();
+                        vcpu.set_core_reg(CoreRegister::PC, pc)?;
+                        vcpu.set_core_reg(CoreRegister::X0, context_id)?;
+                    }
 
                     loop {
                         let vm_exit_info = vcpu.run(&mmio_layout)?;
 
-                        match handle_vm_exit(&vcpu, vm_exit_info, device_manager.clone())? {
+                        match handle_vm_exit(
+                            &vcpu,
+                            vm_exit_info,
+                            psci.clone(),
+                            device_manager.clone(),
+                        )? {
                             HandleVmExitResult::Continue => (),
                             HandleVmExitResult::NextInstruction => {
                                 let pc = vcpu.get_core_reg(CoreRegister::PC)?;
