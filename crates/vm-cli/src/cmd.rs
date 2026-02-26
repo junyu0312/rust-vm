@@ -54,6 +54,9 @@ pub struct Command {
 
     #[arg(short, long)]
     pub initramfs: Option<PathBuf>,
+
+    #[arg(long)]
+    pub gdb: Option<u16>,
 }
 
 pub fn parse_memory(s: &str) -> Result<usize, Error> {

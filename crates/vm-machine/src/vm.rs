@@ -4,6 +4,7 @@ use std::sync::Mutex;
 
 use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
+use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioLayout;
 use vm_core::layout::MemoryLayout;
@@ -24,15 +25,22 @@ pub struct VmBuilder<V> {
     memory_size: usize,
     vcpus: usize,
     devices: Vec<Device>,
+    gdb_port: Option<u16>,
     _mark: PhantomData<V>,
 }
 
 impl<V> VmBuilder<V> {
-    pub fn new(memory_size: usize, vcpus: usize, devices: Vec<Device>) -> Self {
+    pub fn new(
+        memory_size: usize,
+        vcpus: usize,
+        devices: Vec<Device>,
+        gdb_port: Option<u16>,
+    ) -> Self {
         VmBuilder {
             memory_size,
             vcpus,
             devices,
+            gdb_port,
             _mark: PhantomData,
         }
     }
@@ -42,6 +50,7 @@ pub struct Vm<V: Virt> {
     memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
     virt: V,
     device_manager: Arc<Mutex<DeviceManager>>,
+    gdb_stub: Option<GdbStub>,
 }
 
 impl<V> VmBuilder<V>
@@ -95,6 +104,7 @@ where
             memory,
             virt,
             device_manager: Arc::new(Mutex::new(device_manager)),
+            gdb_stub: self.gdb_port.map(GdbStub::new),
         };
 
         Ok(vm)
@@ -120,6 +130,12 @@ where
                     .as_ref(),
                 device_manager.mmio_devices(),
             )?;
+        }
+
+        if let Some(gdb_stub) = &self.gdb_stub {
+            gdb_stub
+                .wait_for_connection()
+                .map_err(|err| Error::GdbStub(err.to_string()))?;
         }
 
         self.virt
