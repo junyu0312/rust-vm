@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 pub mod arch;
+pub mod debug;
 pub mod device;
 pub mod firmware;
 pub mod irq;

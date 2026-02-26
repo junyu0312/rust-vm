@@ -24,6 +24,7 @@ where
         parse_memory(&args.memory)?,
         args.cpus,
         args.device.into_iter().map(Into::into).collect(),
+        args.gdb,
     );
     let mut vm = vm_builder.build()?;
 
