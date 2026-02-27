@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use tokio::sync::Notify;
-use vm_core::irq::InterruptController;
+use vm_core::arch::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_pci::device::interrupt::legacy::InterruptPin;

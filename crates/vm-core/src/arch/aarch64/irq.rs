@@ -1,4 +1,4 @@
-use crate::irq::InterruptController;
+use crate::arch::irq::InterruptController;
 
 pub const GIC_SPI: u32 = 0;
 pub const IRQ_TYPE_LEVEL_HIGH: u32 = 0x04;

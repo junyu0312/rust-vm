@@ -260,8 +260,8 @@ where
         if let Some(_irq) = self.irq {
             #[cfg(target_arch = "aarch64")]
             {
-                use vm_core::irq::arch::aarch64::GIC_SPI;
-                use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
+                use vm_core::arch::aarch64::irq::GIC_SPI;
+                use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
                 fdt.property_array_u32("interrupts", &[GIC_SPI, _irq, IRQ_TYPE_LEVEL_HIGH])?;
             }
             #[cfg(not(target_arch = "aarch64"))]

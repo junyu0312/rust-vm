@@ -3,9 +3,9 @@ use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachineInstance;
 use tracing::warn;
 
-use crate::irq::InterruptController;
-use crate::irq::Phandle;
-use crate::irq::arch::aarch64::AArch64IrqChip;
+use crate::arch::aarch64::irq::AArch64IrqChip;
+use crate::arch::irq::InterruptController;
+use crate::arch::irq::Phandle;
 
 pub struct HvpGicV3 {
     distributor_base: u64,

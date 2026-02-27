@@ -1,7 +1,5 @@
 use vm_fdt::FdtWriter;
 
-pub mod arch;
-
 #[repr(u32)]
 pub enum Phandle {
     GIC = 0x1,

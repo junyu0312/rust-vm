@@ -1,4 +1,4 @@
-use vm_core::irq::InterruptController;
+use vm_core::arch::irq::InterruptController;
 
 pub mod atkbd;
 pub mod psmouse;

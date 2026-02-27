@@ -1,6 +1,6 @@
-use vm_core::irq::Phandle;
-use vm_core::irq::arch::aarch64::GIC_SPI;
-use vm_core::irq::arch::aarch64::IRQ_TYPE_LEVEL_HIGH;
+use vm_core::arch::aarch64::irq::GIC_SPI;
+use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
+use vm_core::arch::irq::Phandle;
 
 use crate::device::function::type0::PciType0Function;
 use crate::device::function::type0::Type0Function;

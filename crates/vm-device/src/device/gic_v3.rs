@@ -1,4 +1,5 @@
-use vm_core::irq::InterruptController;
+use vm_core::arch::irq::InterruptController;
+use vm_core::arch::irq::Phandle;
 
 #[derive(Default)]
 pub struct GicV3 {}
@@ -12,10 +13,7 @@ impl InterruptController for GicV3 {
         todo!()
     }
 
-    fn write_device_tree(
-        &self,
-        _fdt: &mut vm_fdt::FdtWriter,
-    ) -> anyhow::Result<vm_core::irq::Phandle> {
+    fn write_device_tree(&self, _fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<Phandle> {
         todo!()
     }
 }

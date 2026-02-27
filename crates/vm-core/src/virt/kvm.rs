@@ -9,9 +9,9 @@ use kvm_ioctls::*;
 use memmap2::MmapMut;
 
 use crate::arch::Arch;
+use crate::arch::irq::InterruptController;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
-use crate::irq::InterruptController;
 use crate::mm::allocator::mmap_allocator::MmapAllocator;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::virt::Vcpu;

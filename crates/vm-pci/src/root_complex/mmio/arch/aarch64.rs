@@ -1,4 +1,4 @@
-use vm_core::irq::Phandle;
+use vm_core::arch::irq::Phandle;
 use vm_fdt::FdtWriter;
 
 use crate::root_complex::mmio::PciRootComplexMmio;

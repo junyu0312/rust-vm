@@ -3,8 +3,8 @@ use std::sync::Arc;
 use kvm_ioctls::VmFd;
 use tracing::error;
 
-use crate::irq::InterruptController;
-use crate::irq::Phandle;
+use crate::arch::irq::InterruptController;
+use crate::arch::irq::Phandle;
 
 mod arch;
 

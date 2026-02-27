@@ -2,10 +2,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::arch::Arch;
+use crate::arch::irq::InterruptController;
 use crate::arch::vcpu::Vcpu;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
-use crate::irq::InterruptController;
 use crate::mm::allocator::MemoryContainer;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::virt::error::VirtError;
