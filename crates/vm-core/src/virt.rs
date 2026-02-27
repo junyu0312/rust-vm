@@ -6,11 +6,9 @@ use crate::arch::irq::InterruptController;
 use crate::arch::vcpu::Vcpu;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::error::Result;
 use crate::mm::allocator::MemoryContainer;
 use crate::mm::manager::MemoryAddressSpace;
-use crate::virt::error::VirtError;
-
-pub mod error;
 
 #[cfg(feature = "kvm")]
 pub mod kvm;
@@ -23,7 +21,7 @@ pub trait Virt: Sized {
     type Vcpu: Vcpu<Self::Arch>;
     type Memory: MemoryContainer;
 
-    fn new(num_vcpus: usize) -> Result<Self, VirtError>;
+    fn new(num_vcpus: usize) -> Result<Self>;
 
     fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>>;
     fn init_memory(

@@ -29,9 +29,9 @@ use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::error::Error;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::virt::Virt;
-use crate::virt::VirtError;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
 use crate::virt::hvp::mm::MemoryWrapper;
@@ -136,13 +136,13 @@ impl Virt for Hvp {
     type Vcpu = HvpVcpu;
     type Memory = MemoryWrapper;
 
-    fn new(num_vcpus: usize) -> Result<Self, VirtError> {
+    fn new(num_vcpus: usize) -> Result<Self, Error> {
         let layout = AArch64Layout::default();
 
         let mut vm_config = VirtualMachineConfig::default();
         vm_config
             .set_el2_enabled(true)
-            .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+            .map_err(|err| Error::FailedInitialize(err.to_string()))?;
 
         let mut gic_config = GicConfig::default();
 
@@ -150,14 +150,14 @@ impl Virt for Hvp {
         let redistributor_base = layout.get_redistributor_start();
         let msi_base = layout.get_msi_start();
         let distributor_base_alignment = GicConfig::get_distributor_base_alignment()
-            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+            .map_err(|err| Error::InterruptControllerFailed(err.to_string()))?;
         let redistributor_base_alignment = GicConfig::get_redistributor_base_alignment()
-            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+            .map_err(|err| Error::InterruptControllerFailed(err.to_string()))?;
         let msi_region_base_alignment = GicConfig::get_msi_region_base_alignment()
-            .map_err(|err| VirtError::InterruptControllerFailed(err.to_string()))?;
+            .map_err(|err| Error::InterruptControllerFailed(err.to_string()))?;
 
         let gic_distributor_size = GicConfig::get_distributor_size().map_err(|err| {
-            VirtError::InterruptControllerFailed(format!(
+            Error::InterruptControllerFailed(format!(
                 "Failed to get the size of distributor, {:?}",
                 err
             ))
@@ -166,7 +166,7 @@ impl Virt for Hvp {
 
         let gic_redistributor_region_size =
             GicConfig::get_redistributor_region_size().map_err(|err| {
-                VirtError::InterruptControllerFailed(format!(
+                Error::InterruptControllerFailed(format!(
                     "Failed to get the size of redistributor region, {:?}",
                     err
                 ))
@@ -176,7 +176,7 @@ impl Virt for Hvp {
             .unwrap();
 
         let gic_msi_region_size = GicConfig::get_msi_region_size().map_err(|err| {
-            VirtError::InterruptControllerFailed(format!(
+            Error::InterruptControllerFailed(format!(
                 "Failed to get the size of msi region, {:?}",
                 err
             ))
@@ -186,60 +186,60 @@ impl Virt for Hvp {
         {
             // Setup distributor
             if !distributor_base.is_multiple_of(distributor_base_alignment as u64) {
-                return Err(VirtError::InterruptControllerFailed(
+                return Err(Error::InterruptControllerFailed(
                     "The base address of gic distributor is not aligned".to_string(),
                 ));
             }
             gic_config
                 .set_distributor_base(distributor_base)
-                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
         }
 
         {
             // Setup redistributor
             if !redistributor_base.is_multiple_of(redistributor_base_alignment as u64) {
-                return Err(VirtError::InterruptControllerFailed(
+                return Err(Error::InterruptControllerFailed(
                     "The base address of gic redistributor is not aligned".to_string(),
                 ));
             }
             if distributor_base + gic_distributor_size as u64 > redistributor_base {
-                return Err(VirtError::InterruptControllerFailed(
+                return Err(Error::InterruptControllerFailed(
                     "distributor too large".to_string(),
                 ));
             }
             gic_config
                 .set_redistributor_base(redistributor_base)
-                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
         }
 
         {
             // Setup msi
             if !msi_base.is_multiple_of(msi_region_base_alignment as u64) {
-                return Err(VirtError::InterruptControllerFailed(
+                return Err(Error::InterruptControllerFailed(
                     "The base address of gic msi is not aligned".to_string(),
                 ));
             }
             if redistributor_base + gic_redistributor_region_size as u64 > msi_base {
-                return Err(VirtError::InterruptControllerFailed(
+                return Err(Error::InterruptControllerFailed(
                     "redistributor too large".to_string(),
                 ));
             }
             gic_config
                 .set_msi_region_base(msi_base)
-                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
             gic_config
                 .set_msi_interrupt_range(256, 256)
-                .map_err(|err| VirtError::FailedInitialize(err.to_string()))?;
+                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
         }
 
         if msi_base + gic_msi_region_size as u64 > layout.get_ram_base() {
-            return Err(VirtError::InterruptControllerFailed(
+            return Err(Error::InterruptControllerFailed(
                 "msi region too large".to_string(),
             ));
         }
 
         let vm = VirtualMachine::with_gic(vm_config, gic_config).map_err(|err| {
-            VirtError::FailedInitialize(
+            Error::FailedInitialize(
                 format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
             )
         })?;

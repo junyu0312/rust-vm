@@ -1,10 +1,10 @@
 use vm_bootloader::boot_loader::Error as BootLoaderError;
-use vm_core::virt::error::VirtError;
+use vm_core::error::Error as VmError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Platform error: {0}")]
-    Platform(VirtError),
+    Platform(VmError),
 
     #[error("Failed to init cpu, error: {0}")]
     InitCpu(String),
@@ -31,8 +31,8 @@ pub enum Error {
     GdbStub(String),
 }
 
-impl From<VirtError> for Error {
-    fn from(err: VirtError) -> Self {
+impl From<VmError> for Error {
+    fn from(err: VmError) -> Self {
         Error::Platform(err)
     }
 }
