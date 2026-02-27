@@ -1,6 +1,9 @@
 use crate::arch::Arch;
+use crate::arch::aarch64::layout::AArch64Layout;
 use crate::arch::vm_exit::aarch64::VmExitReason;
-use crate::layout::aarch64::AArch64Layout;
+
+pub mod firmware;
+pub mod layout;
 
 pub struct AArch64 {
     pub layout: AArch64Layout,

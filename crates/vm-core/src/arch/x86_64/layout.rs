@@ -1,5 +1,7 @@
-use crate::layout::MemoryLayout;
-use crate::layout::Result;
+use crate::arch::MemoryLayout;
+use crate::arch::layout::Error;
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone)]
 pub struct X86_64Layout {}

@@ -2,9 +2,8 @@ use std::cell::OnceCell;
 
 use static_assertions::const_assert_eq;
 
-use crate::layout::Error;
-use crate::layout::MemoryLayout;
-use crate::layout::Result;
+use crate::arch::layout::Error;
+use crate::arch::layout::MemoryLayout;
 
 const MMIO_START: u64 = 0x0900_0000;
 const MMIO_LEN: usize = 0x2700_0000;
@@ -18,6 +17,8 @@ const INITRD_START: u64 = 0x44200000; // DTB + 2MB
 const KERNEL_MAX: usize = 0x0400_0000;
 
 const_assert_eq!(RAM_BASE + KERNEL_MAX as u64, DTB_START);
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone)]
 pub struct AArch64Layout {
@@ -136,7 +137,7 @@ impl MemoryLayout for AArch64Layout {
         Ok(())
     }
 
-    fn get_kernel_start(&self) -> super::Result<u64> {
+    fn get_kernel_start(&self) -> Result<u64> {
         Ok(*self.kernel_start.get().ok_or(Error::KernelUnset)?)
     }
 

@@ -4,10 +4,10 @@ use std::sync::Mutex;
 
 use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
+use vm_core::arch::layout::MemoryLayout;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioLayout;
-use vm_core::layout::MemoryLayout;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::mm::region::MemoryRegion;
