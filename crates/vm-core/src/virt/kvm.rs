@@ -12,11 +12,11 @@ use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::error::Error;
 use crate::mm::allocator::mmap_allocator::MmapAllocator;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::virt::Vcpu;
 use crate::virt::Virt;
-use crate::virt::error::VirtError;
 use crate::virt::kvm::irq_chip::KvmIRQ;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
@@ -46,14 +46,14 @@ where
     type Vcpu = KvmVcpu;
     type Memory = MmapMut;
 
-    fn new(_cpu_number: usize) -> Result<Self, VirtError> {
+    fn new(_cpu_number: usize) -> Result<Self, Error> {
         let kvm = Kvm::new()
-            .map_err(|_| VirtError::FailedInitialize("kvm: Failed to open /dev/kvm".to_string()))?;
+            .map_err(|_| Error::FailedInitialize("kvm: Failed to open /dev/kvm".to_string()))?;
 
-        let vm_fd =
-            Arc::new(kvm.create_vm().map_err(|_| {
-                VirtError::FailedInitialize("kvm: Failed to create_vm".to_string())
-            })?);
+        let vm_fd = Arc::new(
+            kvm.create_vm()
+                .map_err(|_| Error::FailedInitialize("kvm: Failed to create_vm".to_string()))?,
+        );
 
         Ok(KvmVirt {
             kvm,
