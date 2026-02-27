@@ -3,7 +3,9 @@ use crate::arch::aarch64::layout::AArch64Layout;
 use crate::arch::vm_exit::aarch64::VmExitReason;
 
 pub mod firmware;
+pub mod irq;
 pub mod layout;
+pub mod vcpu;
 
 pub struct AArch64 {
     pub layout: AArch64Layout,

@@ -8,7 +8,7 @@ use tracing::warn;
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
-use vm_core::irq::InterruptController;
+use vm_core::arch::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_virtio::transport::VirtIo;

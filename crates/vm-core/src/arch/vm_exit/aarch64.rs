@@ -4,11 +4,11 @@ use std::sync::Mutex;
 use tracing::trace;
 
 use crate::arch::aarch64::firmware::psci::Psci;
+use crate::arch::aarch64::vcpu::AArch64Vcpu;
+use crate::arch::aarch64::vcpu::reg::CoreRegister;
+use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::vm_exit::aarch64::smc::handle_smc;
 use crate::device::vm_exit::DeviceVmExitHandler;
-use crate::vcpu::arch::aarch64::AArch64Vcpu;
-use crate::vcpu::arch::aarch64::reg::CoreRegister;
-use crate::vcpu::arch::aarch64::reg::SysRegister;
 
 pub mod smc;
 

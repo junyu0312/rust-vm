@@ -2,10 +2,10 @@ use std::io::Write;
 use std::io::{self};
 use std::sync::Arc;
 
+use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
-use vm_core::irq::InterruptController;
 
 use crate::device::uart8250::ier::IER;
 use crate::device::uart8250::iir::IIR;

@@ -2,6 +2,7 @@ use std::cell::OnceCell;
 use std::slice::Iter;
 use std::sync::Arc;
 
+use crate::arch::irq::InterruptController;
 use crate::device::Error;
 use crate::device::Result;
 use crate::device::mmio::MmioLayout;
@@ -10,7 +11,6 @@ use crate::device::mmio::mmio_device::MmioDevice;
 use crate::device::pio::pio_as_manager::PioAddressSpaceManager;
 use crate::device::pio::pio_device::PioDevice;
 use crate::device::vm_exit::DeviceVmExitHandler;
-use crate::irq::InterruptController;
 
 pub struct DeviceManager {
     irq_chip: OnceCell<Arc<dyn InterruptController>>,

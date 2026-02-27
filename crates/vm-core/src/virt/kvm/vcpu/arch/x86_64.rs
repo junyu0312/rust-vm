@@ -3,9 +3,9 @@ use kvm_ioctls::Kvm;
 
 use crate::arch::vm_exit::x86_64::VmExitReason;
 use crate::arch::x86_64::X86_64;
-use crate::vcpu::Vcpu;
-use crate::vcpu::arch::x86_64::X86Vcpu;
+use crate::arch::x86_64::vcpu::X86Vcpu;
 use crate::virt::MmioLayout;
+use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 impl KvmVcpu {

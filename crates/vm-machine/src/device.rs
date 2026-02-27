@@ -2,9 +2,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::anyhow;
+use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
-use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_device::device::Device;

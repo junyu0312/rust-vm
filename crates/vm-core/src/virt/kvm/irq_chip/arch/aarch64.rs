@@ -1,4 +1,4 @@
-use crate::irq::arch::aarch64::AArch64IrqChip;
+use crate::arch::aarch64::irq::AArch64IrqChip;
 use crate::virt::kvm::irq_chip::KvmIRQ;
 
 impl AArch64IrqChip for KvmIRQ {

@@ -3,7 +3,7 @@
  */
 
 use crate::arch::aarch64::firmware::psci::error::PsciError;
-use crate::vcpu::arch::aarch64::AArch64Vcpu;
+use crate::arch::aarch64::vcpu::AArch64Vcpu;
 
 pub mod error;
 pub mod function;
