@@ -2,12 +2,12 @@ use std::sync::mpsc;
 
 use strum_macros::FromRepr;
 
-use crate::firmware::psci::Psci;
-use crate::firmware::psci::error::PsciError;
-use crate::firmware::psci::function::psci_0_2_fn;
-use crate::firmware::psci::function::psci_0_2_fn64;
-use crate::firmware::psci::return_value::PsciRet;
-use crate::firmware::psci::version::psci_version;
+use crate::arch::aarch64::firmware::psci::Psci;
+use crate::arch::aarch64::firmware::psci::error::PsciError;
+use crate::arch::aarch64::firmware::psci::function::psci_0_2_fn;
+use crate::arch::aarch64::firmware::psci::function::psci_0_2_fn64;
+use crate::arch::aarch64::firmware::psci::return_value::PsciRet;
+use crate::arch::aarch64::firmware::psci::version::psci_version;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;
 
 #[derive(FromRepr)]

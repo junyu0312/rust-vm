@@ -137,7 +137,7 @@ impl MemoryLayout for AArch64Layout {
         Ok(())
     }
 
-    fn get_kernel_start(&self) -> super::Result<u64> {
+    fn get_kernel_start(&self) -> Result<u64> {
         Ok(*self.kernel_start.get().ok_or(Error::KernelUnset)?)
     }
 
