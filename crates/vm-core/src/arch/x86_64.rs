@@ -1,6 +1,6 @@
 use crate::arch::Arch;
+use crate::arch::layout::x86_64::X86_64Layout;
 use crate::arch::vm_exit::x86_64::VmExitReason;
-use crate::layout::x86_64::X86_64Layout;
 
 pub const BASE_ADDRESS: u64 = 0x0;
 

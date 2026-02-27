@@ -15,14 +15,14 @@ use applevisor::vm::VirtualMachineInstance;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
+use crate::arch::layout::MemoryLayout;
+use crate::arch::layout::aarch64::AArch64Layout;
 use crate::arch::vm_exit::aarch64::HandleVmExitResult;
 use crate::arch::vm_exit::aarch64::handle_vm_exit;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::firmware::psci::psci_0_2::Psci02;
 use crate::irq::InterruptController;
-use crate::layout::MemoryLayout;
-use crate::layout::aarch64::AArch64Layout;
 use crate::mm::manager::MemoryAddressSpace;
 use crate::vcpu::Vcpu;
 use crate::vcpu::arch::aarch64::AArch64Vcpu;

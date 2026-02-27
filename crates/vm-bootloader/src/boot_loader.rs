@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
+use vm_core::arch::layout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::irq::InterruptController;
-use vm_core::layout;
 use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::virt::Virt;
 
