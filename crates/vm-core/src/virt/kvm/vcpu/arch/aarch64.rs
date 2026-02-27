@@ -1,12 +1,12 @@
 use kvm_ioctls::Kvm;
 
 use crate::arch::aarch64::AArch64;
+use crate::arch::aarch64::vcpu::AArch64Vcpu;
+use crate::arch::aarch64::vcpu::reg::CoreRegister;
+use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::vm_exit::aarch64::VmExitReason;
 use crate::device::mmio::MmioLayout;
-use crate::vcpu::Vcpu;
-use crate::vcpu::arch::aarch64::AArch64Vcpu;
-use crate::vcpu::arch::aarch64::reg::CoreRegister;
-use crate::vcpu::arch::aarch64::reg::SysRegister;
+use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 mod encode;

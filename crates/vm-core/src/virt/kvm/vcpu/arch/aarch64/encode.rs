@@ -1,6 +1,6 @@
-use kvm_bindings::*;
+use crate::arch::aarch64::vcpu::reg::CoreRegister;
 
-use crate::vcpu::arch::aarch64::reg::CoreRegister;
+use kvm_bindings::*;
 
 pub struct RegisterEncoder;
 

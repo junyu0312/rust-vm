@@ -3,12 +3,12 @@ use std::slice::Iter;
 
 use vm_core::arch::Arch;
 use vm_core::arch::aarch64::layout::AArch64Layout;
+use vm_core::arch::aarch64::vcpu::AArch64Vcpu;
 use vm_core::arch::layout::MemoryLayout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::irq::InterruptController;
 use vm_core::mm::allocator::MemoryContainer;
 use vm_core::mm::manager::MemoryAddressSpace;
-use vm_core::vcpu::arch::aarch64::AArch64Vcpu;
 use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
 

@@ -14,7 +14,7 @@ use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::irq::InterruptController;
 use crate::mm::allocator::mmap_allocator::MmapAllocator;
 use crate::mm::manager::MemoryAddressSpace;
-use crate::vcpu::Vcpu;
+use crate::virt::Vcpu;
 use crate::virt::Virt;
 use crate::virt::error::VirtError;
 use crate::virt::kvm::irq_chip::KvmIRQ;

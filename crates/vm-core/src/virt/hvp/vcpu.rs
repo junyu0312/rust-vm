@@ -7,14 +7,14 @@ use tracing::trace;
 use tracing::warn;
 
 use crate::arch::aarch64::AArch64;
+use crate::arch::aarch64::vcpu::AArch64Vcpu;
+use crate::arch::aarch64::vcpu::reg::CoreRegister;
+use crate::arch::aarch64::vcpu::reg::SysRegister;
+use crate::arch::aarch64::vcpu::reg::esr_el2;
+use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
+use crate::arch::vcpu::Vcpu;
 use crate::arch::vm_exit::aarch64::VmExitReason;
 use crate::device::mmio::MmioLayout;
-use crate::vcpu::Vcpu;
-use crate::vcpu::arch::aarch64::AArch64Vcpu;
-use crate::vcpu::arch::aarch64::reg::CoreRegister;
-use crate::vcpu::arch::aarch64::reg::SysRegister;
-use crate::vcpu::arch::aarch64::reg::esr_el2;
-use crate::vcpu::arch::aarch64::reg::esr_el2::EsrEl2;
 
 enum HvpReg {
     CoreReg(hv_reg_t),
