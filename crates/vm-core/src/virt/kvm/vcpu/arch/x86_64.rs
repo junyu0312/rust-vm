@@ -4,18 +4,19 @@ use kvm_ioctls::Kvm;
 use crate::arch::x86_64::X86_64;
 use crate::arch::x86_64::vcpu::X86Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
+use crate::error::Result;
 use crate::virt::MmioLayout;
 use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 impl KvmVcpu {
-    pub fn set_cpuid2(&self, cpuid: &CpuId) -> anyhow::Result<()> {
+    pub fn set_cpuid2(&self, cpuid: &CpuId) -> Result<()> {
         self.vcpu_fd.set_cpuid2(cpuid)?;
 
         Ok(())
     }
 
-    pub fn init_arch_vcpu(&self, kvm: &Kvm) -> anyhow::Result<()> {
+    pub fn init_arch_vcpu(&self, kvm: &Kvm) -> Result<()> {
         let mut cpuid = kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
 
         let entries = cpuid.as_mut_slice();
@@ -36,7 +37,7 @@ impl KvmVcpu {
         Ok(())
     }
 
-    pub fn set_guest_debug(&self, ctl: &kvm_guest_debug) -> anyhow::Result<()> {
+    pub fn set_guest_debug(&self, ctl: &kvm_guest_debug) -> Result<()> {
         self.vcpu_fd.set_guest_debug(ctl)?;
 
         Ok(())
@@ -44,25 +45,25 @@ impl KvmVcpu {
 }
 
 impl X86Vcpu for KvmVcpu {
-    fn get_regs(&self) -> anyhow::Result<kvm_regs> {
+    fn get_regs(&self) -> Result<kvm_regs> {
         let regs = self.vcpu_fd.get_regs()?;
 
         Ok(regs)
     }
 
-    fn set_regs(&mut self, regs: &kvm_regs) -> anyhow::Result<()> {
+    fn set_regs(&mut self, regs: &kvm_regs) -> Result<()> {
         self.vcpu_fd.set_regs(regs)?;
 
         Ok(())
     }
 
-    fn get_sregs(&self) -> anyhow::Result<kvm_bindings::kvm_sregs> {
+    fn get_sregs(&self) -> Result<kvm_bindings::kvm_sregs> {
         let sregs = self.vcpu_fd.get_sregs()?;
 
         Ok(sregs)
     }
 
-    fn set_sregs(&self, sregs: &kvm_bindings::kvm_sregs) -> anyhow::Result<()> {
+    fn set_sregs(&self, sregs: &kvm_bindings::kvm_sregs) -> Result<()> {
         self.vcpu_fd.set_sregs(sregs)?;
 
         Ok(())
@@ -70,7 +71,7 @@ impl X86Vcpu for KvmVcpu {
 }
 
 impl Vcpu<X86_64> for KvmVcpu {
-    fn run(&mut self, _mmio_layout: &MmioLayout) -> anyhow::Result<VmExitReason> {
+    fn run(&mut self, _mmio_layout: &MmioLayout) -> Result<VmExitReason> {
         todo!()
         /*
             loop {

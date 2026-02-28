@@ -15,6 +15,7 @@ use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::arch::vcpu::Vcpu;
 use crate::device::mmio::MmioLayout;
+use crate::error::Result;
 
 enum HvpReg {
     CoreReg(hv_reg_t),
@@ -87,25 +88,25 @@ impl HvpVcpu {
 }
 
 impl AArch64Vcpu for HvpVcpu {
-    fn get_core_reg(&self, reg: CoreRegister) -> anyhow::Result<u64> {
+    fn get_core_reg(&self, reg: CoreRegister) -> Result<u64> {
         match reg.to_hvp_reg() {
             HvpReg::CoreReg(reg) => Ok(self.vcpu.get_reg(reg)?),
             HvpReg::SysReg(reg) => Ok(self.vcpu.get_sys_reg(reg)?),
         }
     }
 
-    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()> {
+    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> Result<()> {
         match reg.to_hvp_reg() {
             HvpReg::CoreReg(reg) => Ok(self.vcpu.set_reg(reg, value)?),
             HvpReg::SysReg(reg) => Ok(self.vcpu.set_sys_reg(reg, value)?),
         }
     }
 
-    fn get_sys_reg(&self, reg: SysRegister) -> anyhow::Result<u64> {
+    fn get_sys_reg(&self, reg: SysRegister) -> Result<u64> {
         Ok(self.vcpu.get_sys_reg(reg.to_hvp_reg())?)
     }
 
-    fn set_sys_reg(&self, reg: SysRegister, value: u64) -> anyhow::Result<()> {
+    fn set_sys_reg(&self, reg: SysRegister, value: u64) -> Result<()> {
         self.vcpu.set_sys_reg(reg.to_hvp_reg(), value)?;
 
         Ok(())
@@ -113,7 +114,7 @@ impl AArch64Vcpu for HvpVcpu {
 }
 
 impl Vcpu<AArch64> for HvpVcpu {
-    fn run(&mut self, mmio_layout: &MmioLayout) -> anyhow::Result<VmExitReason> {
+    fn run(&mut self, mmio_layout: &MmioLayout) -> Result<VmExitReason> {
         self.vcpu.run()?;
 
         let exit_info = self.vcpu.get_exit_info();
