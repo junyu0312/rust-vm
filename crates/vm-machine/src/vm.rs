@@ -15,11 +15,8 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::region::MemoryRegion;
 
 use crate::device::InitDevice;
-use crate::vm::error::Error;
-
-pub mod error;
-
-pub type Result<T> = core::result::Result<T, Error>;
+use crate::error::Error;
+use crate::error::Result;
 
 pub struct VmBuilder<V> {
     memory_size: usize,
