@@ -6,19 +6,20 @@ use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::device::mmio::MmioLayout;
+use crate::error::Result;
 use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 mod encode;
 
 impl KvmVcpu {
-    pub fn init_arch_vcpu(&self, _kvm: &Kvm) -> anyhow::Result<()> {
+    pub fn init_arch_vcpu(&self, _kvm: &Kvm) -> Result<()> {
         todo!()
     }
 }
 
 impl AArch64Vcpu for KvmVcpu {
-    fn get_core_reg(&self, reg: CoreRegister) -> anyhow::Result<u64> {
+    fn get_core_reg(&self, reg: CoreRegister) -> Result<u64> {
         let mut bytes = [0; 8];
         let len = self.vcpu_fd.get_one_reg(reg.to_kvm_reg(), &mut bytes)?;
         assert_eq!(len, 8);
@@ -27,7 +28,7 @@ impl AArch64Vcpu for KvmVcpu {
         Ok(value)
     }
 
-    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> anyhow::Result<()> {
+    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> Result<()> {
         let len = self
             .vcpu_fd
             .set_one_reg(reg.to_kvm_reg(), &value.to_le_bytes())?;
@@ -36,17 +37,17 @@ impl AArch64Vcpu for KvmVcpu {
         Ok(())
     }
 
-    fn get_sys_reg(&self, _reg: SysRegister) -> anyhow::Result<u64> {
+    fn get_sys_reg(&self, _reg: SysRegister) -> Result<u64> {
         todo!()
     }
 
-    fn set_sys_reg(&self, _reg: SysRegister, _value: u64) -> anyhow::Result<()> {
+    fn set_sys_reg(&self, _reg: SysRegister, _value: u64) -> Result<()> {
         todo!()
     }
 }
 
 impl Vcpu<AArch64> for KvmVcpu {
-    fn run(&mut self, _mmio_layout: &MmioLayout) -> anyhow::Result<VmExitReason> {
+    fn run(&mut self, _mmio_layout: &MmioLayout) -> Result<VmExitReason> {
         todo!()
     }
 }
