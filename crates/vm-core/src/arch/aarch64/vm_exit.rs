@@ -7,7 +7,7 @@ use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::arch::vm_exit::aarch64::smc::handle_smc;
+use crate::arch::aarch64::vm_exit::smc::handle_smc;
 use crate::device::vm_exit::DeviceVmExitHandler;
 
 pub mod smc;
