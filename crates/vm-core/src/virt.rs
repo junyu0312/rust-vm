@@ -7,7 +7,6 @@ use vm_mm::manager::MemoryAddressSpace;
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
 use crate::arch::vcpu::Vcpu;
-use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
 
@@ -27,9 +26,9 @@ pub trait Virt: Sized {
     fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>>;
     fn init_memory(
         &mut self,
-        mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<Self::Memory>,
-        memory_size: u64,
+        ram_base: u64,
+        memory_size: usize,
     ) -> Result<()>;
     fn post_init(&mut self) -> Result<()>;
 

@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use kvm_bindings::*;
 use kvm_ioctls::*;
 use memmap2::MmapMut;
 use vm_mm::allocator::mmap_allocator::MmapAllocator;
@@ -11,7 +10,6 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
-use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
@@ -69,28 +67,13 @@ where
 
     fn init_memory(
         &mut self,
-        _mmio_layout: &MmioLayout,
-        memory: &mut MemoryAddressSpace<MmapMut>,
-        _memory_size: u64,
+        _memory: &mut MemoryAddressSpace<MmapMut>,
+        _ram_base: u64,
+        _memory_size: usize,
     ) -> Result<()> {
-        let allocator = MmapAllocator;
+        let _allocator = MmapAllocator;
 
-        for (slot, region) in memory.into_iter().enumerate() {
-            region.alloc(&allocator)?;
-
-            unsafe {
-                self.vm_fd
-                    .set_user_memory_region(kvm_userspace_memory_region {
-                        slot: slot as u32,
-                        flags: 0,
-                        guest_phys_addr: region.gpa,
-                        memory_size: region.len as u64,
-                        userspace_addr: region.to_hva().unwrap() as u64,
-                    })?;
-            }
-        }
-
-        Ok(())
+        todo!()
     }
 
     fn post_init(&mut self) -> Result<()> {
