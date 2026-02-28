@@ -24,7 +24,7 @@ pub trait Virt: Sized {
 
     fn new(num_vcpus: usize) -> Result<Self>;
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>>;
+    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>>;
     fn init_memory(
         &mut self,
         mmio_layout: &MmioLayout,

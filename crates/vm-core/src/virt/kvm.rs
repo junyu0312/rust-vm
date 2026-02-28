@@ -63,7 +63,7 @@ where
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
+    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>> {
         Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
     }
 

@@ -266,7 +266,7 @@ impl Virt for Hvp {
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
+    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>> {
         Ok(self.gic_chip.clone())
     }
 
