@@ -25,7 +25,7 @@ mod irq_chip;
 mod vcpu;
 
 pub trait KvmArch {
-    fn arch_post_init(&mut self) -> anyhow::Result<()>;
+    fn arch_post_init(&mut self) -> Result<()>;
 }
 
 #[allow(unused)]
@@ -72,7 +72,7 @@ where
         _mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<MmapMut>,
         _memory_size: u64,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let allocator = MmapAllocator;
 
         for (slot, region) in memory.into_iter().enumerate() {
@@ -93,7 +93,7 @@ where
         Ok(())
     }
 
-    fn post_init(&mut self) -> anyhow::Result<()> {
+    fn post_init(&mut self) -> Result<()> {
         self.arch_post_init()?;
 
         Ok(())

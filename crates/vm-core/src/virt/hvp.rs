@@ -275,7 +275,7 @@ impl Virt for Hvp {
         _mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<MemoryWrapper>,
         memory_size: u64,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let allocator = HvpAllocator { vm: &self.vm };
 
         for region in memory {
@@ -290,7 +290,7 @@ impl Virt for Hvp {
         Ok(())
     }
 
-    fn post_init(&mut self) -> anyhow::Result<()> {
+    fn post_init(&mut self) -> Result<()> {
         Ok(())
     }
 
