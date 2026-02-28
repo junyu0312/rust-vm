@@ -4,8 +4,8 @@ use std::slice::Iter;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::layout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::virt::Virt;
+use vm_mm::manager::MemoryAddressSpace;
 
 pub mod arch;
 

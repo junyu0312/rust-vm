@@ -5,12 +5,12 @@ use anyhow::anyhow;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
 use vm_device::device::Device;
 use vm_device::device::gic_v3::GicV3;
 use vm_device::device::virtio::virtio_blk::VirtIoBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtIoMmioBlkDevice;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::device::pci::VirtIoPciDevice;
 

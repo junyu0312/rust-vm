@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::Path;
 
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

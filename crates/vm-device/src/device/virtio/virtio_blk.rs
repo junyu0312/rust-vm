@@ -3,8 +3,8 @@ use std::sync::Mutex;
 
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_virtio::device::VirtIoDevice;
 use vm_virtio::device::blk::config::VirtioBlkConfig;

@@ -1,0 +1,9 @@
+[package]
+name = "vm-mm"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+memmap2.workspace = true
+thiserror.workspace = true

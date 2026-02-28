@@ -7,14 +7,14 @@ use anyhow::anyhow;
 use kvm_bindings::*;
 use kvm_ioctls::*;
 use memmap2::MmapMut;
+use vm_mm::allocator::mmap_allocator::MmapAllocator;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
-use crate::mm::allocator::mmap_allocator::MmapAllocator;
-use crate::mm::manager::MemoryAddressSpace;
 use crate::virt::Vcpu;
 use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;

@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map;
 
-use crate::mm::Error;
-use crate::mm::allocator::MemoryContainer;
-use crate::mm::region::MemoryRegion;
+use crate::allocator::MemoryContainer;
+use crate::error::Error;
+use crate::region::MemoryRegion;
 
 pub struct MemoryAddressSpace<C> {
     regions: BTreeMap<u64, MemoryRegion<C>>,
@@ -115,9 +115,9 @@ where
 mod tests {
     use memmap2::MmapMut;
 
-    use crate::mm::allocator::mmap_allocator::MmapAllocator;
-    use crate::mm::manager::MemoryAddressSpace;
-    use crate::mm::region::MemoryRegion;
+    use crate::allocator::mmap_allocator::MmapAllocator;
+    use crate::manager::MemoryAddressSpace;
+    use crate::region::MemoryRegion;
 
     #[test]
     fn test_memory_layout() -> anyhow::Result<()> {

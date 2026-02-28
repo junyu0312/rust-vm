@@ -12,6 +12,7 @@ use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineConfig;
 use applevisor::vm::VirtualMachineInstance;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
@@ -30,7 +31,6 @@ use crate::arch::vcpu::Vcpu;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
-use crate::mm::manager::MemoryAddressSpace;
 use crate::virt::Virt;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;

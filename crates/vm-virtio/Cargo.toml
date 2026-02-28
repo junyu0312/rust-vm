@@ -12,5 +12,6 @@ tokio.workspace = true
 tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
+vm-mm.workspace = true
 vm-pci.workspace = true
 zerocopy.workspace = true

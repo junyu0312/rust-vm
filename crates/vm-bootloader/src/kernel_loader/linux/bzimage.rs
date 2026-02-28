@@ -2,8 +2,8 @@ use std::fs;
 use std::path::Path;
 
 use header::*;
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::kernel_loader::Error;
 use crate::kernel_loader::KernelLoader;
