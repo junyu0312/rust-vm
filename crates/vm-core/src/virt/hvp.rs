@@ -5,13 +5,13 @@ use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
 
-use anyhow::anyhow;
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
 use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineConfig;
 use applevisor::vm::VirtualMachineInstance;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
@@ -30,7 +30,7 @@ use crate::arch::vcpu::Vcpu;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
-use crate::mm::manager::MemoryAddressSpace;
+use crate::error::Result;
 use crate::virt::Virt;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
@@ -136,7 +136,7 @@ impl Virt for Hvp {
     type Vcpu = HvpVcpu;
     type Memory = MemoryWrapper;
 
-    fn new(num_vcpus: usize) -> Result<Self, Error> {
+    fn new(num_vcpus: usize) -> Result<Self> {
         let layout = AArch64Layout::default();
 
         let mut vm_config = VirtualMachineConfig::default();
@@ -266,7 +266,7 @@ impl Virt for Hvp {
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
+    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>> {
         Ok(self.gic_chip.clone())
     }
 
@@ -275,7 +275,7 @@ impl Virt for Hvp {
         _mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<MemoryWrapper>,
         memory_size: u64,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let allocator = HvpAllocator { vm: &self.vm };
 
         for region in memory {
@@ -290,7 +290,7 @@ impl Virt for Hvp {
         Ok(())
     }
 
-    fn post_init(&mut self) -> anyhow::Result<()> {
+    fn post_init(&mut self) -> Result<()> {
         Ok(())
     }
 
@@ -306,35 +306,27 @@ impl Virt for Hvp {
         self.num_vcpus
     }
 
-    fn get_vcpu_mut(&mut self, vcpu_id: u64) -> anyhow::Result<Option<&mut HvpVcpu>> {
-        let vcpu = self
+    fn get_vcpu_mut(&mut self, vcpu_id: u64) -> Result<Option<&mut HvpVcpu>> {
+        Ok(self
             .vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpu is not initialized"))?
-            .get_mut(vcpu_id as usize);
-
-        Ok(vcpu)
+            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))?
+            .get_mut(vcpu_id as usize))
     }
 
-    fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>> {
-        let vcpus = self
-            .vcpus
+    fn get_vcpus(&self) -> Result<&Vec<Self::Vcpu>> {
+        self.vcpus
             .get()
-            .ok_or_else(|| anyhow!("vcpu is not initialized"))?;
-
-        Ok(vcpus)
+            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
     }
 
-    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<Self::Vcpu>> {
-        let vcpus = self
-            .vcpus
+    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<Self::Vcpu>> {
+        self.vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpu is not initialized"))?;
-
-        Ok(vcpus)
+            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
     }
 
-    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
+    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {
         let mmio_layout = device_manager.lock().unwrap().mmio_layout();
 
         thread::scope(|s| {

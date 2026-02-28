@@ -642,6 +642,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-mm",
  "zerocopy",
 ]
 
@@ -679,6 +680,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "vm-fdt",
+ "vm-mm",
 ]
 
 [[package]]
@@ -695,6 +697,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-mm",
  "vm-pci",
  "vm-virtio",
  "zerocopy",
@@ -720,8 +723,18 @@ dependencies = [
  "vm-bootloader",
  "vm-core",
  "vm-device",
+ "vm-mm",
  "vm-pci",
  "vm-virtio",
+]
+
+[[package]]
+name = "vm-mm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "memmap2",
+ "thiserror",
 ]
 
 [[package]]
@@ -748,6 +761,7 @@ dependencies = [
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-mm",
  "vm-pci",
  "zerocopy",
 ]

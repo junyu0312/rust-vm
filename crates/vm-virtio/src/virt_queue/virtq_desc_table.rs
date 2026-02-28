@@ -1,7 +1,7 @@
 use std::ptr::NonNull;
 
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::result::Result;
 use crate::result::VirtIoError;

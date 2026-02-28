@@ -1,4 +1,4 @@
-use vm_core::mm::manager::MemoryAddressSpace;
+use vm_mm::manager::MemoryAddressSpace;
 
 pub mod linux;
 

@@ -1,13 +1,7 @@
-use vm_bootloader::boot_loader::Error as BootLoaderError;
-use vm_core::error::Error as VmError;
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Platform error: {0}")]
-    Platform(VmError),
-
-    #[error("Failed to init cpu, error: {0}")]
-    InitCpu(String),
+    Platform(vm_core::error::Error),
 
     #[error("Failed to init memory, error: {0}")]
     InitMemory(String),
@@ -15,24 +9,18 @@ pub enum Error {
     #[error("Failed to init irqchip, error: {0}")]
     InitIrqchip(String),
 
-    #[error("Failed to post init, error: {0}")]
-    PostInit(String),
-
     #[error("Failed to init device, error: {0}")]
     InitDevice(String),
 
     #[error("Failed to setup with bootloader, error: {0}")]
-    Bootloader(BootLoaderError),
-
-    #[error("Failed to run vm, error: {0}")]
-    Run(String),
+    Bootloader(vm_bootloader::boot_loader::Error),
 
     #[error("gdb_stub failed, error: {0}")]
     GdbStub(String),
 }
 
-impl From<VmError> for Error {
-    fn from(err: VmError) -> Self {
+impl From<vm_core::error::Error> for Error {
+    fn from(err: vm_core::error::Error) -> Self {
         Error::Platform(err)
     }
 }
@@ -42,3 +30,5 @@ impl From<vm_bootloader::boot_loader::Error> for Error {
         Error::Bootloader(err)
     }
 }
+
+pub type Result<T> = core::result::Result<T, Error>;

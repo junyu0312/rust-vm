@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
+mod device;
 mod firmware;
 
-pub mod device;
+pub mod error;
 pub mod vm;

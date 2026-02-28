@@ -10,6 +10,12 @@ pub enum Error {
     #[cfg(feature = "hvp")]
     #[error("{0}")]
     ApplevisorError(applevisor::error::HypervisorError),
+    #[error("{0}")]
+    MemoryError(vm_mm::error::Error),
+    #[error("{0}")]
+    LayoutError(crate::arch::layout::Error),
+    #[error("{0}")]
+    Internal(String),
     #[error("Unknown error: {0}")]
     Unknown(String),
 }
@@ -25,6 +31,12 @@ impl From<kvm_ioctls::Error> for Error {
 impl From<applevisor::error::HypervisorError> for Error {
     fn from(err: applevisor::error::HypervisorError) -> Self {
         Error::ApplevisorError(err)
+    }
+}
+
+impl From<vm_mm::error::Error> for Error {
+    fn from(err: vm_mm::error::Error) -> Self {
+        Error::MemoryError(err)
     }
 }
 

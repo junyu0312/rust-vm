@@ -1,12 +1,12 @@
 use memmap2::MmapMut;
 
-use crate::mm::Error;
-use crate::mm::allocator::Allocator;
+use crate::allocator::Allocator;
+use crate::error::Error;
 
 mod container {
     use memmap2::MmapMut;
 
-    use crate::mm::allocator::MemoryContainer;
+    use crate::allocator::MemoryContainer;
 
     impl MemoryContainer for MmapMut {
         fn to_hva(&mut self) -> *mut u8 {

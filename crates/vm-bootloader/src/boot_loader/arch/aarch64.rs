@@ -7,10 +7,10 @@ use vm_core::arch::aarch64::vcpu::AArch64Vcpu;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::layout::MemoryLayout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
 use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;

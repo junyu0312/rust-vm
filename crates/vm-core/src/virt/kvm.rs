@@ -3,18 +3,18 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use anyhow::anyhow;
 use kvm_bindings::*;
 use kvm_ioctls::*;
 use memmap2::MmapMut;
+use vm_mm::allocator::mmap_allocator::MmapAllocator;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
-use crate::mm::allocator::mmap_allocator::MmapAllocator;
-use crate::mm::manager::MemoryAddressSpace;
+use crate::error::Result;
 use crate::virt::Vcpu;
 use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;
@@ -25,7 +25,7 @@ mod irq_chip;
 mod vcpu;
 
 pub trait KvmArch {
-    fn arch_post_init(&mut self) -> anyhow::Result<()>;
+    fn arch_post_init(&mut self) -> Result<()>;
 }
 
 #[allow(unused)]
@@ -46,7 +46,7 @@ where
     type Vcpu = KvmVcpu;
     type Memory = MmapMut;
 
-    fn new(_cpu_number: usize) -> Result<Self, Error> {
+    fn new(_cpu_number: usize) -> Result<Self> {
         let kvm = Kvm::new()
             .map_err(|_| Error::FailedInitialize("kvm: Failed to open /dev/kvm".to_string()))?;
 
@@ -63,7 +63,7 @@ where
         })
     }
 
-    fn init_irq(&mut self) -> anyhow::Result<Arc<dyn InterruptController>> {
+    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>> {
         Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
     }
 
@@ -72,7 +72,7 @@ where
         _mmio_layout: &MmioLayout,
         memory: &mut MemoryAddressSpace<MmapMut>,
         _memory_size: u64,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let allocator = MmapAllocator;
 
         for (slot, region) in memory.into_iter().enumerate() {
@@ -93,7 +93,7 @@ where
         Ok(())
     }
 
-    fn post_init(&mut self) -> anyhow::Result<()> {
+    fn post_init(&mut self) -> Result<()> {
         self.arch_post_init()?;
 
         Ok(())
@@ -111,30 +111,32 @@ where
         todo!()
     }
 
-    fn get_vcpu_mut(&mut self, vcpu: u64) -> anyhow::Result<Option<&mut KvmVcpu>> {
+    fn get_vcpu_mut(&mut self, vcpu: u64) -> Result<Option<&mut KvmVcpu>> {
         let vcpus = self
             .vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpus is not init"))?;
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))?;
 
         Ok(vcpus.get_mut(vcpu as usize))
     }
 
-    fn get_vcpus(&self) -> anyhow::Result<&Vec<KvmVcpu>> {
-        self.vcpus.get().ok_or_else(|| anyhow!("vcpus is not init"))
+    fn get_vcpus(&self) -> Result<&Vec<KvmVcpu>> {
+        self.vcpus
+            .get()
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
-    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<KvmVcpu>> {
+    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<KvmVcpu>> {
         self.vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpus is not init"))
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
-    fn run(&mut self, device: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
+    fn run(&mut self, device: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpus is not init"))?;
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))?;
 
         assert_eq!(vcpus.len(), 1);
 

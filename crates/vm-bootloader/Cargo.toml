@@ -8,6 +8,7 @@ anyhow.workspace = true
 thiserror.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
+vm-mm.workspace = true
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 tracing.workspace = true

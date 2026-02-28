@@ -2,24 +2,20 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use anyhow::anyhow;
 use vm_bootloader::boot_loader::BootLoader;
 use vm_core::arch::layout::MemoryLayout;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioLayout;
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
-use vm_core::mm::region::MemoryRegion;
 use vm_core::virt::Virt;
 use vm_device::device::Device;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::region::MemoryRegion;
 
 use crate::device::InitDevice;
-use crate::vm::error::Error;
-
-pub mod error;
-
-pub type Result<T> = core::result::Result<T, Error>;
+use crate::error::Error;
+use crate::error::Result;
 
 pub struct VmBuilder<V> {
     memory_size: usize,
@@ -66,8 +62,7 @@ where
         let mut memory_regions = MemoryAddressSpace::default();
         memory_regions
             .try_insert(memory_region)
-            .map_err(|_| anyhow!("Failed to insert memory_region"))
-            .map_err(|err| Error::InitMemory(err.to_string()))?;
+            .map_err(|_| Error::InitMemory("Failed to insert memory_region".to_string()))?;
 
         Ok(memory_regions)
     }
@@ -79,21 +74,16 @@ where
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
 
         let irq_chip = if !self.devices.iter().any(Device::is_irq_chip) {
-            Some(
-                virt.init_irq()
-                    .map_err(|err| Error::InitIrqchip(err.to_string()))?,
-            )
+            Some(virt.init_irq()?)
         } else {
             None
         };
 
         let mut memory = self.init_mm(layout.get_ram_base())?;
-        virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)
-            .map_err(|err| Error::InitMemory(err.to_string()))?;
+        virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)?;
         let memory = Arc::new(Mutex::new(memory));
 
-        virt.post_init()
-            .map_err(|err| Error::PostInit(err.to_string()))?;
+        virt.post_init()?;
 
         let mut device_manager = DeviceManager::new(mmio_layout);
         device_manager
@@ -138,9 +128,7 @@ where
                 .map_err(|err| Error::GdbStub(err.to_string()))?;
         }
 
-        self.virt
-            .run(self.device_manager.clone())
-            .map_err(|err| Error::Run(err.to_string()))?;
+        self.virt.run(self.device_manager.clone())?;
 
         Ok(())
     }

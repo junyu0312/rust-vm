@@ -1,4 +1,4 @@
-use crate::mm::Error;
+use crate::error::Error;
 
 pub mod mmap_allocator;
 

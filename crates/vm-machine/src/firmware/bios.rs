@@ -1,5 +1,5 @@
-use vm_core::mm::allocator::MemoryContainer;
-use vm_core::mm::manager::MemoryAddressSpace;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::firmware::bios::e820::*;
 use crate::firmware::bios::ivt::InterruptVectorTable;

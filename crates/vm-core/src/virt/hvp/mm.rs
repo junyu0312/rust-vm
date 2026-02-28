@@ -1,9 +1,8 @@
 use applevisor::memory::Memory;
 use applevisor::vm::VirtualMachineInstance;
-
-use crate::mm::Error;
-use crate::mm::allocator::Allocator;
-use crate::mm::allocator::MemoryContainer;
+use vm_mm::allocator::Allocator;
+use vm_mm::allocator::MemoryContainer;
+use vm_mm::error::Error;
 
 pub struct MemoryWrapper(pub Memory);
 

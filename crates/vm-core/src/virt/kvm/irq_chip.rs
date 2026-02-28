@@ -5,6 +5,7 @@ use tracing::error;
 
 use crate::arch::irq::InterruptController;
 use crate::arch::irq::Phandle;
+use crate::error::Result;
 
 mod arch;
 
@@ -13,7 +14,7 @@ pub struct KvmIRQ {
 }
 
 impl KvmIRQ {
-    pub fn new(vm_fd: Arc<VmFd>) -> anyhow::Result<Self> {
+    pub fn new(vm_fd: Arc<VmFd>) -> Result<Self> {
         vm_fd.create_irq_chip()?;
 
         Ok(KvmIRQ { vm_fd })

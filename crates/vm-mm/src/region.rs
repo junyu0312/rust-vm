@@ -1,8 +1,8 @@
 use std::cell::OnceCell;
 
-use crate::mm::Error;
-use crate::mm::allocator::Allocator;
-use crate::mm::allocator::MemoryContainer;
+use crate::allocator::Allocator;
+use crate::allocator::MemoryContainer;
+use crate::error::Error;
 
 pub struct MemoryRegion<C> {
     pub gpa: u64,
