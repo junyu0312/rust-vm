@@ -5,3 +5,4 @@ mod firmware;
 
 pub mod error;
 pub mod vm;
+pub mod vm_builder;

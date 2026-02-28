@@ -5,7 +5,7 @@ use tracing::debug;
 use tracing_subscriber::EnvFilter;
 use vm_bootloader::boot_loader::BootLoaderBuilder;
 use vm_core::virt::Virt;
-use vm_machine::vm::VmBuilder;
+use vm_machine::vm_builder::VmBuilder;
 
 use crate::cmd::Accel;
 use crate::cmd::Command;
@@ -20,13 +20,13 @@ where
     V: Virt,
     Loader: BootLoaderBuilder<V>,
 {
-    let vm_builder = VmBuilder::<V>::new(
+    let vm_builder = VmBuilder::new(
         parse_memory(&args.memory)?,
         args.cpus,
         args.device.into_iter().map(Into::into).collect(),
         args.gdb,
     );
-    let mut vm = vm_builder.build()?;
+    let mut vm = vm_builder.build::<V>()?;
 
     let bootloader = Loader::new(args.kernel, args.initramfs, args.cmdline);
 
