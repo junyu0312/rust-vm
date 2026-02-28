@@ -9,9 +9,6 @@ pub enum Error {
     #[error("Failed to init irqchip, error: {0}")]
     InitIrqchip(String),
 
-    #[error("Failed to post init, error: {0}")]
-    PostInit(String),
-
     #[error("Failed to init device, error: {0}")]
     InitDevice(String),
 
