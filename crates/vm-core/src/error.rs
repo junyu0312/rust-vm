@@ -10,6 +10,8 @@ pub enum Error {
     #[cfg(feature = "hvp")]
     #[error("{0}")]
     ApplevisorError(applevisor::error::HypervisorError),
+    #[error("{0}")]
+    Internal(String),
     #[error("Unknown error: {0}")]
     Unknown(String),
 }

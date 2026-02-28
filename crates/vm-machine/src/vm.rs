@@ -135,9 +135,7 @@ where
                 .map_err(|err| Error::GdbStub(err.to_string()))?;
         }
 
-        self.virt
-            .run(self.device_manager.clone())
-            .map_err(|err| Error::Run(err.to_string()))?;
+        self.virt.run(self.device_manager.clone())?;
 
         Ok(())
     }

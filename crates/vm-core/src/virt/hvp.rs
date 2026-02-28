@@ -31,6 +31,7 @@ use crate::arch::vcpu::Vcpu;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
+use crate::error::Result;
 use crate::virt::Virt;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
@@ -136,7 +137,7 @@ impl Virt for Hvp {
     type Vcpu = HvpVcpu;
     type Memory = MemoryWrapper;
 
-    fn new(num_vcpus: usize) -> Result<Self, Error> {
+    fn new(num_vcpus: usize) -> Result<Self> {
         let layout = AArch64Layout::default();
 
         let mut vm_config = VirtualMachineConfig::default();
@@ -334,7 +335,7 @@ impl Virt for Hvp {
         Ok(vcpus)
     }
 
-    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
+    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {
         let mmio_layout = device_manager.lock().unwrap().mmio_layout();
 
         thread::scope(|s| {

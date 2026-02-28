@@ -15,6 +15,7 @@ use crate::arch::irq::InterruptController;
 use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
+use crate::error::Result;
 use crate::virt::Vcpu;
 use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;
@@ -46,7 +47,7 @@ where
     type Vcpu = KvmVcpu;
     type Memory = MmapMut;
 
-    fn new(_cpu_number: usize) -> Result<Self, Error> {
+    fn new(_cpu_number: usize) -> Result<Self> {
         let kvm = Kvm::new()
             .map_err(|_| Error::FailedInitialize("kvm: Failed to open /dev/kvm".to_string()))?;
 
@@ -130,11 +131,11 @@ where
             .ok_or_else(|| anyhow!("vcpus is not init"))
     }
 
-    fn run(&mut self, device: Arc<Mutex<dyn DeviceVmExitHandler>>) -> anyhow::Result<()> {
+    fn run(&mut self, device: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpus is not init"))?;
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))?;
 
         assert_eq!(vcpus.len(), 1);
 

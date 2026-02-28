@@ -18,9 +18,6 @@ pub enum Error {
     #[error("Failed to setup with bootloader, error: {0}")]
     Bootloader(vm_bootloader::boot_loader::Error),
 
-    #[error("Failed to run vm, error: {0}")]
-    Run(String),
-
     #[error("gdb_stub failed, error: {0}")]
     GdbStub(String),
 }
