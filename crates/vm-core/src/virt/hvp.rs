@@ -11,7 +11,9 @@ use applevisor::vm::GicEnabled;
 use applevisor::vm::VirtualMachine;
 use applevisor::vm::VirtualMachineConfig;
 use applevisor::vm::VirtualMachineInstance;
+use vm_mm::allocator::Allocator;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::region::MemoryRegion;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
@@ -27,7 +29,6 @@ use crate::arch::aarch64::vm_exit::handle_vm_exit;
 use crate::arch::irq::InterruptController;
 use crate::arch::layout::MemoryLayout;
 use crate::arch::vcpu::Vcpu;
-use crate::device::mmio::MmioLayout;
 use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
@@ -272,20 +273,19 @@ impl Virt for Hvp {
 
     fn init_memory(
         &mut self,
-        _mmio_layout: &MmioLayout,
-        memory: &mut MemoryAddressSpace<MemoryWrapper>,
-        memory_size: u64,
+        memory_address_space: &mut MemoryAddressSpace<MemoryWrapper>,
+        ram_base: u64,
+        memory_size: usize,
     ) -> Result<()> {
         let allocator = HvpAllocator { vm: &self.vm };
 
-        for region in memory {
-            region.alloc(&allocator)?;
+        let mut memory = allocator.alloc(memory_size, None)?;
+        memory.0.map(ram_base, MemPerms::ReadWriteExec)?;
+        memory_address_space
+            .try_insert(MemoryRegion::new(ram_base, memory_size, memory))
+            .map_err(|_| Error::FailedInitialize("Failed to initialize memory".to_string()))?;
 
-            let memory = region.memory.get_mut().unwrap();
-            memory.0.map(region.gpa, MemPerms::ReadWriteExec)?;
-        }
-
-        self.get_layout_mut().set_ram_size(memory_size)?;
+        self.get_layout_mut().set_ram_size(memory_size as u64)?;
 
         Ok(())
     }

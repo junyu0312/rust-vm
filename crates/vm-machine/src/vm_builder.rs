@@ -7,9 +7,7 @@ use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioLayout;
 use vm_core::virt::Virt;
 use vm_device::device::Device;
-use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::region::MemoryRegion;
 
 use crate::device::InitDevice;
 use crate::error::Error;
@@ -53,9 +51,9 @@ impl VmBuilder {
             None
         };
 
-        let mut memory = self.init_mm(layout.get_ram_base())?;
-        virt.init_memory(&mmio_layout, &mut memory, self.memory_size as u64)?;
-        let memory = Arc::new(Mutex::new(memory));
+        let mut memory_regions = MemoryAddressSpace::default();
+        virt.init_memory(&mut memory_regions, layout.get_ram_base(), self.memory_size)?;
+        let memory = Arc::new(Mutex::new(memory_regions));
 
         virt.post_init()?;
 
@@ -72,19 +70,5 @@ impl VmBuilder {
         };
 
         Ok(vm)
-    }
-
-    fn init_mm<C>(&self, ram_base: u64) -> Result<MemoryAddressSpace<C>>
-    where
-        C: MemoryContainer,
-    {
-        let memory_region = MemoryRegion::placeholder(ram_base, self.memory_size);
-
-        let mut memory_regions = MemoryAddressSpace::default();
-        memory_regions
-            .try_insert(memory_region)
-            .map_err(|_| Error::InitMemory("Failed to insert memory_region".to_string()))?;
-
-        Ok(memory_regions)
     }
 }
