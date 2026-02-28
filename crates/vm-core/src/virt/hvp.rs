@@ -5,7 +5,6 @@ use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
 
-use anyhow::anyhow;
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
 use applevisor::vm::GicEnabled;
@@ -307,32 +306,24 @@ impl Virt for Hvp {
         self.num_vcpus
     }
 
-    fn get_vcpu_mut(&mut self, vcpu_id: u64) -> anyhow::Result<Option<&mut HvpVcpu>> {
-        let vcpu = self
+    fn get_vcpu_mut(&mut self, vcpu_id: u64) -> Result<Option<&mut HvpVcpu>> {
+        Ok(self
             .vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpu is not initialized"))?
-            .get_mut(vcpu_id as usize);
-
-        Ok(vcpu)
+            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))?
+            .get_mut(vcpu_id as usize))
     }
 
-    fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>> {
-        let vcpus = self
-            .vcpus
+    fn get_vcpus(&self) -> Result<&Vec<Self::Vcpu>> {
+        self.vcpus
             .get()
-            .ok_or_else(|| anyhow!("vcpu is not initialized"))?;
-
-        Ok(vcpus)
+            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
     }
 
-    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<Self::Vcpu>> {
-        let vcpus = self
-            .vcpus
+    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<Self::Vcpu>> {
+        self.vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpu is not initialized"))?;
-
-        Ok(vcpus)
+            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
     }
 
     fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {

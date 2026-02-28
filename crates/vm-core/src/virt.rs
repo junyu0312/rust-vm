@@ -37,9 +37,9 @@ pub trait Virt: Sized {
     fn get_layout_mut(&mut self) -> &mut <Self::Arch as Arch>::Layout;
 
     fn get_vcpu_number(&self) -> usize;
-    fn get_vcpu_mut(&mut self, vcpu: u64) -> anyhow::Result<Option<&mut Self::Vcpu>>;
-    fn get_vcpus(&self) -> anyhow::Result<&Vec<Self::Vcpu>>;
-    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<Self::Vcpu>>;
+    fn get_vcpu_mut(&mut self, vcpu: u64) -> Result<Option<&mut Self::Vcpu>>;
+    fn get_vcpus(&self) -> Result<&Vec<Self::Vcpu>>;
+    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<Self::Vcpu>>;
 
     fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()>;
 }

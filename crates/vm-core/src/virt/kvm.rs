@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use anyhow::anyhow;
 use kvm_bindings::*;
 use kvm_ioctls::*;
 use memmap2::MmapMut;
@@ -112,23 +111,25 @@ where
         todo!()
     }
 
-    fn get_vcpu_mut(&mut self, vcpu: u64) -> anyhow::Result<Option<&mut KvmVcpu>> {
+    fn get_vcpu_mut(&mut self, vcpu: u64) -> Result<Option<&mut KvmVcpu>> {
         let vcpus = self
             .vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpus is not init"))?;
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))?;
 
         Ok(vcpus.get_mut(vcpu as usize))
     }
 
-    fn get_vcpus(&self) -> anyhow::Result<&Vec<KvmVcpu>> {
-        self.vcpus.get().ok_or_else(|| anyhow!("vcpus is not init"))
+    fn get_vcpus(&self) -> Result<&Vec<KvmVcpu>> {
+        self.vcpus
+            .get()
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
-    fn get_vcpus_mut(&mut self) -> anyhow::Result<&mut Vec<KvmVcpu>> {
+    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<KvmVcpu>> {
         self.vcpus
             .get_mut()
-            .ok_or_else(|| anyhow!("vcpus is not init"))
+            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
     fn run(&mut self, device: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {
