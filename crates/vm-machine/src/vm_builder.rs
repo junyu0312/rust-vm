@@ -10,7 +10,6 @@ use vm_device::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::device::InitDevice;
-use crate::error::Error;
 use crate::error::Result;
 use crate::vm::Vm;
 
@@ -58,9 +57,7 @@ impl VmBuilder {
         virt.post_init()?;
 
         let mut device_manager = DeviceManager::new(mmio_layout);
-        device_manager
-            .init_devices(memory.clone(), self.devices, irq_chip)
-            .map_err(|err| Error::InitDevice(err.to_string()))?;
+        device_manager.init_devices(memory.clone(), self.devices, irq_chip)?;
 
         let vm = Vm {
             memory,

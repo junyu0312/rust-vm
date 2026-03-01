@@ -4,4 +4,6 @@ pub enum Error {
     CapNoSpace,
     #[error("the capability is too large")]
     CapTooLarge,
+    #[error("failed to register pci device")]
+    FailedRegisterPciDevice,
 }
