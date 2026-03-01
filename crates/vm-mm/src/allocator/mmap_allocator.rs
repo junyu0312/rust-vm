@@ -9,8 +9,8 @@ mod container {
     use crate::allocator::MemoryContainer;
 
     impl MemoryContainer for MmapMut {
-        fn to_hva(&mut self) -> *mut u8 {
-            self.as_mut_ptr()
+        fn to_hva(&self) -> *mut u8 {
+            self.as_ptr() as *mut u8
         }
     }
 }

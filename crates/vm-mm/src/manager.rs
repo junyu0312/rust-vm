@@ -40,8 +40,8 @@ where
         Ok(())
     }
 
-    pub fn gpa_to_hva(&mut self, gpa: u64) -> Result<*mut u8, Error> {
-        let region = self.try_get_region_by_gpa_mut(gpa)?;
+    pub fn gpa_to_hva(&self, gpa: u64) -> Result<*mut u8, Error> {
+        let region = self.try_get_region_by_gpa(gpa)?;
         let hva = region.to_hva();
 
         let offset = gpa - region.gpa;
@@ -49,8 +49,8 @@ where
         unsafe { Ok(hva.add(offset as usize)) }
     }
 
-    pub fn memset(&mut self, gpa: u64, val: u8, len: usize) -> Result<(), Error> {
-        let region = self.try_get_region_by_gpa_mut(gpa)?;
+    pub fn memset(&self, gpa: u64, val: u8, len: usize) -> Result<(), Error> {
+        let region = self.try_get_region_by_gpa(gpa)?;
         let hva = region.to_hva();
         let offset = gpa - region.gpa;
 
@@ -63,8 +63,8 @@ where
         Ok(())
     }
 
-    pub fn copy_from_slice(&mut self, gpa: u64, buf: &[u8], len: usize) -> Result<(), Error> {
-        let region = self.try_get_region_by_gpa_mut(gpa)?;
+    pub fn copy_from_slice(&self, gpa: u64, buf: &[u8], len: usize) -> Result<(), Error> {
+        let region = self.try_get_region_by_gpa(gpa)?;
         let hva = region.to_hva();
         let offset = gpa - region.gpa;
 
@@ -90,15 +90,15 @@ where
         })
     }
 
-    fn get_mut_by_gpa(&mut self, gpa: u64) -> Option<&mut MemoryRegion<C>> {
+    fn get_by_gpa(&self, gpa: u64) -> Option<&MemoryRegion<C>> {
         self.regions
-            .values_mut()
+            .values()
             .find(|region| gpa >= region.gpa && gpa < region.gpa + region.len as u64)
             .map(|v| v as _)
     }
 
-    fn try_get_region_by_gpa_mut(&mut self, gpa: u64) -> Result<&mut MemoryRegion<C>, Error> {
-        self.get_mut_by_gpa(gpa).ok_or(Error::AccessInvalidGpa(gpa))
+    fn try_get_region_by_gpa(&self, gpa: u64) -> Result<&MemoryRegion<C>, Error> {
+        self.get_by_gpa(gpa).ok_or(Error::AccessInvalidGpa(gpa))
     }
 }
 
@@ -144,7 +144,7 @@ mod tests {
         let mut memory_as = MemoryAddressSpace::<MmapMut>::default();
         let allocator = MmapAllocator;
 
-        let mut region = MemoryRegion::new(GPA, LEN, allocator.alloc(LEN, None)?);
+        let region = MemoryRegion::new(GPA, LEN, allocator.alloc(LEN, None)?);
 
         let hva = region.to_hva();
 

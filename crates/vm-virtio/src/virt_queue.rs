@@ -121,7 +121,7 @@ impl VirtQueue {
         }
     }
 
-    pub fn desc_table_ref<C>(&self, mm: &mut MemoryAddressSpace<C>) -> Result<VirtqDescTableRef>
+    pub fn desc_table_ref<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<VirtqDescTableRef>
     where
         C: MemoryContainer,
     {
@@ -135,7 +135,7 @@ impl VirtQueue {
         Ok(VirtqDescTableRef::new(self.queue_size, hva))
     }
 
-    pub fn avail_ring<C>(&self, mm: &mut MemoryAddressSpace<C>) -> Result<VirtqAvail>
+    pub fn avail_ring<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<VirtqAvail>
     where
         C: MemoryContainer,
     {
@@ -149,7 +149,7 @@ impl VirtQueue {
         Ok(VirtqAvail::new(self.queue_size, hva as *const u16))
     }
 
-    pub fn used_ring<C>(&self, mm: &mut MemoryAddressSpace<C>) -> Result<VirtqUsed>
+    pub fn used_ring<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<VirtqUsed>
     where
         C: MemoryContainer,
     {

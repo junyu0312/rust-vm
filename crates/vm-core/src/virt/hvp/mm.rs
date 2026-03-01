@@ -10,7 +10,7 @@ unsafe impl Send for MemoryWrapper {}
 unsafe impl Sync for MemoryWrapper {}
 
 impl MemoryContainer for MemoryWrapper {
-    fn to_hva(&mut self) -> *mut u8 {
+    fn to_hva(&self) -> *mut u8 {
         self.0.host_addr()
     }
 }

@@ -11,7 +11,7 @@ use crate::error::Error;
 use crate::error::Result;
 
 pub struct Vm<V: Virt> {
-    pub(crate) memory: Arc<Mutex<MemoryAddressSpace<V::Memory>>>,
+    pub(crate) memory: Arc<MemoryAddressSpace<V::Memory>>,
     pub(crate) virt: V,
     pub(crate) device_manager: Arc<Mutex<DeviceManager>>,
     pub(crate) gdb_stub: Option<GdbStub>,
@@ -23,13 +23,11 @@ where
 {
     pub fn run(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
         {
-            let mut memory = self.memory.lock().unwrap();
-
             let device_manager = self.device_manager.lock().unwrap();
 
             boot_loader.load(
                 &mut self.virt,
-                &mut memory,
+                &self.memory,
                 device_manager
                     .get_irq_chip()
                     .ok_or_else(|| Error::InitIrqchip("irq_chip is not exists".to_string()))?

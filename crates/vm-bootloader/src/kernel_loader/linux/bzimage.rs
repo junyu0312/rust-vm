@@ -180,7 +180,7 @@ where
     fn load(
         &self,
         _boot_params: &Self::BootParams,
-        _memory: &mut MemoryAddressSpace<C>,
+        _memory: &MemoryAddressSpace<C>,
     ) -> Result<LoadResult> {
         todo!()
     }

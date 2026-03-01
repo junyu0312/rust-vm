@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
@@ -18,7 +17,7 @@ use crate::error::Error;
 pub trait InitDevice {
     fn init_devices<C>(
         &mut self,
-        mm: Arc<Mutex<MemoryAddressSpace<C>>>,
+        mm: Arc<MemoryAddressSpace<C>>,
         devices: Vec<Device>,
         irq_chip: Option<Arc<dyn InterruptController>>,
     ) -> Result<(), Error>
@@ -29,7 +28,7 @@ pub trait InitDevice {
 impl InitDevice for DeviceManager {
     fn init_devices<C>(
         &mut self,
-        mm: Arc<Mutex<MemoryAddressSpace<C>>>,
+        mm: Arc<MemoryAddressSpace<C>>,
         devices: Vec<Device>,
         irq_chip: Option<Arc<dyn InterruptController>>,
     ) -> Result<(), Error>

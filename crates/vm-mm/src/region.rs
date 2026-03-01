@@ -14,7 +14,7 @@ where
         MemoryRegion { gpa, len, memory }
     }
 
-    pub fn to_hva(&mut self) -> *mut u8 {
+    pub fn to_hva(&self) -> *mut u8 {
         self.memory.to_hva()
     }
 }

@@ -40,6 +40,6 @@ pub trait KernelLoader<C> {
     fn load(
         &self,
         boot_params: &Self::BootParams,
-        memory: &mut MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace<C>,
     ) -> Result<LoadResult>;
 }
