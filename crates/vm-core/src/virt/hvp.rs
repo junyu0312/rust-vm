@@ -290,10 +290,6 @@ impl Virt for Hvp {
         Ok(())
     }
 
-    fn post_init(&mut self) -> Result<()> {
-        Ok(())
-    }
-
     fn get_layout(&self) -> &AArch64Layout {
         self.arch.get_layout()
     }

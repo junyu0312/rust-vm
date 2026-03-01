@@ -54,8 +54,6 @@ impl VmBuilder {
             None
         };
 
-        virt.post_init()?;
-
         let mut device_manager = DeviceManager::new(mmio_layout);
         device_manager.init_devices(memory.clone(), self.devices, irq_chip)?;
 

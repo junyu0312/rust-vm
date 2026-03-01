@@ -18,13 +18,8 @@ use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
-mod arch;
 mod irq_chip;
 mod vcpu;
-
-pub trait KvmArch {
-    fn arch_post_init(&mut self) -> Result<()>;
-}
 
 #[allow(unused)]
 pub struct KvmVirt<A: Arch> {
@@ -38,7 +33,6 @@ impl<A> Virt for KvmVirt<A>
 where
     A: Arch,
     KvmVcpu: Vcpu<A>,
-    Self: KvmArch,
 {
     type Arch = A;
     type Vcpu = KvmVcpu;
@@ -73,12 +67,6 @@ where
         let _allocator = MmapAllocator;
 
         todo!()
-    }
-
-    fn post_init(&mut self) -> Result<()> {
-        self.arch_post_init()?;
-
-        Ok(())
     }
 
     fn get_layout(&self) -> &<Self::Arch as Arch>::Layout {
