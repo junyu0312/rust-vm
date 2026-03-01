@@ -33,7 +33,7 @@ impl AArch64BootLoader {
     fn load_image<C>(
         &self,
         layout: &mut AArch64Layout,
-        memory: &mut MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace<C>,
     ) -> Result<()>
     where
         C: MemoryContainer,
@@ -61,7 +61,7 @@ impl AArch64BootLoader {
     fn load_initrd<C>(
         &self,
         layout: &mut AArch64Layout,
-        memory: &mut MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace<C>,
     ) -> Result<()>
     where
         C: MemoryContainer,
@@ -88,7 +88,7 @@ impl AArch64BootLoader {
     fn load_dtb<C>(
         &self,
         layout: &mut AArch64Layout,
-        memory: &mut MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace<C>,
         dtb: Vec<u8>,
     ) -> Result<()>
     where
@@ -256,7 +256,7 @@ where
     fn load(
         &self,
         virt: &mut V,
-        memory: &mut MemoryAddressSpace<V::Memory>,
+        memory: &MemoryAddressSpace<V::Memory>,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<()> {

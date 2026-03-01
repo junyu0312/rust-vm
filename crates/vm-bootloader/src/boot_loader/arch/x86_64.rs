@@ -28,7 +28,7 @@ where
     fn load(
         &self,
         _virt: &mut V,
-        _memory: &mut MemoryAddressSpace<V::Memory>,
+        _memory: &MemoryAddressSpace<V::Memory>,
         _irq_chip: &dyn InterruptController,
         _devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<()> {

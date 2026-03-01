@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
@@ -22,7 +21,7 @@ use zerocopy::IntoBytes;
 pub struct VirtIoBlkDevice<C> {
     irq: u32,
     irq_chip: Arc<dyn InterruptController>,
-    mm: Arc<Mutex<MemoryAddressSpace<C>>>,
+    mm: Arc<MemoryAddressSpace<C>>,
     cfg: VirtioBlkConfig,
 }
 
@@ -33,7 +32,7 @@ where
     pub fn new(
         irq: u32,
         irq_chip: Arc<dyn InterruptController>,
-        mm: Arc<Mutex<MemoryAddressSpace<C>>>,
+        mm: Arc<MemoryAddressSpace<C>>,
     ) -> Self {
         let cfg = VirtioBlkConfig {
             capacity: 50,
@@ -88,12 +87,12 @@ where
                     notify.notified().await;
 
                     let mut dev = dev.lock().unwrap();
-                    let mut mm = mm.lock().unwrap();
+
                     let q = dev.get_virt_queue_mut(queue_sel).unwrap();
 
-                    let avail_ring = q.avail_ring(&mut mm).unwrap();
-                    let desc_ring = q.desc_table_ref(&mut mm).unwrap();
-                    let mut used_ring = q.used_ring(&mut mm).unwrap();
+                    let avail_ring = q.avail_ring(&mm).unwrap();
+                    let desc_ring = q.desc_table_ref(&mm).unwrap();
+                    let mut used_ring = q.used_ring(&mm).unwrap();
 
                     let mut updated = false;
 
@@ -101,7 +100,7 @@ where
                         let last_available_idx = q.last_available_idx();
                         let desc_id = avail_ring.ring(last_available_idx);
                         let desc_entry = desc_ring.get(desc_id);
-                        let req = desc_entry.addr(&mut mm).unwrap();
+                        let req = desc_entry.addr(&mm).unwrap();
                         let req = unsafe { &*(req.as_ptr() as *const VirtioBlkReq) };
 
                         match req.r#type {
@@ -109,12 +108,12 @@ where
                                 let chains = desc_ring.get_chain(desc_id);
 
                                 let data = chains[1];
-                                let data_hva = data.addr(&mut mm).unwrap();
+                                let data_hva = data.addr(&mm).unwrap();
                                 let data_len = data.len;
                                 unsafe { data_hva.write_bytes(0xff, data_len.try_into().unwrap()) };
 
                                 let status = chains[2];
-                                let mut status_hva = status.addr(&mut mm).unwrap();
+                                let mut status_hva = status.addr(&mm).unwrap();
                                 *unsafe { status_hva.as_mut() } = 0;
 
                                 let used_idx = used_ring.idx();

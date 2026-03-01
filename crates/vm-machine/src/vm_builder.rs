@@ -43,7 +43,7 @@ impl VmBuilder {
 
         let mut memory_regions = MemoryAddressSpace::default();
         virt.init_memory(&mut memory_regions, self.memory_size)?;
-        let memory = Arc::new(Mutex::new(memory_regions));
+        let memory = Arc::new(memory_regions);
 
         let layout = virt.get_layout();
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());

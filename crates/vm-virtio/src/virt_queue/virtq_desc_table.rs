@@ -28,7 +28,7 @@ pub struct VirtqDesc {
 
 impl VirtqDesc {
     /// Get hva of the buf
-    pub fn addr<C>(&self, mm: &mut MemoryAddressSpace<C>) -> Result<NonNull<u8>>
+    pub fn addr<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<NonNull<u8>>
     where
         C: MemoryContainer,
     {

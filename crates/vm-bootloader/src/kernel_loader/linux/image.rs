@@ -89,7 +89,7 @@ where
     fn load(
         &self,
         boot_params: &AArch64BootParams,
-        memory: &mut MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace<C>,
     ) -> Result<LoadResult> {
         let header = self.get_header()?;
 

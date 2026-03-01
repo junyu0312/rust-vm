@@ -30,7 +30,7 @@ impl InitrdLoader {
         Ok(InitrdLoader { initrd })
     }
 
-    pub fn load<C>(&self, addr: u64, memory: &mut MemoryAddressSpace<C>) -> Result<LoadResult>
+    pub fn load<C>(&self, addr: u64, memory: &MemoryAddressSpace<C>) -> Result<LoadResult>
     where
         C: MemoryContainer,
     {
