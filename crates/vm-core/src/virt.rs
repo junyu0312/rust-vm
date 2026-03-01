@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
@@ -38,5 +37,5 @@ pub trait Virt: Sized {
     fn get_vcpus(&self) -> Result<&Vec<Self::Vcpu>>;
     fn get_vcpus_mut(&mut self) -> Result<&mut Vec<Self::Vcpu>>;
 
-    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()>;
+    fn run(&mut self, device_manager: Arc<dyn DeviceVmExitHandler>) -> Result<()>;
 }

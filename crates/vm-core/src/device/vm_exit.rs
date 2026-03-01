@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::device::Result;
 use crate::device::mmio::MmioLayout;
 
-pub trait DeviceVmExitHandler: Send {
+pub trait DeviceVmExitHandler: Send + Sync {
     fn io_in(&mut self, port: u16, data: &mut [u8]) -> Result<()>;
     fn io_out(&mut self, port: u16, data: &[u8]) -> Result<()>;
     fn mmio_read(&self, addr: u64, len: usize, data: &mut [u8]) -> Result<()>;

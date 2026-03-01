@@ -1,7 +1,6 @@
 use std::cell::OnceCell;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use kvm_ioctls::*;
 use memmap2::MmapMut;
@@ -102,7 +101,7 @@ where
             .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
-    fn run(&mut self, device: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {
+    fn run(&mut self, device: Arc<dyn DeviceVmExitHandler>) -> Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()
@@ -110,7 +109,7 @@ where
 
         assert_eq!(vcpus.len(), 1);
 
-        let mmio_layout = device.lock().unwrap().mmio_layout();
+        let mmio_layout = device.mmio_layout();
 
         vcpus.get_mut(0).unwrap().run(mmio_layout.as_ref())?;
 

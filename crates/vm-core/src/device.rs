@@ -24,12 +24,10 @@ pub enum Error {
         mmio_len: usize,
         addr: u64,
     },
-    #[error("irq_chip already exists")]
-    IrqChipAlreadyExists,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub trait Device: Send {
+pub trait Device: Send + Sync {
     fn name(&self) -> String;
 }

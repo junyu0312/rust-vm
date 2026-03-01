@@ -322,8 +322,8 @@ impl Virt for Hvp {
             .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
     }
 
-    fn run(&mut self, device_manager: Arc<Mutex<dyn DeviceVmExitHandler>>) -> Result<()> {
-        let mmio_layout = device_manager.lock().unwrap().mmio_layout();
+    fn run(&mut self, device_manager: Arc<dyn DeviceVmExitHandler>) -> Result<()> {
+        let mmio_layout = device_manager.mmio_layout();
 
         thread::scope(|s| {
             let cpu_on_receiver = self.cpu_on_receiver.take().unwrap();
