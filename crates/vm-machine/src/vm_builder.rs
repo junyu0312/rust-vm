@@ -46,7 +46,7 @@ impl VmBuilder {
         virt.init_memory(&mut memory_regions, self.memory_size)?;
         let memory = Arc::new(Mutex::new(memory_regions));
 
-        let layout = virt.get_layout().clone();
+        let layout = virt.get_layout();
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
 
         let irq_chip = if !self.devices.iter().any(Device::is_irq_chip) {
