@@ -27,7 +27,6 @@ pub trait Virt: Sized {
     fn init_memory(
         &mut self,
         memory: &mut MemoryAddressSpace<Self::Memory>,
-        ram_base: u64,
         memory_size: usize,
     ) -> Result<()>;
     fn post_init(&mut self) -> Result<()>;

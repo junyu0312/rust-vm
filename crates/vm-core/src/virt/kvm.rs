@@ -68,7 +68,6 @@ where
     fn init_memory(
         &mut self,
         _memory: &mut MemoryAddressSpace<MmapMut>,
-        _ram_base: u64,
         _memory_size: usize,
     ) -> Result<()> {
         let _allocator = MmapAllocator;

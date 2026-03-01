@@ -274,11 +274,11 @@ impl Virt for Hvp {
     fn init_memory(
         &mut self,
         memory_address_space: &mut MemoryAddressSpace<MemoryWrapper>,
-        ram_base: u64,
         memory_size: usize,
     ) -> Result<()> {
         let allocator = HvpAllocator { vm: &self.vm };
 
+        let ram_base = self.get_layout().get_ram_base();
         let mut memory = allocator.alloc(memory_size, None)?;
         memory.0.map(ram_base, MemPerms::ReadWriteExec)?;
         memory_address_space

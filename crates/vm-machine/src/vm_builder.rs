@@ -42,6 +42,10 @@ impl VmBuilder {
     {
         let mut virt = V::new(self.vcpus)?;
 
+        let mut memory_regions = MemoryAddressSpace::default();
+        virt.init_memory(&mut memory_regions, self.memory_size)?;
+        let memory = Arc::new(Mutex::new(memory_regions));
+
         let layout = virt.get_layout().clone();
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
 
@@ -50,10 +54,6 @@ impl VmBuilder {
         } else {
             None
         };
-
-        let mut memory_regions = MemoryAddressSpace::default();
-        virt.init_memory(&mut memory_regions, layout.get_ram_base(), self.memory_size)?;
-        let memory = Arc::new(Mutex::new(memory_regions));
 
         virt.post_init()?;
 
