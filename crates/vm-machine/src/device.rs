@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use anyhow::anyhow;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
@@ -14,13 +13,15 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::device::pci::VirtIoPciDevice;
 
+use crate::error::Error;
+
 pub trait InitDevice {
     fn init_devices<C>(
         &mut self,
         mm: Arc<Mutex<MemoryAddressSpace<C>>>,
         devices: Vec<Device>,
         irq_chip: Option<Arc<dyn InterruptController>>,
-    ) -> anyhow::Result<()>
+    ) -> Result<(), Error>
     where
         C: MemoryContainer;
 }
@@ -31,7 +32,7 @@ impl InitDevice for DeviceManager {
         mm: Arc<Mutex<MemoryAddressSpace<C>>>,
         devices: Vec<Device>,
         irq_chip: Option<Arc<dyn InterruptController>>,
-    ) -> anyhow::Result<()>
+    ) -> Result<(), Error>
     where
         C: MemoryContainer,
     {
@@ -41,7 +42,7 @@ impl InitDevice for DeviceManager {
                 let irq_chip = devices
                     .iter()
                     .find(|dev| dev.is_irq_chip())
-                    .ok_or(anyhow!("irq_chip must be specified"))?;
+                    .ok_or(Error::NoIrqChipSpecified)?;
 
                 match irq_chip {
                     Device::GicV3 => Arc::new(GicV3::default()),
@@ -67,7 +68,7 @@ impl InitDevice for DeviceManager {
 
                 pci_rc
                     .register_device(virtio_pci_blk)
-                    .map_err(|_| anyhow!("failed to register pci device"))?;
+                    .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
             }
 
             self.register_mmio_device(Box::new(pci_rc))?;

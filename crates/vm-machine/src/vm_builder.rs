@@ -10,7 +10,6 @@ use vm_device::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::device::InitDevice;
-use crate::error::Error;
 use crate::error::Result;
 use crate::vm::Vm;
 
@@ -42,7 +41,11 @@ impl VmBuilder {
     {
         let mut virt = V::new(self.vcpus)?;
 
-        let layout = virt.get_layout().clone();
+        let mut memory_regions = MemoryAddressSpace::default();
+        virt.init_memory(&mut memory_regions, self.memory_size)?;
+        let memory = Arc::new(Mutex::new(memory_regions));
+
+        let layout = virt.get_layout();
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
 
         let irq_chip = if !self.devices.iter().any(Device::is_irq_chip) {
@@ -51,16 +54,8 @@ impl VmBuilder {
             None
         };
 
-        let mut memory_regions = MemoryAddressSpace::default();
-        virt.init_memory(&mut memory_regions, layout.get_ram_base(), self.memory_size)?;
-        let memory = Arc::new(Mutex::new(memory_regions));
-
-        virt.post_init()?;
-
         let mut device_manager = DeviceManager::new(mmio_layout);
-        device_manager
-            .init_devices(memory.clone(), self.devices, irq_chip)
-            .map_err(|err| Error::InitDevice(err.to_string()))?;
+        device_manager.init_devices(memory.clone(), self.devices, irq_chip)?;
 
         let vm = Vm {
             memory,

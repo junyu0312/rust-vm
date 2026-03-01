@@ -27,10 +27,8 @@ pub trait Virt: Sized {
     fn init_memory(
         &mut self,
         memory: &mut MemoryAddressSpace<Self::Memory>,
-        ram_base: u64,
         memory_size: usize,
     ) -> Result<()>;
-    fn post_init(&mut self) -> Result<()>;
 
     fn get_layout(&self) -> &<Self::Arch as Arch>::Layout;
     fn get_layout_mut(&mut self) -> &mut <Self::Arch as Arch>::Layout;
