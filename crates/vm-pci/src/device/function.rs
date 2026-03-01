@@ -3,7 +3,7 @@ use crate::types::configuration_space::ConfigurationSpace;
 
 pub mod type0;
 
-pub trait BarHandler: Send {
+pub trait BarHandler: Send + Sync {
     fn read(&self, offset: u64, data: &mut [u8]);
 
     fn write(&self, offset: u64, data: &[u8]);

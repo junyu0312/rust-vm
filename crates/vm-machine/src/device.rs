@@ -4,7 +4,6 @@ use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
 use vm_device::device::Device;
-use vm_device::device::gic_v3::GicV3;
 use vm_device::device::virtio::virtio_blk::VirtIoBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtIoMmioBlkDevice;
 use vm_mm::allocator::MemoryContainer;
@@ -19,7 +18,7 @@ pub trait InitDevice {
         &mut self,
         mm: Arc<MemoryAddressSpace<C>>,
         devices: Vec<Device>,
-        irq_chip: Option<Arc<dyn InterruptController>>,
+        irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), Error>
     where
         C: MemoryContainer;
@@ -29,28 +28,12 @@ impl InitDevice for DeviceManager {
     fn init_devices<C>(
         &mut self,
         mm: Arc<MemoryAddressSpace<C>>,
-        devices: Vec<Device>,
-        irq_chip: Option<Arc<dyn InterruptController>>,
+        _devices: Vec<Device>,
+        irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), Error>
     where
         C: MemoryContainer,
     {
-        let irq_chip = match irq_chip {
-            Some(irq_chip) => irq_chip,
-            None => {
-                let irq_chip = devices
-                    .iter()
-                    .find(|dev| dev.is_irq_chip())
-                    .ok_or(Error::NoIrqChipSpecified)?;
-
-                match irq_chip {
-                    Device::GicV3 => Arc::new(GicV3::default()),
-                }
-            }
-        };
-
-        self.register_irq_chip(irq_chip.clone())?;
-
         {
             let pci_rc = PciRootComplexMmio::new(
                 MmioRange {
