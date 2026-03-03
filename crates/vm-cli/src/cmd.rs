@@ -14,12 +14,14 @@ pub enum Error {
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Device {
     GicV3,
+    VirtioMmioBalloon,
 }
 
 impl From<Device> for vm_device::device::Device {
     fn from(device: Device) -> Self {
         match device {
             Device::GicV3 => vm_device::device::Device::GicV3,
+            Device::VirtioMmioBalloon => vm_device::device::Device::VirtioMmioBalloon,
         }
     }
 }

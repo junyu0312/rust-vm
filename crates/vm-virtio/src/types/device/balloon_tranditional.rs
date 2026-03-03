@@ -27,6 +27,4 @@ pub enum VirtioBalloonTranditionalFeatureBitmap {
 pub struct VirtioBalloonTranditionalConfig {
     pub num_pages: u32,
     pub actual: u32,
-    pub free_page_hint_cmd_id: u32,
-    pub poison_val: u32,
 }
