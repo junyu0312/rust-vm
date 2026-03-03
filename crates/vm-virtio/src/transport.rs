@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::LockResult;
 use std::sync::Mutex;
@@ -6,6 +7,7 @@ use std::sync::MutexGuard;
 use bitflags::Flags;
 use tokio::sync::Notify;
 use tracing::warn;
+use vm_mm::allocator::MemoryContainer;
 
 use crate::device::VirtIoDevice;
 use crate::result::Result;
@@ -18,29 +20,37 @@ pub mod control_register;
 pub mod mmio;
 pub mod pci;
 
-pub struct VirtIoDev<D>(Arc<Mutex<VirtIoDevInternal<D>>>);
+pub struct VirtIoDev<C, D>(Arc<Mutex<VirtIoDevInternal<C, D>>>);
 
-impl<D> Clone for VirtIoDev<D> {
+impl<C, D> Clone for VirtIoDev<C, D> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<D> VirtIoDev<D> {
-    pub fn lock(&self) -> LockResult<MutexGuard<'_, VirtIoDevInternal<D>>> {
+impl<C, D> VirtIoDev<C, D> {
+    pub fn lock(&self) -> LockResult<MutexGuard<'_, VirtIoDevInternal<C, D>>> {
         self.0.lock()
     }
 }
 
-impl<D> From<D> for VirtIoDev<D>
+impl<C, D> From<D> for VirtIoDev<C, D>
 where
-    D: VirtIoDevice,
+    C: MemoryContainer,
+    D: VirtIoDevice<C>,
 {
     fn from(device: D) -> Self {
-        let virtqueue_notifiers = D::VIRT_QUEUES_SIZE_MAX
+        let virtqueues_size_max = device.virtqueues_size_max();
+
+        let virtqueue_notifiers = virtqueues_size_max
             .iter()
-            .map(|_| Arc::new(Notify::new()))
+            .map(|v| v.map(|_| Arc::new(Notify::new())))
             .collect::<Vec<_>>();
+
+        let virtqueues = virtqueues_size_max
+            .iter()
+            .map(|size_max| size_max.map(VirtQueue::new))
+            .collect();
 
         let internal = Arc::new(Mutex::new(VirtIoDevInternal {
             device,
@@ -48,14 +58,12 @@ where
             driver_features: Default::default(),
             driver_feature_sel: Default::default(),
             queue_sel: Default::default(),
-            virtqueues: D::VIRT_QUEUES_SIZE_MAX
-                .iter()
-                .map(|&size_max| VirtQueue::new(size_max))
-                .collect(),
+            virtqueues,
             virtqueue_notifiers: virtqueue_notifiers.clone(),
             interrupt_status: Default::default(),
             status: Default::default(),
             config_generation: Default::default(),
+            _mark: PhantomData,
         }));
 
         let virtio_dev = VirtIoDev(internal);
@@ -63,18 +71,22 @@ where
         {
             let dev = virtio_dev.lock().unwrap();
 
-            for (queue, (_, notifier)) in D::VIRT_QUEUES_SIZE_MAX
+            for (queue, (virtqueue, notifier)) in virtqueues_size_max
                 .iter()
                 .zip(virtqueue_notifiers.into_iter())
                 .enumerate()
             {
-                let fut = dev
+                if virtqueue.is_none() {
+                    continue;
+                }
+
+                let handler = dev
                     .device
-                    .virtqueue_handler(queue, notifier, virtio_dev.clone())
+                    .virtqueue_handler(queue, notifier.unwrap(), virtio_dev.clone())
                     .unwrap();
 
                 // TODO: Who will handle the lifecycle of the thread
-                let _fut = tokio::spawn(fut);
+                let _fut = tokio::spawn(async move { handler.run().await });
             }
         }
 
@@ -82,23 +94,25 @@ where
     }
 }
 
-pub struct VirtIoDevInternal<D> {
+pub struct VirtIoDevInternal<C, D> {
     device: D,
 
     device_feature_sel: Option<u32>,
     driver_features: u64,
     driver_feature_sel: Option<u32>,
     queue_sel: Option<u32>,
-    virtqueues: Vec<VirtQueue>,
-    virtqueue_notifiers: Vec<Arc<Notify>>,
+    virtqueues: Vec<Option<VirtQueue>>,
+    virtqueue_notifiers: Vec<Option<Arc<Notify>>>,
     interrupt_status: InterruptStatus,
     status: Status,
     config_generation: u32,
+
+    _mark: PhantomData<C>,
 }
 
-impl<D> VirtIoDevInternal<D>
+impl<C, D> VirtIoDevInternal<C, D>
 where
-    D: VirtIoDevice,
+    D: VirtIoDevice<C>,
 {
     fn reset(&mut self) {
         self.device.reset();
@@ -106,7 +120,7 @@ where
         self.driver_features = Default::default();
         self.driver_feature_sel = Default::default();
         self.queue_sel = Default::default();
-        for virtqueue in &mut self.virtqueues {
+        for virtqueue in &mut self.virtqueues.iter_mut().flatten() {
             virtqueue.reset();
         }
         self.interrupt_status.clear();
@@ -154,15 +168,24 @@ where
             ControlRegister::QueueSel => todo!(),
             ControlRegister::QueueSizeMax => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].read_queue_size_max()
+                self.virtqueues[sel as usize]
+                    .as_ref()
+                    .unwrap()
+                    .read_queue_size_max()
             }
             ControlRegister::QueueSize => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].read_queue_size() as u32
+                self.virtqueues[sel as usize]
+                    .as_ref()
+                    .unwrap()
+                    .read_queue_size() as u32
             }
             ControlRegister::QueueReady => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].read_queue_ready() as u32
+                self.virtqueues[sel as usize]
+                    .as_ref()
+                    .unwrap()
+                    .read_queue_ready() as u32
             }
             ControlRegister::QueueNotify => todo!(),
             ControlRegister::InterruptStatus => self.interrupt_status.bits(),
@@ -208,15 +231,24 @@ where
             ControlRegister::QueueSizeMax => todo!(),
             ControlRegister::QueueSize => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_size(val.try_into().unwrap());
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_size(val.try_into().unwrap());
             }
             ControlRegister::QueueReady => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_ready(val != 0);
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_ready(val != 0);
             }
             ControlRegister::QueueNotify => {
                 let queue_sel = val; // since VIRTIO_F_NOTIFICATION_DATA is not enabled
-                self.virtqueue_notifiers[queue_sel as usize].notify_one();
+                self.virtqueue_notifiers[queue_sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .notify_one();
             }
             ControlRegister::InterruptStatus => {
                 self.interrupt_status = InterruptStatus::from_bits_truncate(val)
@@ -230,27 +262,45 @@ where
             }
             ControlRegister::QueueDescLow => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_desc_low(val);
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_desc_low(val);
             }
             ControlRegister::QueueDescHigh => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_desc_high(val);
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_desc_high(val);
             }
             ControlRegister::QueueAvailLow => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_available_low(val);
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_available_low(val);
             }
             ControlRegister::QueueAvailHigh => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_available_high(val);
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_available_high(val);
             }
             ControlRegister::QueueUsedLow => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_used_low(val);
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_used_low(val);
             }
             ControlRegister::QueueUsedHigh => {
                 let sel = self.get_queue_sel_or_default();
-                self.virtqueues[sel as usize].write_queue_used_high(val);
+                self.virtqueues[sel as usize]
+                    .as_mut()
+                    .unwrap()
+                    .write_queue_used_high(val);
             }
             ControlRegister::ShmSel => todo!(),
             ControlRegister::ShmLenLow => todo!(),
@@ -272,16 +322,12 @@ where
         self.device.write_config(offset, len, buf)
     }
 
-    pub fn get_queue_notifier(&self, queue_sel: usize) -> Option<Arc<Notify>> {
-        self.virtqueue_notifiers.get(queue_sel).cloned()
+    pub fn get_virtqueue(&self, queue_sel: usize) -> Option<&VirtQueue> {
+        self.virtqueues.get(queue_sel).unwrap().as_ref()
     }
 
-    pub fn get_virt_queue(&self, queue_sel: usize) -> Option<&VirtQueue> {
-        self.virtqueues.get(queue_sel)
-    }
-
-    pub fn get_virt_queue_mut(&mut self, queue_sel: usize) -> Option<&mut VirtQueue> {
-        self.virtqueues.get_mut(queue_sel)
+    pub fn get_virtqueue_mut(&mut self, queue_sel: usize) -> Option<&mut VirtQueue> {
+        self.virtqueues.get_mut(queue_sel).unwrap().as_mut()
     }
 
     pub fn get_interrupt_status(&self) -> InterruptStatus {
