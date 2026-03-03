@@ -1,10 +1,9 @@
-use std::marker::PhantomData;
-
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
+use vm_mm::allocator::MemoryContainer;
 
 use crate::device::VirtIoDevice;
 use crate::transport::VirtIoDev;
@@ -19,6 +18,7 @@ mod handler {
     use tracing::warn;
     use vm_core::device::mmio::MmioRange;
     use vm_core::device::mmio::mmio_device::MmioHandler;
+    use vm_mm::allocator::MemoryContainer;
 
     use crate::device::VirtIoDevice;
     use crate::result::Result as VirtIoResult;
@@ -29,23 +29,23 @@ mod handler {
     use crate::transport::mmio::control_register::MmioControlRegister;
     use crate::types::interrupt_status::InterruptStatus;
 
-    pub struct Handler<D> {
+    pub struct Handler<C, D> {
         mmio_range: MmioRange,
-        transport: VirtIoDev<D>,
+        transport: VirtIoDev<C, D>,
     }
 
-    impl<D> Handler<D>
+    impl<C, D> Handler<C, D>
     where
-        D: VirtIoDevice,
+        D: VirtIoDevice<C>,
     {
-        pub fn new(mmio_range: MmioRange, transport: VirtIoDev<D>) -> Self {
+        pub fn new(mmio_range: MmioRange, transport: VirtIoDev<C, D>) -> Self {
             Handler {
                 mmio_range,
                 transport,
             }
         }
 
-        fn read_reg(&self, transport: &VirtIoDevInternal<D>, reg: MmioControlRegister) -> u32 {
+        fn read_reg(&self, transport: &VirtIoDevInternal<C, D>, reg: MmioControlRegister) -> u32 {
             match reg {
                 MmioControlRegister::MagicValue => u32::from_le_bytes(*b"virt"),
                 MmioControlRegister::Version => 0x2,
@@ -72,7 +72,7 @@ mod handler {
 
         fn write_reg(
             &self,
-            transport: &mut VirtIoDevInternal<D>,
+            transport: &mut VirtIoDevInternal<C, D>,
             reg: MmioControlRegister,
             val: u32,
         ) -> VirtIoResult<()> {
@@ -135,9 +135,10 @@ mod handler {
         }
     }
 
-    impl<D> MmioHandler for Handler<D>
+    impl<C, D> MmioHandler for Handler<C, D>
     where
-        D: VirtIoDevice,
+        C: MemoryContainer,
+        D: VirtIoDevice<C>,
     {
         fn mmio_range(&self) -> MmioRange {
             self.mmio_range
@@ -210,43 +211,44 @@ mod handler {
     }
 }
 
-pub struct VirtIoMmioTransport<D> {
+pub struct VirtIoMmioTransport<C, D> {
     mmio_range: MmioRange,
     irq: Option<u32>,
-    transport: VirtIoDev<D>,
-    _mark: PhantomData<D>,
+    transport: VirtIoDev<C, D>,
 }
 
-impl<D> VirtIoMmioTransport<D>
+impl<C, D> VirtIoMmioTransport<C, D>
 where
-    D: VirtIoDevice,
+    C: MemoryContainer,
+    D: VirtIoDevice<C>,
 {
     pub fn new(device: D, mmio_range: MmioRange) -> Self {
         VirtIoMmioTransport {
             mmio_range,
             irq: device.irq(),
             transport: device.into(),
-            _mark: PhantomData,
         }
     }
 
-    fn generate_mmio_handler(&self) -> Handler<D> {
+    fn generate_mmio_handler(&self) -> Handler<C, D> {
         Handler::new(self.mmio_range, self.transport.clone())
     }
 }
 
-impl<D> Device for VirtIoMmioTransport<D>
+impl<C, D> Device for VirtIoMmioTransport<C, D>
 where
-    D: VirtIoDevice,
+    C: MemoryContainer,
+    D: VirtIoDevice<C>,
 {
     fn name(&self) -> String {
         D::NAME.to_string()
     }
 }
 
-impl<D> MmioDevice for VirtIoMmioTransport<D>
+impl<C, D> MmioDevice for VirtIoMmioTransport<C, D>
 where
-    D: VirtIoDevice,
+    C: MemoryContainer,
+    D: VirtIoDevice<C>,
 {
     fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
         vec![Box::new(self.generate_mmio_handler())]

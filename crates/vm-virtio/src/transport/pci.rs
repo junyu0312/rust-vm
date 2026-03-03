@@ -1,3 +1,4 @@
+use vm_mm::allocator::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
@@ -19,13 +20,18 @@ pub mod pci_header;
 
 mod common_config_handler;
 
-struct NotifyHandler<D: VirtIoPciDevice> {
-    transport: VirtIoDev<D>,
+struct NotifyHandler<C, D>
+where
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
+{
+    transport: VirtIoDev<C, D>,
 }
 
-impl<D> BarHandler for NotifyHandler<D>
+impl<C, D> BarHandler for NotifyHandler<C, D>
 where
-    D: VirtIoPciDevice,
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
 {
     fn read(&self, _offset: u64, _data: &mut [u8]) {
         unreachable!()
@@ -41,13 +47,18 @@ where
     }
 }
 
-struct IsrHandler<D: VirtIoPciDevice> {
-    transport: VirtIoDev<D>,
+struct IsrHandler<C, D>
+where
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
+{
+    transport: VirtIoDev<C, D>,
 }
 
-impl<D> BarHandler for IsrHandler<D>
+impl<C, D> BarHandler for IsrHandler<C, D>
 where
-    D: VirtIoPciDevice,
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
 {
     fn read(&self, _offset: u64, data: &mut [u8]) {
         let mut transport = self.transport.lock().unwrap();
@@ -70,13 +81,18 @@ where
     }
 }
 
-struct DeviceHandler<D: VirtIoPciDevice> {
-    transport: VirtIoDev<D>,
+struct DeviceHandler<C, D>
+where
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
+{
+    transport: VirtIoDev<C, D>,
 }
 
-impl<D> BarHandler for DeviceHandler<D>
+impl<C, D> BarHandler for DeviceHandler<C, D>
 where
-    D: VirtIoPciDevice,
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
         let transport = self.transport.lock().unwrap();
@@ -95,13 +111,18 @@ where
     }
 }
 
-pub struct VirtIoPciFunction<D: VirtIoPciDevice> {
-    pub transport: VirtIoDev<D>,
+pub struct VirtIoPciFunction<C, D>
+where
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
+{
+    pub transport: VirtIoDev<C, D>,
 }
 
-impl<D> PciTypeFunctionCommon for VirtIoPciFunction<D>
+impl<C, D> PciTypeFunctionCommon for VirtIoPciFunction<C, D>
 where
-    D: VirtIoPciDevice,
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
 {
     const VENDOR_ID: u16 = VENDOR_ID;
     const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID as u16;
@@ -180,9 +201,10 @@ where
     }
 }
 
-impl<D> PciType0Function for VirtIoPciFunction<D>
+impl<C, D> PciType0Function for VirtIoPciFunction<C, D>
 where
-    D: VirtIoPciDevice,
+    C: MemoryContainer,
+    D: VirtIoPciDevice<C>,
 {
     const BAR_SIZE: [Option<u32>; 6] = [
         // virtio_pci_common_cfg
