@@ -4,6 +4,8 @@ use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
 use vm_device::device::Device;
+use vm_device::device::virtio::virtio_balloon_traditional::VirtIoMmioBalloonDevice;
+use vm_device::device::virtio::virtio_balloon_traditional::VirtioBalloonTranditional;
 use vm_device::device::virtio::virtio_blk::VirtIoBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtIoMmioBlkDevice;
 use vm_mm::allocator::MemoryContainer;
@@ -28,7 +30,7 @@ impl InitDevice for DeviceManager {
     fn init_devices<C>(
         &mut self,
         mm: Arc<MemoryAddressSpace<C>>,
-        _devices: Vec<Device>,
+        devices: Vec<Device>,
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), Error>
     where
@@ -72,13 +74,30 @@ impl InitDevice for DeviceManager {
 
         {
             let virtio_mmio_blk = VirtIoMmioBlkDevice::new(
-                VirtIoBlkDevice::new(2, irq_chip, mm),
+                VirtIoBlkDevice::new(2, irq_chip.clone(), mm.clone()),
                 MmioRange {
                     start: 0x0900_1000,
                     len: 0x1000,
                 },
             );
             self.register_mmio_device(Box::new(virtio_mmio_blk))?;
+        }
+
+        for device in devices {
+            match device {
+                Device::GicV3 => (), // irq_chip is initialized already
+                Device::VirtioMmioBalloon => {
+                    // TODO: use mmio allocator
+                    let virtio_mmio_balloon = VirtIoMmioBalloonDevice::new(
+                        VirtioBalloonTranditional::new(3, irq_chip.clone(), mm.clone()),
+                        MmioRange {
+                            start: 0x0900_2000,
+                            len: 0x1000,
+                        },
+                    );
+                    self.register_mmio_device(Box::new(virtio_mmio_balloon))?;
+                }
+            }
         }
 
         Ok(())

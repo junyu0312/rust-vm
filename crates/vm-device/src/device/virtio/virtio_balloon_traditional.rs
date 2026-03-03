@@ -9,6 +9,7 @@ use vm_virtio::device::VirtqueueHandler;
 use vm_virtio::device::VirtqueueHandlerFn;
 use vm_virtio::result::Result;
 use vm_virtio::transport::VirtIoDev;
+use vm_virtio::transport::mmio::VirtIoMmioTransport;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalConfig;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalVirtqueue;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
@@ -36,6 +37,24 @@ where
     cfg: VirtioBalloonTranditionalConfig,
 }
 
+impl<C> VirtioBalloonTranditional<C>
+where
+    C: MemoryContainer,
+{
+    pub fn new(
+        irq: u32,
+        irq_chip: Arc<dyn InterruptController>,
+        mm: Arc<MemoryAddressSpace<C>>,
+    ) -> Self {
+        VirtioBalloonTranditional {
+            irq,
+            irq_chip,
+            mm,
+            cfg: VirtioBalloonTranditionalConfig::default(),
+        }
+    }
+}
+
 impl<C> VirtIoDevice<C> for VirtioBalloonTranditional<C>
 where
     C: MemoryContainer,
@@ -49,11 +68,11 @@ where
     }
 
     fn irq(&self) -> Option<u32> {
-        todo!()
+        Some(self.irq)
     }
 
-    fn trigger_irq(&self, _active: bool) {
-        todo!()
+    fn trigger_irq(&self, active: bool) {
+        self.irq_chip.trigger_irq(32 + self.irq, active);
     }
 
     fn reset(&mut self) {}
@@ -102,3 +121,5 @@ where
         Ok(())
     }
 }
+
+pub type VirtIoMmioBalloonDevice<C> = VirtIoMmioTransport<C, VirtioBalloonTranditional<C>>;
