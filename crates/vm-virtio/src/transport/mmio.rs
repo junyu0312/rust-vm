@@ -30,10 +30,6 @@ where
     pub fn new(dev: Arc<Mutex<VirtioDev<C, D>>>, mmio_range: MmioRange) -> Self {
         VirtioMmioTransport { mmio_range, dev }
     }
-
-    fn generate_mmio_handler(&self) -> Handler<C, D> {
-        Handler::new(self.mmio_range, self.dev.clone())
-    }
 }
 
 impl<C, D> Device for VirtioMmioTransport<C, D>
@@ -52,7 +48,7 @@ where
     D: VirtioDevice<C>,
 {
     fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
-        vec![Box::new(self.generate_mmio_handler())]
+        vec![Box::new(Handler::new(self.mmio_range, self.dev.clone()))]
     }
 
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
@@ -62,15 +58,16 @@ where
 
         fdt.property_string("compatible", "virtio,mmio")?;
         fdt.property_array_u64("reg", &[self.mmio_range.start, self.mmio_range.len as u64])?;
-        if let Some(_irq) = dev.device.irq() {
+        if let Some(irq) = dev.device.irq() {
             #[cfg(target_arch = "aarch64")]
             {
                 use vm_core::arch::aarch64::irq::GIC_SPI;
                 use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
-                fdt.property_array_u32("interrupts", &[GIC_SPI, _irq, IRQ_TYPE_LEVEL_HIGH])?;
+                fdt.property_array_u32("interrupts", &[GIC_SPI, irq, IRQ_TYPE_LEVEL_HIGH])?;
             }
             #[cfg(not(target_arch = "aarch64"))]
             {
+                std::hint::black_box(irq);
                 todo!()
             }
         }
