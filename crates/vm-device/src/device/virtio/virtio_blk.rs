@@ -5,16 +5,16 @@ use vm_core::arch::irq::InterruptController;
 use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::device::interrupt::legacy::InterruptPin;
-use vm_virtio::device::VirtIoDevice;
+use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::VirtqueueHandler;
 use vm_virtio::device::VirtqueueHandlerFn;
 use vm_virtio::device::blk::config::VirtioBlkConfig;
-use vm_virtio::device::blk::req::VirtIoBlkReqType;
 use vm_virtio::device::blk::req::VirtioBlkReq;
-use vm_virtio::device::pci::VirtIoPciDevice;
+use vm_virtio::device::blk::req::VirtioBlkReqType;
+use vm_virtio::device::pci::VirtioPciDevice;
 use vm_virtio::result::Result;
-use vm_virtio::transport::VirtIoDev;
-use vm_virtio::transport::mmio::VirtIoMmioTransport;
+use vm_virtio::transport::VirtioDev;
+use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
 use vm_virtio::types::device_id::DeviceId;
 use zerocopy::IntoBytes;
@@ -29,7 +29,7 @@ where
         let req = unsafe { &*(req.as_ptr() as *const VirtioBlkReq) };
 
         match req.r#type {
-            VirtIoBlkReqType::VirtioBlkTIn => {
+            VirtioBlkReqType::VirtioBlkTIn => {
                 let chains = desc_ring.get_chain(desc_id);
 
                 let data = chains[1];
@@ -43,25 +43,25 @@ where
 
                 data_len + 1
             }
-            VirtIoBlkReqType::VirtioBlkTOut => todo!(),
-            VirtIoBlkReqType::VirtioBlkTFlush => todo!(),
-            VirtIoBlkReqType::VirtioBlkTGetId => todo!(),
-            VirtIoBlkReqType::VirtioBlkTGetLifetime => todo!(),
-            VirtIoBlkReqType::VirtioBlkTDiscard => todo!(),
-            VirtIoBlkReqType::VirtioBlkTWriteZeroes => todo!(),
-            VirtIoBlkReqType::VirtioBlkTSecureErase => todo!(),
+            VirtioBlkReqType::VirtioBlkTOut => todo!(),
+            VirtioBlkReqType::VirtioBlkTFlush => todo!(),
+            VirtioBlkReqType::VirtioBlkTGetId => todo!(),
+            VirtioBlkReqType::VirtioBlkTGetLifetime => todo!(),
+            VirtioBlkReqType::VirtioBlkTDiscard => todo!(),
+            VirtioBlkReqType::VirtioBlkTWriteZeroes => todo!(),
+            VirtioBlkReqType::VirtioBlkTSecureErase => todo!(),
         }
     })
 }
 
-pub struct VirtIoBlkDevice<C> {
+pub struct VirtioBlkDevice<C> {
     irq: u32,
     irq_chip: Arc<dyn InterruptController>,
     mm: Arc<MemoryAddressSpace<C>>,
     cfg: VirtioBlkConfig,
 }
 
-impl<C> VirtIoBlkDevice<C>
+impl<C> VirtioBlkDevice<C>
 where
     C: MemoryContainer,
 {
@@ -75,7 +75,7 @@ where
             ..Default::default()
         };
 
-        VirtIoBlkDevice {
+        VirtioBlkDevice {
             irq,
             irq_chip,
             mm,
@@ -84,7 +84,7 @@ where
     }
 }
 
-impl<C> VirtIoDevice<C> for VirtIoBlkDevice<C>
+impl<C> VirtioDevice<C> for VirtioBlkDevice<C>
 where
     C: MemoryContainer,
 {
@@ -110,7 +110,7 @@ where
         &self,
         queue_sel: usize,
         notifier: Arc<Notify>,
-        dev: VirtIoDev<C, Self>,
+        dev: VirtioDev<C, Self>,
     ) -> Option<VirtqueueHandler<C, Self>> {
         if queue_sel != 0 {
             return None;
@@ -138,7 +138,7 @@ where
     }
 }
 
-impl<C> VirtIoPciDevice<C> for VirtIoBlkDevice<C>
+impl<C> VirtioPciDevice<C> for VirtioBlkDevice<C>
 where
     C: MemoryContainer,
 {
@@ -147,4 +147,4 @@ where
     const IRQ_PIN: u8 = InterruptPin::INTA as u8;
 }
 
-pub type VirtIoMmioBlkDevice<C> = VirtIoMmioTransport<C, VirtIoBlkDevice<C>>;
+pub type VirtioMmioBlkDevice<C> = VirtioMmioTransport<C, VirtioBlkDevice<C>>;

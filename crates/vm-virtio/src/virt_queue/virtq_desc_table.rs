@@ -4,7 +4,7 @@ use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::result::Result;
-use crate::result::VirtIoError;
+use crate::result::VirtioError;
 
 /* This marks a buffer as continuing via the next field. */
 pub const VIRTQ_DESC_F_NEXT: u16 = 1;
@@ -34,8 +34,8 @@ impl VirtqDesc {
     {
         let addr = mm
             .gpa_to_hva(self.addr)
-            .map_err(|_| VirtIoError::AccessInvalidGpa(self.addr))?;
-        NonNull::new(addr).ok_or(VirtIoError::AccessInvalidGpa(self.addr))
+            .map_err(|_| VirtioError::AccessInvalidGpa(self.addr))?;
+        NonNull::new(addr).ok_or(VirtioError::AccessInvalidGpa(self.addr))
     }
 }
 

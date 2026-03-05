@@ -6,8 +6,8 @@ use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::result::Result;
-use crate::transport::VirtIoDev;
-use crate::transport::VirtIoDevInternal;
+use crate::transport::VirtioDev;
+use crate::transport::VirtioDevInternal;
 use crate::types::interrupt_status::InterruptStatus;
 use crate::virt_queue::virtq_desc_table::VirtqDescTableRef;
 
@@ -15,7 +15,7 @@ pub mod blk;
 pub mod pci;
 
 pub type VirtqueueHandlerFn<C, D> = Box<
-    dyn Fn(&MemoryAddressSpace<C>, &mut VirtIoDevInternal<C, D>, &VirtqDescTableRef, u16) -> u32
+    dyn Fn(&MemoryAddressSpace<C>, &mut VirtioDevInternal<C, D>, &VirtqDescTableRef, u16) -> u32
         + Send
         + Sync,
 >;
@@ -23,7 +23,7 @@ pub type VirtqueueHandlerFn<C, D> = Box<
 pub struct VirtqueueHandler<C, D> {
     pub queue_sel: usize,
     pub notifier: Arc<Notify>,
-    pub dev: VirtIoDev<C, D>,
+    pub dev: VirtioDev<C, D>,
     pub mm: Arc<MemoryAddressSpace<C>>,
     pub irq_chip: Arc<dyn InterruptController>,
     pub irq_line: u32,
@@ -33,7 +33,7 @@ pub struct VirtqueueHandler<C, D> {
 impl<C, D> VirtqueueHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoDevice<C>,
+    D: VirtioDevice<C>,
 {
     pub async fn run(self) {
         let mm = self.mm.as_ref();
@@ -88,7 +88,7 @@ where
     }
 }
 
-pub trait VirtIoDevice<C>: Sized + Send + Sync + 'static {
+pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
     const NAME: &str;
     const DEVICE_ID: u32;
     const DEVICE_FEATURES: u64;
@@ -114,7 +114,7 @@ pub trait VirtIoDevice<C>: Sized + Send + Sync + 'static {
         &self,
         queue: usize,
         notifier: Arc<Notify>,
-        dev: VirtIoDev<C, Self>,
+        dev: VirtioDev<C, Self>,
     ) -> Option<VirtqueueHandler<C, Self>>;
 
     fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()>;

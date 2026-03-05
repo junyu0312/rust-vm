@@ -4,12 +4,12 @@ use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
 use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_virtio::device::VirtIoDevice;
+use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::VirtqueueHandler;
 use vm_virtio::device::VirtqueueHandlerFn;
 use vm_virtio::result::Result;
-use vm_virtio::transport::VirtIoDev;
-use vm_virtio::transport::mmio::VirtIoMmioTransport;
+use vm_virtio::transport::VirtioDev;
+use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalConfig;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalVirtqueue;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
@@ -55,7 +55,7 @@ where
     }
 }
 
-impl<C> VirtIoDevice<C> for VirtioBalloonTranditional<C>
+impl<C> VirtioDevice<C> for VirtioBalloonTranditional<C>
 where
     C: MemoryContainer,
 {
@@ -81,7 +81,7 @@ where
         &self,
         queue: usize,
         notifier: Arc<Notify>,
-        dev: VirtIoDev<C, Self>,
+        dev: VirtioDev<C, Self>,
     ) -> Option<VirtqueueHandler<C, Self>> {
         match VirtioBalloonTranditionalVirtqueue::from_repr(queue) {
             Some(virtq) => match virtq {
@@ -122,4 +122,4 @@ where
     }
 }
 
-pub type VirtIoMmioBalloonDevice<C> = VirtIoMmioTransport<C, VirtioBalloonTranditional<C>>;
+pub type VirtioMmioBalloonDevice<C> = VirtioMmioTransport<C, VirtioBalloonTranditional<C>>;

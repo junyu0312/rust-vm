@@ -5,7 +5,7 @@ use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::result::Result;
-use crate::result::VirtIoError;
+use crate::result::VirtioError;
 use crate::virt_queue::virtq_avail_ring::VirtqAvail;
 use crate::virt_queue::virtq_desc_table::VirtqDescTableRef;
 use crate::virt_queue::virtq_used_ring::VirtqUsed;
@@ -127,10 +127,10 @@ impl VirtQueue {
     {
         let gpa = self
             .queue_desc_table_gpa()
-            .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
+            .ok_or(VirtioError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
+            .map_err(|_| VirtioError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqDescTableRef::new(self.queue_size, hva))
     }
@@ -141,10 +141,10 @@ impl VirtQueue {
     {
         let gpa = self
             .queue_available_ring_gpa()
-            .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
+            .ok_or(VirtioError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
+            .map_err(|_| VirtioError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqAvail::new(self.queue_size, hva as *const u16))
     }
@@ -155,10 +155,10 @@ impl VirtQueue {
     {
         let gpa = self
             .queue_used_ring_gpa()
-            .ok_or(VirtIoError::AccessVirtqueueNotReady)?;
+            .ok_or(VirtioError::AccessVirtqueueNotReady)?;
         let hva = mm
             .gpa_to_hva(gpa)
-            .map_err(|_| VirtIoError::AccessInvalidGpa(gpa))?;
+            .map_err(|_| VirtioError::AccessInvalidGpa(gpa))?;
 
         Ok(VirtqUsed::new(self.queue_size, hva))
     }
