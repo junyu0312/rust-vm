@@ -10,7 +10,6 @@ use vm_mm::allocator::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
-use crate::transport::mmio::mmio_handler::Handler;
 
 mod control_register;
 mod mmio_handler;
@@ -18,6 +17,15 @@ mod mmio_handler;
 pub struct VirtioMmioTransport<C, D> {
     mmio_range: MmioRange,
     dev: Arc<Mutex<VirtioDev<C, D>>>,
+}
+
+impl<C, D> Clone for VirtioMmioTransport<C, D> {
+    fn clone(&self) -> Self {
+        Self {
+            mmio_range: self.mmio_range.clone(),
+            dev: self.dev.clone(),
+        }
+    }
 }
 
 impl<C, D> VirtioMmioTransport<C, D>
@@ -46,7 +54,7 @@ where
     D: VirtioDevice<C>,
 {
     fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
-        vec![Box::new(Handler::new(self.mmio_range, self.dev.clone()))]
+        vec![Box::new(self.clone())]
     }
 
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {

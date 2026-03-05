@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use tracing::debug;
 use tracing::error;
 use tracing::warn;
@@ -12,6 +9,7 @@ use crate::device::VirtioDevice;
 use crate::result::Result as VirtioResult;
 use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
+use crate::transport::mmio::VirtioMmioTransport;
 use crate::transport::mmio::control_register::MmioControlRegister;
 use crate::types::interrupt_status::InterruptStatus;
 
@@ -21,19 +19,10 @@ const VIRTIO_MMIO_MAGIC_VALUE: u32 = u32::from_le_bytes(*b"virt");
 const VIRTIO_MMIO_VERSION: u32 = 0x2;
 const VIRTIO_MMIO_VENDOR_ID: u32 = u32::from_le_bytes(*b"QEMU");
 
-pub struct Handler<C, D> {
-    mmio_range: MmioRange,
-    dev: Arc<Mutex<VirtioDev<C, D>>>,
-}
-
-impl<C, D> Handler<C, D>
+impl<C, D> VirtioMmioTransport<C, D>
 where
     D: VirtioDevice<C>,
 {
-    pub fn new(mmio_range: MmioRange, dev: Arc<Mutex<VirtioDev<C, D>>>) -> Self {
-        Handler { mmio_range, dev }
-    }
-
     fn read_reg(&self, dev: &VirtioDev<C, D>, reg: MmioControlRegister) -> u32 {
         match reg {
             MmioControlRegister::MagicValue => VIRTIO_MMIO_MAGIC_VALUE,
@@ -113,7 +102,7 @@ where
     }
 }
 
-impl<C, D> MmioHandler for Handler<C, D>
+impl<C, D> MmioHandler for VirtioMmioTransport<C, D>
 where
     C: MemoryContainer,
     D: VirtioDevice<C>,
