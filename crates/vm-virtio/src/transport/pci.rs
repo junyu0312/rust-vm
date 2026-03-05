@@ -62,7 +62,9 @@ where
                 bar: 0,
                 id: 0,
                 offset: 0,
-                length: size_of::<VirtioPciCommonCfg>().try_into().unwrap(),
+                length: size_of::<VirtioPciCommonCfg>()
+                    .try_into()
+                    .map_err(|_| Error::CapTooLarge)?,
                 ..Default::default()
             };
 
@@ -72,7 +74,9 @@ where
         {
             let virtio_pci_notify_cap = VirtioPciNotifyCap {
                 cap: VirtioPciCap {
-                    cap_len: size_of::<VirtioPciNotifyCap>().try_into().unwrap(),
+                    cap_len: size_of::<VirtioPciNotifyCap>()
+                        .try_into()
+                        .map_err(|_| Error::CapTooLarge)?,
                     cfg_type: VirtioPciCapCfgType::VirtioPciCapNotifyCfg as u8,
                     bar: 1,
                     id: 0,
