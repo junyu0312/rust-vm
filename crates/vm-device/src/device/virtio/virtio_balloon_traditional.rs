@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
@@ -81,7 +82,7 @@ where
         &self,
         queue: usize,
         notifier: Arc<Notify>,
-        dev: VirtioDev<C, Self>,
+        dev: Arc<Mutex<VirtioDev<C, Self>>>,
     ) -> Option<VirtqueueHandler<C, Self>> {
         match VirtioBalloonTranditionalVirtqueue::from_repr(queue) {
             Some(virtq) => match virtq {

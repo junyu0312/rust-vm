@@ -1,6 +1,3 @@
-use std::cell::OnceCell;
-
-use tracing::warn;
 use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 
@@ -28,12 +25,12 @@ pub struct VirtQueue {
     queue_size_max: u32,
     queue_size: u16,
     queue_ready: bool,
-    queue_desc_low: OnceCell<u32>,
-    queue_desc_high: OnceCell<u32>,
-    queue_available_low: OnceCell<u32>,
-    queue_available_high: OnceCell<u32>,
-    queue_used_low: OnceCell<u32>,
-    queue_used_high: OnceCell<u32>,
+    queue_desc_low: Option<u32>,
+    queue_desc_high: Option<u32>,
+    queue_available_low: Option<u32>,
+    queue_available_high: Option<u32>,
+    queue_used_low: Option<u32>,
+    queue_used_high: Option<u32>,
     last_available_idx: u16,
 }
 
@@ -86,39 +83,27 @@ impl VirtQueue {
     }
 
     pub fn write_queue_desc_low(&mut self, addr: u32) {
-        if self.queue_desc_low.set(addr).is_err() {
-            warn!("repeated writes to queue_desc_low are ignored")
-        }
+        self.queue_desc_low = Some(addr);
     }
 
     pub fn write_queue_desc_high(&mut self, addr: u32) {
-        if self.queue_desc_high.set(addr).is_err() {
-            warn!("repeated writes to queue_desc_high are ignored")
-        }
+        self.queue_desc_high = Some(addr);
     }
 
     pub fn write_queue_available_low(&mut self, addr: u32) {
-        if self.queue_available_low.set(addr).is_err() {
-            warn!("repeated writes to queue_available_low are ignored")
-        }
+        self.queue_available_low = Some(addr);
     }
 
     pub fn write_queue_available_high(&mut self, addr: u32) {
-        if self.queue_available_high.set(addr).is_err() {
-            warn!("repeated writes to queue_available_high are ignored")
-        }
+        self.queue_available_high = Some(addr);
     }
 
     pub fn write_queue_used_low(&mut self, addr: u32) {
-        if self.queue_used_low.set(addr).is_err() {
-            warn!("repeated writes to queue_used_low are ignored")
-        }
+        self.queue_used_low = Some(addr);
     }
 
     pub fn write_queue_used_high(&mut self, addr: u32) {
-        if self.queue_used_high.set(addr).is_err() {
-            warn!("repeated writes to queue_used_high are ignored")
-        }
+        self.queue_used_high = Some(addr);
     }
 
     pub fn desc_table_ref<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<VirtqDescTableRef>
@@ -172,17 +157,17 @@ impl VirtQueue {
     }
 
     fn queue_desc_table_gpa(&self) -> Option<u64> {
-        to_gpa(self.queue_desc_high.get(), self.queue_desc_low.get())
+        to_gpa(self.queue_desc_high.as_ref(), self.queue_desc_low.as_ref())
     }
 
     fn queue_available_ring_gpa(&self) -> Option<u64> {
         to_gpa(
-            self.queue_available_high.get(),
-            self.queue_available_low.get(),
+            self.queue_available_high.as_ref(),
+            self.queue_available_low.as_ref(),
         )
     }
 
     fn queue_used_ring_gpa(&self) -> Option<u64> {
-        to_gpa(self.queue_used_high.get(), self.queue_used_low.get())
+        to_gpa(self.queue_used_high.as_ref(), self.queue_used_low.as_ref())
     }
 }

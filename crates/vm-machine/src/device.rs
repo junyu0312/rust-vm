@@ -12,6 +12,7 @@ use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::device::pci::VirtioPciDevice;
+use vm_virtio::transport::VirtioDev;
 
 use crate::error::Error;
 
@@ -74,7 +75,7 @@ impl InitDevice for DeviceManager {
 
         {
             let virtio_mmio_blk = VirtioMmioBlkDevice::new(
-                VirtioBlkDevice::new(2, irq_chip.clone(), mm.clone()),
+                VirtioDev::new(VirtioBlkDevice::new(2, irq_chip.clone(), mm.clone())),
                 MmioRange {
                     start: 0x0900_1000,
                     len: 0x1000,
@@ -89,7 +90,11 @@ impl InitDevice for DeviceManager {
                 Device::VirtioMmioBalloon => {
                     // TODO: use mmio allocator
                     let virtio_mmio_balloon = VirtioMmioBalloonDevice::new(
-                        VirtioBalloonTranditional::new(3, irq_chip.clone(), mm.clone()),
+                        VirtioDev::new(VirtioBalloonTranditional::new(
+                            3,
+                            irq_chip.clone(),
+                            mm.clone(),
+                        )),
                         MmioRange {
                             start: 0x0900_2000,
                             len: 0x1000,

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
@@ -7,7 +8,6 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::result::Result;
 use crate::transport::VirtioDev;
-use crate::transport::VirtioDevInternal;
 use crate::types::interrupt_status::InterruptStatus;
 use crate::virt_queue::virtq_desc_table::VirtqDescTableRef;
 
@@ -15,7 +15,7 @@ pub mod blk;
 pub mod pci;
 
 pub type VirtqueueHandlerFn<C, D> = Box<
-    dyn Fn(&MemoryAddressSpace<C>, &mut VirtioDevInternal<C, D>, &VirtqDescTableRef, u16) -> u32
+    dyn Fn(&MemoryAddressSpace<C>, &mut VirtioDev<C, D>, &VirtqDescTableRef, u16) -> u32
         + Send
         + Sync,
 >;
@@ -23,7 +23,7 @@ pub type VirtqueueHandlerFn<C, D> = Box<
 pub struct VirtqueueHandler<C, D> {
     pub queue_sel: usize,
     pub notifier: Arc<Notify>,
-    pub dev: VirtioDev<C, D>,
+    pub dev: Arc<Mutex<VirtioDev<C, D>>>,
     pub mm: Arc<MemoryAddressSpace<C>>,
     pub irq_chip: Arc<dyn InterruptController>,
     pub irq_line: u32,
@@ -114,7 +114,7 @@ pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
         &self,
         queue: usize,
         notifier: Arc<Notify>,
-        dev: VirtioDev<C, Self>,
+        dev: Arc<Mutex<VirtioDev<C, Self>>>,
     ) -> Option<VirtqueueHandler<C, Self>>;
 
     fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()>;

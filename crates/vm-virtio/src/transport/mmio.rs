@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
@@ -14,6 +17,9 @@ mod control_register;
 const CONFIGURATION_SPACE_OFFSET: usize = 0x100;
 
 mod handler {
+    use std::sync::Arc;
+    use std::sync::Mutex;
+
     use tracing::debug;
     use tracing::error;
     use tracing::warn;
@@ -24,7 +30,6 @@ mod handler {
     use crate::device::VirtioDevice;
     use crate::result::Result as VirtioResult;
     use crate::transport::VirtioDev;
-    use crate::transport::VirtioDevInternal;
     use crate::transport::control_register::ControlRegister;
     use crate::transport::mmio::CONFIGURATION_SPACE_OFFSET;
     use crate::transport::mmio::control_register::MmioControlRegister;
@@ -32,21 +37,21 @@ mod handler {
 
     pub struct Handler<C, D> {
         mmio_range: MmioRange,
-        transport: VirtioDev<C, D>,
+        transport: Arc<Mutex<VirtioDev<C, D>>>,
     }
 
     impl<C, D> Handler<C, D>
     where
         D: VirtioDevice<C>,
     {
-        pub fn new(mmio_range: MmioRange, transport: VirtioDev<C, D>) -> Self {
+        pub fn new(mmio_range: MmioRange, transport: Arc<Mutex<VirtioDev<C, D>>>) -> Self {
             Handler {
                 mmio_range,
                 transport,
             }
         }
 
-        fn read_reg(&self, transport: &VirtioDevInternal<C, D>, reg: MmioControlRegister) -> u32 {
+        fn read_reg(&self, transport: &VirtioDev<C, D>, reg: MmioControlRegister) -> u32 {
             match reg {
                 MmioControlRegister::MagicValue => u32::from_le_bytes(*b"virt"),
                 MmioControlRegister::Version => 0x2,
@@ -73,7 +78,7 @@ mod handler {
 
         fn write_reg(
             &self,
-            transport: &mut VirtioDevInternal<C, D>,
+            transport: &mut VirtioDev<C, D>,
             reg: MmioControlRegister,
             val: u32,
         ) -> VirtioResult<()> {
@@ -218,8 +223,7 @@ mod handler {
 
 pub struct VirtioMmioTransport<C, D> {
     mmio_range: MmioRange,
-    irq: Option<u32>,
-    dev: VirtioDev<C, D>,
+    dev: Arc<Mutex<VirtioDev<C, D>>>,
 }
 
 impl<C, D> VirtioMmioTransport<C, D>
@@ -227,10 +231,9 @@ where
     C: MemoryContainer,
     D: VirtioDevice<C>,
 {
-    pub fn new(device: D, mmio_range: MmioRange) -> Self {
+    pub fn new(device: Arc<Mutex<VirtioDev<C, D>>>, mmio_range: MmioRange) -> Self {
         VirtioMmioTransport {
             mmio_range,
-            irq: device.irq(),
             dev: device.into(),
         }
     }
@@ -260,11 +263,13 @@ where
     }
 
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
+        let dev = self.dev.lock().unwrap();
+
         let node = fdt.begin_node(&format!("{}@{:x}", self.name(), self.mmio_range.start))?;
 
         fdt.property_string("compatible", "virtio,mmio")?;
         fdt.property_array_u64("reg", &[self.mmio_range.start, self.mmio_range.len as u64])?;
-        if let Some(_irq) = self.irq {
+        if let Some(_irq) = dev.device.irq() {
             #[cfg(target_arch = "aarch64")]
             {
                 use vm_core::arch::aarch64::irq::GIC_SPI;
