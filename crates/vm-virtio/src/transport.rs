@@ -14,9 +14,10 @@ use crate::types::interrupt_status::InterruptStatus;
 use crate::types::status::Status;
 use crate::virtqueue::Virtqueue;
 
-pub mod control_register;
 pub mod mmio;
 pub mod pci;
+
+mod control_register;
 
 pub struct VirtioDev<C, D> {
     device: D,
