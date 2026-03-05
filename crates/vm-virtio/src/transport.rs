@@ -316,7 +316,9 @@ where
         self.interrupt_status
     }
 
-    pub fn set_interrupt_status(&mut self, is: InterruptStatus) {
+    pub fn update_interrupt_status(&mut self, is: InterruptStatus) {
         self.interrupt_status = is;
+
+        self.device.trigger_irq(!self.interrupt_status.is_empty());
     }
 }

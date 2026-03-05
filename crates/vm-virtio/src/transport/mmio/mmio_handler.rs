@@ -66,14 +66,9 @@ where
             MmioControlRegister::QueueReady => dev.write_reg(ControlRegister::QueueReady, val),
             MmioControlRegister::QueueNotify => dev.write_reg(ControlRegister::QueueNotify, val),
             MmioControlRegister::InterruptAck => {
-                // TODO
-
-                dev.interrupt_status
-                    .remove(InterruptStatus::from_bits_truncate(val));
-
-                if dev.interrupt_status.is_empty() {
-                    dev.device.trigger_irq(false);
-                }
+                let mut is = dev.get_interrupt_status();
+                is.remove(InterruptStatus::from_bits_truncate(val));
+                dev.update_interrupt_status(is);
 
                 Ok(())
             }

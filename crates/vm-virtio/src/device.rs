@@ -78,11 +78,9 @@ where
             }
 
             if updated {
-                // update irq
                 let mut isr = dev.get_interrupt_status();
                 isr.insert(InterruptStatus::VIRTIO_MMIO_INT_VRING);
-                dev.set_interrupt_status(isr);
-                self.irq_chip.trigger_irq(self.irq_line, true);
+                dev.update_interrupt_status(isr);
             }
         }
     }
