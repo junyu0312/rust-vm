@@ -1,8 +1,6 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::sync::LockResult;
 use std::sync::Mutex;
-use std::sync::MutexGuard;
 
 use bitflags::Flags;
 use tokio::sync::Notify;
@@ -14,32 +12,34 @@ use crate::result::Result;
 use crate::transport::control_register::ControlRegister;
 use crate::types::interrupt_status::InterruptStatus;
 use crate::types::status::Status;
-use crate::virt_queue::VirtQueue;
+use crate::virtqueue::Virtqueue;
 
 pub mod control_register;
 pub mod mmio;
 pub mod pci;
 
-pub struct VirtioDev<C, D>(Arc<Mutex<VirtioDevInternal<C, D>>>);
+pub struct VirtioDev<C, D> {
+    device: D,
 
-impl<C, D> Clone for VirtioDev<C, D> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
+    device_feature_sel: Option<u32>,
+    driver_features: u64,
+    driver_feature_sel: Option<u32>,
+    queue_sel: Option<u32>,
+    virtqueues: Vec<Option<Virtqueue>>,
+    virtqueue_notifiers: Vec<Option<Arc<Notify>>>,
+    interrupt_status: InterruptStatus,
+    status: Status,
+    config_generation: u32,
+
+    _mark: PhantomData<C>,
 }
 
-impl<C, D> VirtioDev<C, D> {
-    pub fn lock(&self) -> LockResult<MutexGuard<'_, VirtioDevInternal<C, D>>> {
-        self.0.lock()
-    }
-}
-
-impl<C, D> From<D> for VirtioDev<C, D>
+impl<C, D> VirtioDev<C, D>
 where
     C: MemoryContainer,
     D: VirtioDevice<C>,
 {
-    fn from(device: D) -> Self {
+    pub fn new(device: D) -> Arc<Mutex<Self>> {
         let virtqueues_size_max = device.virtqueues_size_max();
 
         let virtqueue_notifiers = virtqueues_size_max
@@ -49,10 +49,10 @@ where
 
         let virtqueues = virtqueues_size_max
             .iter()
-            .map(|size_max| size_max.map(VirtQueue::new))
+            .map(|size_max| size_max.map(Virtqueue::new))
             .collect();
 
-        let internal = Arc::new(Mutex::new(VirtioDevInternal {
+        let virtio_dev = Arc::new(Mutex::new(VirtioDev {
             device,
             device_feature_sel: Default::default(),
             driver_features: Default::default(),
@@ -65,8 +65,6 @@ where
             config_generation: Default::default(),
             _mark: PhantomData,
         }));
-
-        let virtio_dev = VirtioDev(internal);
 
         {
             let dev = virtio_dev.lock().unwrap();
@@ -94,23 +92,7 @@ where
     }
 }
 
-pub struct VirtioDevInternal<C, D> {
-    device: D,
-
-    device_feature_sel: Option<u32>,
-    driver_features: u64,
-    driver_feature_sel: Option<u32>,
-    queue_sel: Option<u32>,
-    virtqueues: Vec<Option<VirtQueue>>,
-    virtqueue_notifiers: Vec<Option<Arc<Notify>>>,
-    interrupt_status: InterruptStatus,
-    status: Status,
-    config_generation: u32,
-
-    _mark: PhantomData<C>,
-}
-
-impl<C, D> VirtioDevInternal<C, D>
+impl<C, D> VirtioDev<C, D>
 where
     D: VirtioDevice<C>,
 {
@@ -322,11 +304,11 @@ where
         self.device.write_config(offset, len, buf)
     }
 
-    pub fn get_virtqueue(&self, queue_sel: usize) -> Option<&VirtQueue> {
+    pub fn get_virtqueue(&self, queue_sel: usize) -> Option<&Virtqueue> {
         self.virtqueues.get(queue_sel).unwrap().as_ref()
     }
 
-    pub fn get_virtqueue_mut(&mut self, queue_sel: usize) -> Option<&mut VirtQueue> {
+    pub fn get_virtqueue_mut(&mut self, queue_sel: usize) -> Option<&mut Virtqueue> {
         self.virtqueues.get_mut(queue_sel).unwrap().as_mut()
     }
 

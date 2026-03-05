@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
@@ -110,7 +111,7 @@ where
         &self,
         queue_sel: usize,
         notifier: Arc<Notify>,
-        dev: VirtioDev<C, Self>,
+        dev: Arc<Mutex<VirtioDev<C, Self>>>,
     ) -> Option<VirtqueueHandler<C, Self>> {
         if queue_sel != 0 {
             return None;

@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use vm_mm::allocator::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
@@ -25,7 +28,7 @@ where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,
 {
-    dev: VirtioDev<C, D>,
+    dev: Arc<Mutex<VirtioDev<C, D>>>,
 }
 
 impl<C, D> BarHandler for NotifyHandler<C, D>
@@ -40,9 +43,8 @@ where
     fn write(&self, _offset: u64, data: &[u8]) {
         assert_eq!(data.len(), 2);
         let queue_index = u16::from_le_bytes(data.try_into().unwrap());
-        let mut transport = self.dev.lock().unwrap();
-        transport
-            .write_reg(ControlRegister::QueueNotify, queue_index.into())
+        let mut dev = self.dev.lock().unwrap();
+        dev.write_reg(ControlRegister::QueueNotify, queue_index.into())
             .unwrap();
     }
 }
@@ -52,7 +54,7 @@ where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,
 {
-    transport: VirtioDev<C, D>,
+    dev: Arc<Mutex<VirtioDev<C, D>>>,
 }
 
 impl<C, D> BarHandler for IsrHandler<C, D>
@@ -61,19 +63,17 @@ where
     D: VirtioPciDevice<C>,
 {
     fn read(&self, _offset: u64, data: &mut [u8]) {
-        let mut transport = self.transport.lock().unwrap();
+        let mut dev = self.dev.lock().unwrap();
 
-        let isr = transport.read_reg(ControlRegister::InterruptStatus);
+        let isr = dev.read_reg(ControlRegister::InterruptStatus);
         data[0] = isr as u8;
 
         /*
          * From `4.1.4.5.1 Device Requirements: ISR status capability`
          * - The device MUST reset ISR status to 0 on driver read.
          */
-        transport
-            .write_reg(ControlRegister::InterruptStatus, 0)
-            .unwrap();
-        transport.device.trigger_irq(false);
+        dev.write_reg(ControlRegister::InterruptStatus, 0).unwrap();
+        dev.device.trigger_irq(false);
     }
 
     fn write(&self, _offset: u64, _data: &[u8]) {
@@ -86,7 +86,7 @@ where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,
 {
-    transport: VirtioDev<C, D>,
+    dev: Arc<Mutex<VirtioDev<C, D>>>,
 }
 
 impl<C, D> BarHandler for DeviceHandler<C, D>
@@ -95,18 +95,16 @@ where
     D: VirtioPciDevice<C>,
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
-        let transport = self.transport.lock().unwrap();
+        let dev = self.dev.lock().unwrap();
 
-        transport
-            .read_config(offset.try_into().unwrap(), data.len(), data)
+        dev.read_config(offset.try_into().unwrap(), data.len(), data)
             .unwrap();
     }
 
     fn write(&self, offset: u64, data: &[u8]) {
-        let mut transport = self.transport.lock().unwrap();
+        let mut dev = self.dev.lock().unwrap();
 
-        transport
-            .write_config(offset.try_into().unwrap(), data.len(), data)
+        dev.write_config(offset.try_into().unwrap(), data.len(), data)
             .unwrap();
     }
 }
@@ -116,7 +114,7 @@ where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,
 {
-    pub dev: VirtioDev<C, D>,
+    pub dev: Arc<Mutex<VirtioDev<C, D>>>,
 }
 
 impl<C, D> PciTypeFunctionCommon for VirtioPciFunction<C, D>
@@ -222,16 +220,16 @@ where
     fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>> {
         match bar {
             Bar::Bar0 => Some(Box::new(CommonConfigHandler {
-                transport: self.dev.clone(),
+                dev: self.dev.clone(),
             })),
             Bar::Bar1 => Some(Box::new(NotifyHandler {
                 dev: self.dev.clone(),
             })),
             Bar::Bar2 => Some(Box::new(IsrHandler {
-                transport: self.dev.clone(),
+                dev: self.dev.clone(),
             })),
             Bar::Bar3 => Some(Box::new(DeviceHandler {
-                transport: self.dev.clone(),
+                dev: self.dev.clone(),
             })),
             _ => None,
         }

@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use strum_macros::FromRepr;
 use tracing::warn;
 use vm_mm::allocator::MemoryContainer;
@@ -43,7 +46,7 @@ where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,
 {
-    pub transport: VirtioDev<C, D>,
+    pub dev: Arc<Mutex<VirtioDev<C, D>>>,
 }
 
 impl<C, D> BarHandler for CommonConfigHandler<C, D>
@@ -57,13 +60,13 @@ where
             return;
         };
 
-        let transport = self.transport.lock().unwrap();
+        let dev = self.dev.lock().unwrap();
 
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => todo!(),
             CommonCfgOffset::DeviceFeature => {
                 assert_eq!(data.len(), 4);
-                let feat = transport.read_reg(ControlRegister::DeviceFeatures);
+                let feat = dev.read_reg(ControlRegister::DeviceFeatures);
                 data.copy_from_slice(&feat.to_le_bytes());
             }
             CommonCfgOffset::DriverFeatureSelect => todo!(),
@@ -71,16 +74,16 @@ where
             CommonCfgOffset::ConfigMsixVector => todo!(),
             CommonCfgOffset::NumQueues => {
                 assert_eq!(data.len(), 2);
-                let num_queues = transport.device.num_queues();
+                let num_queues = dev.device.num_queues();
                 data.copy_from_slice(&num_queues.to_le_bytes());
             }
             CommonCfgOffset::DeviceStatus => {
                 assert_eq!(data.len(), 1);
-                let status = transport.read_reg(ControlRegister::Status);
+                let status = dev.read_reg(ControlRegister::Status);
                 data[0] = status.try_into().unwrap();
             }
             CommonCfgOffset::ConfigGeneration => {
-                let cfg_generation: u8 = transport
+                let cfg_generation: u8 = dev
                     .read_reg(ControlRegister::ConfigGeneration)
                     .try_into()
                     .unwrap();
@@ -89,16 +92,13 @@ where
             CommonCfgOffset::QueueSelect => todo!(),
             CommonCfgOffset::QueueSize => {
                 assert_eq!(data.len(), 2);
-                let queue_size: u16 = transport
-                    .read_reg(ControlRegister::QueueSize)
-                    .try_into()
-                    .unwrap();
+                let queue_size: u16 = dev.read_reg(ControlRegister::QueueSize).try_into().unwrap();
                 data.copy_from_slice(&queue_size.to_le_bytes());
             }
             CommonCfgOffset::QueueMsixVector => todo!(),
             CommonCfgOffset::QueueEnable => {
                 assert_eq!(data.len(), 2);
-                let queue_ready = transport.read_reg(ControlRegister::QueueReady) as u16;
+                let queue_ready = dev.read_reg(ControlRegister::QueueReady) as u16;
                 data.copy_from_slice(&queue_ready.to_le_bytes());
             }
             CommonCfgOffset::QueueNotifyOff => {
@@ -124,94 +124,75 @@ where
             return;
         };
 
-        let mut transport = self.transport.lock().unwrap();
+        let mut dev = self.dev.lock().unwrap();
 
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => {
                 assert_eq!(data.len(), 4);
                 let sel = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::DeviceFeaturesSel, sel)
+                dev.write_reg(ControlRegister::DeviceFeaturesSel, sel)
                     .unwrap();
             }
             CommonCfgOffset::DriverFeatureSelect => {
                 assert_eq!(data.len(), 4);
                 let sel = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::DriverFeaturesSel, sel)
+                dev.write_reg(ControlRegister::DriverFeaturesSel, sel)
                     .unwrap();
             }
             CommonCfgOffset::DriverFeature => {
                 assert_eq!(data.len(), 4);
                 let sel = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::DriverFeatures, sel)
-                    .unwrap();
+                dev.write_reg(ControlRegister::DriverFeatures, sel).unwrap();
             }
             CommonCfgOffset::ConfigMsixVector => todo!(),
             CommonCfgOffset::DeviceStatus => {
                 assert_eq!(data.len(), 1);
                 let status = data[0];
-                transport
-                    .write_reg(ControlRegister::Status, status as u32)
+                dev.write_reg(ControlRegister::Status, status as u32)
                     .unwrap();
             }
             CommonCfgOffset::QueueSelect => {
                 assert_eq!(data.len(), 2);
                 let sel = u16::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueSel, sel as u32)
+                dev.write_reg(ControlRegister::QueueSel, sel as u32)
                     .unwrap();
             }
             CommonCfgOffset::QueueSize => {
                 assert_eq!(data.len(), 2);
                 let queue_size = u16::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueSize, queue_size as u32)
+                dev.write_reg(ControlRegister::QueueSize, queue_size as u32)
                     .unwrap();
             }
             CommonCfgOffset::QueueMsixVector => todo!(),
             CommonCfgOffset::QueueEnable => {
                 let queue_enable = u16::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueReady, queue_enable as u32)
+                dev.write_reg(ControlRegister::QueueReady, queue_enable as u32)
                     .unwrap();
             }
             CommonCfgOffset::QueueDescLow => {
                 let addr = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueDescLow, addr)
-                    .unwrap();
+                dev.write_reg(ControlRegister::QueueDescLow, addr).unwrap();
             }
             CommonCfgOffset::QueueDescHigh => {
                 let addr = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueDescHigh, addr)
-                    .unwrap();
+                dev.write_reg(ControlRegister::QueueDescHigh, addr).unwrap();
             }
             CommonCfgOffset::QueueDriverLow => {
                 let addr = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueAvailLow, addr)
-                    .unwrap();
+                dev.write_reg(ControlRegister::QueueAvailLow, addr).unwrap();
             }
             CommonCfgOffset::QueueDriverHigh => {
                 let addr = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueAvailHigh, addr)
+                dev.write_reg(ControlRegister::QueueAvailHigh, addr)
                     .unwrap();
             }
             CommonCfgOffset::QueueDeviceLow => {
                 let addr = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueUsedLow, addr)
-                    .unwrap();
+                dev.write_reg(ControlRegister::QueueUsedLow, addr).unwrap();
             }
             CommonCfgOffset::QueueDeviceHigh => {
                 let addr = u32::from_le_bytes(data.try_into().unwrap());
-                transport
-                    .write_reg(ControlRegister::QueueUsedHigh, addr)
-                    .unwrap();
+                dev.write_reg(ControlRegister::QueueUsedHigh, addr).unwrap();
             }
             _ => {
                 warn!(?offset, "write to a RO cfg");
