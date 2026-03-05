@@ -22,7 +22,7 @@ pub struct VirtioMmioTransport<C, D> {
 impl<C, D> Clone for VirtioMmioTransport<C, D> {
     fn clone(&self) -> Self {
         Self {
-            mmio_range: self.mmio_range.clone(),
+            mmio_range: self.mmio_range,
             dev: self.dev.clone(),
         }
     }
