@@ -27,7 +27,7 @@ where
         match reg {
             MmioControlRegister::MagicValue => VIRTIO_MMIO_MAGIC_VALUE,
             MmioControlRegister::Version => VIRTIO_MMIO_VERSION,
-            MmioControlRegister::DeviceId => D::DEVICE_ID,
+            MmioControlRegister::DeviceId => D::DEVICE_ID as u32,
             MmioControlRegister::VendorId => VIRTIO_MMIO_VENDOR_ID,
             MmioControlRegister::DeviceFeatures => dev.read_reg(ControlRegister::DeviceFeatures),
             MmioControlRegister::QueueSizeMax => dev.read_reg(ControlRegister::QueueSizeMax),

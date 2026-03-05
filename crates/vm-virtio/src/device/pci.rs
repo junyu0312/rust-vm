@@ -4,7 +4,7 @@ use vm_pci::device::pci_device::PciDevice;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
-use crate::transport::pci::VirtioPciFunction;
+use crate::transport::pci::VirtioPciTransport;
 
 pub trait VirtioPciDevice<C>: VirtioDevice<C>
 where
@@ -15,7 +15,7 @@ where
     const IRQ_PIN: u8;
 
     fn into_pci_device(self) -> PciDevice {
-        let virtio_function = VirtioPciFunction::<C, _> {
+        let virtio_function = VirtioPciTransport::<C, _> {
             dev: VirtioDev::new(self),
         };
         let function = Type0Function::new(virtio_function).unwrap();

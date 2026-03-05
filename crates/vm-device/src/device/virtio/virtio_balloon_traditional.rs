@@ -61,7 +61,7 @@ where
     C: MemoryContainer,
 {
     const NAME: &str = "virtio-balloon-tranditional";
-    const DEVICE_ID: u32 = DeviceId::Balloon as u32;
+    const DEVICE_ID: u16 = DeviceId::Balloon as u16;
     const DEVICE_FEATURES: u64 = (1 << VIRTIO_F_VERSION_1);
 
     fn virtqueues_size_max(&self) -> Vec<Option<u32>> {

@@ -11,105 +11,23 @@ use vm_pci::types::configuration_space::ConfigurationSpace;
 
 use crate::device::pci::VirtioPciDevice;
 use crate::transport::VirtioDev;
-use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::common_config_handler::CommonConfigHandler;
-use crate::transport::pci::pci_header::VENDOR_ID;
+use crate::transport::pci::device_handler::DeviceHandler;
+use crate::transport::pci::isr_handler::IsrHandler;
+use crate::transport::pci::notify_handler::NotifyHandler;
 use crate::types::pci::VirtioPciCap;
 use crate::types::pci::VirtioPciCapCfgType;
 use crate::types::pci::VirtioPciCommonCfg;
 use crate::types::pci::VirtioPciNotifyCap;
 
-pub mod pci_header;
-
 mod common_config_handler;
+mod device_handler;
+mod isr_handler;
+mod notify_handler;
 
-struct NotifyHandler<C, D>
-where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
-{
-    dev: Arc<Mutex<VirtioDev<C, D>>>,
-}
+const VIRTIO_PCI_VENDOR_ID: u16 = 0x1AF4;
 
-impl<C, D> BarHandler for NotifyHandler<C, D>
-where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
-{
-    fn read(&self, _offset: u64, _data: &mut [u8]) {
-        unreachable!()
-    }
-
-    fn write(&self, _offset: u64, data: &[u8]) {
-        assert_eq!(data.len(), 2);
-        let queue_index = u16::from_le_bytes(data.try_into().unwrap());
-        let mut dev = self.dev.lock().unwrap();
-        dev.write_reg(ControlRegister::QueueNotify, queue_index.into())
-            .unwrap();
-    }
-}
-
-struct IsrHandler<C, D>
-where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
-{
-    dev: Arc<Mutex<VirtioDev<C, D>>>,
-}
-
-impl<C, D> BarHandler for IsrHandler<C, D>
-where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
-{
-    fn read(&self, _offset: u64, data: &mut [u8]) {
-        let mut dev = self.dev.lock().unwrap();
-
-        let isr = dev.read_reg(ControlRegister::InterruptStatus);
-        data[0] = isr as u8;
-
-        /*
-         * From `4.1.4.5.1 Device Requirements: ISR status capability`
-         * - The device MUST reset ISR status to 0 on driver read.
-         */
-        dev.write_reg(ControlRegister::InterruptStatus, 0).unwrap();
-        dev.device.trigger_irq(false);
-    }
-
-    fn write(&self, _offset: u64, _data: &[u8]) {
-        unreachable!()
-    }
-}
-
-struct DeviceHandler<C, D>
-where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
-{
-    dev: Arc<Mutex<VirtioDev<C, D>>>,
-}
-
-impl<C, D> BarHandler for DeviceHandler<C, D>
-where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
-{
-    fn read(&self, offset: u64, data: &mut [u8]) {
-        let dev = self.dev.lock().unwrap();
-
-        dev.read_config(offset.try_into().unwrap(), data.len(), data)
-            .unwrap();
-    }
-
-    fn write(&self, offset: u64, data: &[u8]) {
-        let mut dev = self.dev.lock().unwrap();
-
-        dev.write_config(offset.try_into().unwrap(), data.len(), data)
-            .unwrap();
-    }
-}
-
-pub struct VirtioPciFunction<C, D>
+pub struct VirtioPciTransport<C, D>
 where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,
@@ -117,12 +35,12 @@ where
     pub dev: Arc<Mutex<VirtioDev<C, D>>>,
 }
 
-impl<C, D> PciTypeFunctionCommon for VirtioPciFunction<C, D>
+impl<C, D> PciTypeFunctionCommon for VirtioPciTransport<C, D>
 where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,
 {
-    const VENDOR_ID: u16 = VENDOR_ID;
+    const VENDOR_ID: u16 = VIRTIO_PCI_VENDOR_ID;
     const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID as u16;
     const CLASS_CODE: u32 = D::CLASS_CODE;
 
@@ -190,7 +108,10 @@ where
                 length: 0x1000,
                 ..Default::default()
             };
-            assert!(D::DEVICE_SPECIFICATION_CONFIGURATION_LEN <= 0x1000);
+
+            if D::DEVICE_SPECIFICATION_CONFIGURATION_LEN > 0x1000 {
+                return Err(Error::CapTooLarge);
+            }
 
             cfg.alloc_capability(virtio_pci_device_cfg_cap.into())?;
         }
@@ -199,7 +120,7 @@ where
     }
 }
 
-impl<C, D> PciType0Function for VirtioPciFunction<C, D>
+impl<C, D> PciType0Function for VirtioPciTransport<C, D>
 where
     C: MemoryContainer,
     D: VirtioPciDevice<C>,

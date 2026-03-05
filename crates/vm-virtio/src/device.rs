@@ -88,7 +88,7 @@ where
 
 pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
     const NAME: &str;
-    const DEVICE_ID: u32;
+    const DEVICE_ID: u16;
     const DEVICE_FEATURES: u64;
 
     fn virtqueues_size_max(&self) -> Vec<Option<u32>>;
