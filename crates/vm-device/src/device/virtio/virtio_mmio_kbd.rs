@@ -28,7 +28,7 @@ use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
 use vm_virtio::types::driver_features::DriverFeatures;
 use vm_virtio::types::interrupt::InterruptStatus;
 use vm_virtio::types::status::Status;
-use vm_virtio::types::virtqueue::split_virtqueue::VirtQueue;
+use vm_virtio::types::virtqueue::split_virtqueue::Virtqueue;
 
 fn bit_to_index(bit: usize) -> (usize, usize) {
     (bit / 8, bit % 8)
@@ -157,7 +157,7 @@ struct VirtIOMmioKbdInternal<const IRQ: u32, C: MemoryContainer> {
     driver_features: DriverFeatures,
     driver_feature_sel: Option<u32>,
     queue_sel: Option<u32>,
-    virtqueues: [VirtQueue<QUEUE_SIZE_MAX>; VIRTIO_INPUT_VIRT_QUEUE as usize],
+    virtqueues: [Virtqueue<QUEUE_SIZE_MAX>; VIRTIO_INPUT_VIRT_QUEUE as usize],
     interrupt_status: InterruptStatus,
     status: Status,
     config_generation: u32,

@@ -9,7 +9,7 @@ use vm_mm::manager::MemoryAddressSpace;
 use crate::result::Result;
 use crate::transport::VirtioDev;
 use crate::types::interrupt_status::InterruptStatus;
-use crate::virt_queue::virtq_desc_table::VirtqDescTableRef;
+use crate::virtqueue::virtq_desc_table::VirtqDescTableRef;
 
 pub mod blk;
 pub mod pci;

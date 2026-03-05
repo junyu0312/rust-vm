@@ -12,7 +12,7 @@ use crate::result::Result;
 use crate::transport::control_register::ControlRegister;
 use crate::types::interrupt_status::InterruptStatus;
 use crate::types::status::Status;
-use crate::virt_queue::VirtQueue;
+use crate::virtqueue::Virtqueue;
 
 pub mod control_register;
 pub mod mmio;
@@ -25,7 +25,7 @@ pub struct VirtioDev<C, D> {
     driver_features: u64,
     driver_feature_sel: Option<u32>,
     queue_sel: Option<u32>,
-    virtqueues: Vec<Option<VirtQueue>>,
+    virtqueues: Vec<Option<Virtqueue>>,
     virtqueue_notifiers: Vec<Option<Arc<Notify>>>,
     interrupt_status: InterruptStatus,
     status: Status,
@@ -49,7 +49,7 @@ where
 
         let virtqueues = virtqueues_size_max
             .iter()
-            .map(|size_max| size_max.map(VirtQueue::new))
+            .map(|size_max| size_max.map(Virtqueue::new))
             .collect();
 
         let virtio_dev = Arc::new(Mutex::new(VirtioDev {
@@ -304,11 +304,11 @@ where
         self.device.write_config(offset, len, buf)
     }
 
-    pub fn get_virtqueue(&self, queue_sel: usize) -> Option<&VirtQueue> {
+    pub fn get_virtqueue(&self, queue_sel: usize) -> Option<&Virtqueue> {
         self.virtqueues.get(queue_sel).unwrap().as_ref()
     }
 
-    pub fn get_virtqueue_mut(&mut self, queue_sel: usize) -> Option<&mut VirtQueue> {
+    pub fn get_virtqueue_mut(&mut self, queue_sel: usize) -> Option<&mut Virtqueue> {
         self.virtqueues.get_mut(queue_sel).unwrap().as_mut()
     }
 

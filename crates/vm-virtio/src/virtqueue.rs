@@ -3,9 +3,9 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::result::Result;
 use crate::result::VirtioError;
-use crate::virt_queue::virtq_avail_ring::VirtqAvail;
-use crate::virt_queue::virtq_desc_table::VirtqDescTableRef;
-use crate::virt_queue::virtq_used_ring::VirtqUsed;
+use crate::virtqueue::virtq_avail_ring::VirtqAvail;
+use crate::virtqueue::virtq_desc_table::VirtqDescTableRef;
+use crate::virtqueue::virtq_used_ring::VirtqUsed;
 
 pub mod virtq_avail_ring;
 pub mod virtq_desc_table;
@@ -21,7 +21,7 @@ fn to_gpa(high: Option<&u32>, low: Option<&u32>) -> Option<u64> {
     }
 }
 
-pub struct VirtQueue {
+pub struct Virtqueue {
     queue_size_max: u32,
     queue_size: u16,
     queue_ready: bool,
@@ -34,9 +34,9 @@ pub struct VirtQueue {
     last_available_idx: u16,
 }
 
-impl VirtQueue {
+impl Virtqueue {
     pub fn new(queue_size_max: u32) -> Self {
-        VirtQueue {
+        Virtqueue {
             queue_size_max,
             queue_size: queue_size_max.try_into().unwrap(), // virtio-pci uses it as maximal queue size, does it work on mmio?
             queue_ready: Default::default(),
