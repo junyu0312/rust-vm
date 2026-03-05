@@ -12,9 +12,10 @@ use crate::device::VirtioDevice;
 use crate::result::Result as VirtioResult;
 use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
-use crate::transport::mmio::CONFIGURATION_SPACE_OFFSET;
 use crate::transport::mmio::control_register::MmioControlRegister;
 use crate::types::interrupt_status::InterruptStatus;
+
+const CONFIGURATION_SPACE_OFFSET: usize = 0x100;
 
 pub struct Handler<C, D> {
     mmio_range: MmioRange,

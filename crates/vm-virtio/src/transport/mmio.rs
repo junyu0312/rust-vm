@@ -15,8 +15,6 @@ use crate::transport::mmio::mmio_handler::Handler;
 mod control_register;
 mod mmio_handler;
 
-const CONFIGURATION_SPACE_OFFSET: usize = 0x100;
-
 pub struct VirtioMmioTransport<C, D> {
     mmio_range: MmioRange,
     dev: Arc<Mutex<VirtioDev<C, D>>>,
