@@ -231,11 +231,8 @@ where
     C: MemoryContainer,
     D: VirtioDevice<C>,
 {
-    pub fn new(device: Arc<Mutex<VirtioDev<C, D>>>, mmio_range: MmioRange) -> Self {
-        VirtioMmioTransport {
-            mmio_range,
-            dev: device.into(),
-        }
+    pub fn new(dev: Arc<Mutex<VirtioDev<C, D>>>, mmio_range: MmioRange) -> Self {
+        VirtioMmioTransport { mmio_range, dev }
     }
 
     fn generate_mmio_handler(&self) -> Handler<C, D> {
