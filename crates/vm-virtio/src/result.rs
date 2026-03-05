@@ -1,5 +1,5 @@
 #[derive(Debug, thiserror::Error)]
-pub enum VirtIoError {
+pub enum VirtioError {
     #[error("invalid length of flag")]
     InvalidFlagLen,
 
@@ -16,4 +16,4 @@ pub enum VirtIoError {
     AccessInvalidGpa(u64),
 }
 
-pub type Result<T> = core::result::Result<T, VirtIoError>;
+pub type Result<T> = core::result::Result<T, VirtioError>;

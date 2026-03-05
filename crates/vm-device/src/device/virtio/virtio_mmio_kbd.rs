@@ -11,9 +11,9 @@ use vm_core::device::mmio::MmioRange;
 use vm_core::arch::irq::InterruptController;
 use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_virtio::transport::VirtIo;
-use vm_virtio::transport::mmio::VirtIoMmio;
-use vm_virtio::transport::mmio::VirtIoMmioAdaptor;
+use vm_virtio::transport::Virtio;
+use vm_virtio::transport::mmio::VirtioMmio;
+use vm_virtio::transport::mmio::VirtioMmioAdaptor;
 use vm_virtio::types::device::virtio_input::VIRTIO_INPUT_EVENTS_Q;
 use vm_virtio::types::device::virtio_input::VIRTIO_INPUT_VIRT_QUEUE;
 use vm_virtio::types::device::virtio_input::VirtIOInput;
@@ -51,7 +51,7 @@ const DEVICE_FEATURE: u64 = 1 << VIRTIO_F_VERSION_1;
 const QUEUE_SIZE_MAX: u32 = 256;
 
 pub struct VirtIOMmioKbd<const IRQ: u32, C: MemoryContainer>(
-    Arc<Mutex<VirtIoMmioAdaptor<VirtIOMmioKbdInternal<IRQ, C>>>>,
+    Arc<Mutex<VirtioMmioAdaptor<VirtIOMmioKbdInternal<IRQ, C>>>>,
 );
 
 impl<const IRQ: u32, C> VirtIOMmioKbd<IRQ, C>
@@ -65,7 +65,7 @@ where
         irq_chip: Arc<dyn InterruptController>,
         rx: Receiver<u8>,
     ) -> Self {
-        let inner = Arc::new(Mutex::new(VirtIoMmioAdaptor::from(VirtIOMmioKbdInternal {
+        let inner = Arc::new(Mutex::new(VirtioMmioAdaptor::from(VirtIOMmioKbdInternal {
             mm,
             irq_chip,
             mmio_range,
@@ -278,7 +278,7 @@ where
     }
 }
 
-impl<const IRQ: u32, C> VirtIoMmio for VirtIOMmioKbdInternal<IRQ, C>
+impl<const IRQ: u32, C> VirtioMmio for VirtIOMmioKbdInternal<IRQ, C>
 where
     C: MemoryContainer,
 {
@@ -291,7 +291,7 @@ where
     }
 }
 
-impl<const IRQ: u32, C> VirtIo for VirtIOMmioKbdInternal<IRQ, C>
+impl<const IRQ: u32, C> Virtio for VirtIOMmioKbdInternal<IRQ, C>
 where
     C: MemoryContainer,
 {

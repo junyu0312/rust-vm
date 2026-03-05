@@ -9,7 +9,7 @@ use tokio::sync::Notify;
 use tracing::warn;
 use vm_mm::allocator::MemoryContainer;
 
-use crate::device::VirtIoDevice;
+use crate::device::VirtioDevice;
 use crate::result::Result;
 use crate::transport::control_register::ControlRegister;
 use crate::types::interrupt_status::InterruptStatus;
@@ -20,24 +20,24 @@ pub mod control_register;
 pub mod mmio;
 pub mod pci;
 
-pub struct VirtIoDev<C, D>(Arc<Mutex<VirtIoDevInternal<C, D>>>);
+pub struct VirtioDev<C, D>(Arc<Mutex<VirtioDevInternal<C, D>>>);
 
-impl<C, D> Clone for VirtIoDev<C, D> {
+impl<C, D> Clone for VirtioDev<C, D> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<C, D> VirtIoDev<C, D> {
-    pub fn lock(&self) -> LockResult<MutexGuard<'_, VirtIoDevInternal<C, D>>> {
+impl<C, D> VirtioDev<C, D> {
+    pub fn lock(&self) -> LockResult<MutexGuard<'_, VirtioDevInternal<C, D>>> {
         self.0.lock()
     }
 }
 
-impl<C, D> From<D> for VirtIoDev<C, D>
+impl<C, D> From<D> for VirtioDev<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoDevice<C>,
+    D: VirtioDevice<C>,
 {
     fn from(device: D) -> Self {
         let virtqueues_size_max = device.virtqueues_size_max();
@@ -52,7 +52,7 @@ where
             .map(|size_max| size_max.map(VirtQueue::new))
             .collect();
 
-        let internal = Arc::new(Mutex::new(VirtIoDevInternal {
+        let internal = Arc::new(Mutex::new(VirtioDevInternal {
             device,
             device_feature_sel: Default::default(),
             driver_features: Default::default(),
@@ -66,7 +66,7 @@ where
             _mark: PhantomData,
         }));
 
-        let virtio_dev = VirtIoDev(internal);
+        let virtio_dev = VirtioDev(internal);
 
         {
             let dev = virtio_dev.lock().unwrap();
@@ -94,7 +94,7 @@ where
     }
 }
 
-pub struct VirtIoDevInternal<C, D> {
+pub struct VirtioDevInternal<C, D> {
     device: D,
 
     device_feature_sel: Option<u32>,
@@ -110,9 +110,9 @@ pub struct VirtIoDevInternal<C, D> {
     _mark: PhantomData<C>,
 }
 
-impl<C, D> VirtIoDevInternal<C, D>
+impl<C, D> VirtioDevInternal<C, D>
 where
-    D: VirtIoDevice<C>,
+    D: VirtioDevice<C>,
 {
     fn reset(&mut self) {
         self.device.reset();

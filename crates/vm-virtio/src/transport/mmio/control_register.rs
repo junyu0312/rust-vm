@@ -1,6 +1,6 @@
 use strum_macros::FromRepr;
 
-#[derive(Debug, FromRepr)]
+#[derive(Clone, Copy, Debug, FromRepr)]
 #[repr(u16)]
 pub enum MmioControlRegister {
     /* Control registers */

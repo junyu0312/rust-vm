@@ -7,7 +7,7 @@ use zerocopy::KnownLayout;
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
-pub struct VirtIoPciCap {
+pub struct VirtioPciCap {
     pub cap_vndr: u8,     /* Generic PCI field: PCI_CAP_ID_VNDR */
     pub cap_next: u8,     /* Generic PCI field: next ptr. */
     pub cap_len: u8,      /* Generic PCI field: capability length */
@@ -19,12 +19,12 @@ pub struct VirtIoPciCap {
     pub length: u32,      /* Length of the structure, in bytes. */
 }
 
-impl Default for VirtIoPciCap {
+impl Default for VirtioPciCap {
     fn default() -> Self {
         Self {
             cap_vndr: PciCapId::Vndr as u8,
             cap_next: Default::default(),
-            cap_len: size_of::<VirtIoPciCap>().try_into().unwrap(),
+            cap_len: size_of::<VirtioPciCap>().try_into().unwrap(),
             cfg_type: Default::default(),
             bar: Default::default(),
             id: Default::default(),
@@ -35,14 +35,14 @@ impl Default for VirtIoPciCap {
     }
 }
 
-impl From<VirtIoPciCap> for StandardCapability {
-    fn from(val: VirtIoPciCap) -> StandardCapability {
+impl From<VirtioPciCap> for StandardCapability {
+    fn from(val: VirtioPciCap) -> StandardCapability {
         StandardCapability::new(val.cap_vndr, val.as_bytes()[2..].to_vec())
     }
 }
 
 #[repr(u8)]
-pub enum VirtIoPciCapCfgType {
+pub enum VirtioPciCapCfgType {
     /* Common configuration */
     VirtioPciCapCommonCfg = 1,
     /* Notifications */
@@ -61,7 +61,7 @@ pub enum VirtIoPciCapCfgType {
 
 #[derive(Default, FromBytes, IntoBytes, Immutable)]
 #[repr(C, packed)]
-pub struct VirtIoPciCommonCfg {
+pub struct VirtioPciCommonCfg {
     /* About the whole device. */
     pub device_feature_select: u32,
     pub device_feature: u32,
@@ -89,13 +89,13 @@ pub struct VirtIoPciCommonCfg {
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
-pub struct VirtIoPciNotifyCap {
-    pub cap: VirtIoPciCap,
+pub struct VirtioPciNotifyCap {
+    pub cap: VirtioPciCap,
     pub notify_off_multiplier: u32,
 }
 
-impl From<VirtIoPciNotifyCap> for StandardCapability {
-    fn from(val: VirtIoPciNotifyCap) -> StandardCapability {
+impl From<VirtioPciNotifyCap> for StandardCapability {
+    fn from(val: VirtioPciNotifyCap) -> StandardCapability {
         StandardCapability::new(val.cap.cap_vndr, val.as_bytes()[2..].to_vec())
     }
 }

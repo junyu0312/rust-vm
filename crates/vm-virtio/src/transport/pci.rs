@@ -6,15 +6,15 @@ use vm_pci::device::function::type0::PciType0Function;
 use vm_pci::error::Error;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 
-use crate::device::pci::VirtIoPciDevice;
-use crate::transport::VirtIoDev;
+use crate::device::pci::VirtioPciDevice;
+use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::common_config_handler::CommonConfigHandler;
 use crate::transport::pci::pci_header::VENDOR_ID;
-use crate::types::pci::VirtIoPciCap;
-use crate::types::pci::VirtIoPciCapCfgType;
-use crate::types::pci::VirtIoPciCommonCfg;
-use crate::types::pci::VirtIoPciNotifyCap;
+use crate::types::pci::VirtioPciCap;
+use crate::types::pci::VirtioPciCapCfgType;
+use crate::types::pci::VirtioPciCommonCfg;
+use crate::types::pci::VirtioPciNotifyCap;
 
 pub mod pci_header;
 
@@ -23,15 +23,15 @@ mod common_config_handler;
 struct NotifyHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
-    transport: VirtIoDev<C, D>,
+    dev: VirtioDev<C, D>,
 }
 
 impl<C, D> BarHandler for NotifyHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
     fn read(&self, _offset: u64, _data: &mut [u8]) {
         unreachable!()
@@ -40,7 +40,7 @@ where
     fn write(&self, _offset: u64, data: &[u8]) {
         assert_eq!(data.len(), 2);
         let queue_index = u16::from_le_bytes(data.try_into().unwrap());
-        let mut transport = self.transport.lock().unwrap();
+        let mut transport = self.dev.lock().unwrap();
         transport
             .write_reg(ControlRegister::QueueNotify, queue_index.into())
             .unwrap();
@@ -50,15 +50,15 @@ where
 struct IsrHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
-    transport: VirtIoDev<C, D>,
+    transport: VirtioDev<C, D>,
 }
 
 impl<C, D> BarHandler for IsrHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
     fn read(&self, _offset: u64, data: &mut [u8]) {
         let mut transport = self.transport.lock().unwrap();
@@ -84,15 +84,15 @@ where
 struct DeviceHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
-    transport: VirtIoDev<C, D>,
+    transport: VirtioDev<C, D>,
 }
 
 impl<C, D> BarHandler for DeviceHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
         let transport = self.transport.lock().unwrap();
@@ -111,26 +111,26 @@ where
     }
 }
 
-pub struct VirtIoPciFunction<C, D>
+pub struct VirtioPciFunction<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
-    pub transport: VirtIoDev<C, D>,
+    pub dev: VirtioDev<C, D>,
 }
 
-impl<C, D> PciTypeFunctionCommon for VirtIoPciFunction<C, D>
+impl<C, D> PciTypeFunctionCommon for VirtioPciFunction<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
     const VENDOR_ID: u16 = VENDOR_ID;
     const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID as u16;
     const CLASS_CODE: u32 = D::CLASS_CODE;
 
     fn legacy_interrupt(&self) -> Option<(u8, u8)> {
-        let transport = self.transport.lock().unwrap();
-        transport.device.irq().map(|irq| {
+        let dev = self.dev.lock().unwrap();
+        dev.device.irq().map(|irq| {
             (
                 irq.try_into()
                     .expect("irq is too large for pci legacy interrupt"),
@@ -141,12 +141,12 @@ where
 
     fn init_capability(&self, cfg: &mut ConfigurationSpace) -> Result<(), Error> {
         {
-            let virtio_pci_common_cfg = VirtIoPciCap {
-                cfg_type: VirtIoPciCapCfgType::VirtioPciCapCommonCfg as u8,
+            let virtio_pci_common_cfg = VirtioPciCap {
+                cfg_type: VirtioPciCapCfgType::VirtioPciCapCommonCfg as u8,
                 bar: 0,
                 id: 0,
                 offset: 0,
-                length: size_of::<VirtIoPciCommonCfg>().try_into().unwrap(),
+                length: size_of::<VirtioPciCommonCfg>().try_into().unwrap(),
                 ..Default::default()
             };
 
@@ -154,10 +154,10 @@ where
         }
 
         {
-            let virtio_pci_notify_cap = VirtIoPciNotifyCap {
-                cap: VirtIoPciCap {
-                    cap_len: size_of::<VirtIoPciNotifyCap>().try_into().unwrap(),
-                    cfg_type: VirtIoPciCapCfgType::VirtioPciCapNotifyCfg as u8,
+            let virtio_pci_notify_cap = VirtioPciNotifyCap {
+                cap: VirtioPciCap {
+                    cap_len: size_of::<VirtioPciNotifyCap>().try_into().unwrap(),
+                    cfg_type: VirtioPciCapCfgType::VirtioPciCapNotifyCfg as u8,
                     bar: 1,
                     id: 0,
                     offset: 0,
@@ -171,8 +171,8 @@ where
         }
 
         {
-            let virtio_pci_isr_cap = VirtIoPciCap {
-                cfg_type: VirtIoPciCapCfgType::VirtioPciCapIsrCfg as u8,
+            let virtio_pci_isr_cap = VirtioPciCap {
+                cfg_type: VirtioPciCapCfgType::VirtioPciCapIsrCfg as u8,
                 bar: 2,
                 id: 0,
                 offset: 0,
@@ -184,8 +184,8 @@ where
         }
 
         {
-            let virtio_pci_device_cfg_cap = VirtIoPciCap {
-                cfg_type: VirtIoPciCapCfgType::VirtioPciCapDeviceCfg as u8,
+            let virtio_pci_device_cfg_cap = VirtioPciCap {
+                cfg_type: VirtioPciCapCfgType::VirtioPciCapDeviceCfg as u8,
                 bar: 3,
                 id: 0,
                 offset: 0,
@@ -201,10 +201,10 @@ where
     }
 }
 
-impl<C, D> PciType0Function for VirtIoPciFunction<C, D>
+impl<C, D> PciType0Function for VirtioPciFunction<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
     const BAR_SIZE: [Option<u32>; 6] = [
         // virtio_pci_common_cfg
@@ -222,16 +222,16 @@ where
     fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>> {
         match bar {
             Bar::Bar0 => Some(Box::new(CommonConfigHandler {
-                transport: self.transport.clone(),
+                transport: self.dev.clone(),
             })),
             Bar::Bar1 => Some(Box::new(NotifyHandler {
-                transport: self.transport.clone(),
+                dev: self.dev.clone(),
             })),
             Bar::Bar2 => Some(Box::new(IsrHandler {
-                transport: self.transport.clone(),
+                transport: self.dev.clone(),
             })),
             Bar::Bar3 => Some(Box::new(DeviceHandler {
-                transport: self.transport.clone(),
+                transport: self.dev.clone(),
             })),
             _ => None,
         }

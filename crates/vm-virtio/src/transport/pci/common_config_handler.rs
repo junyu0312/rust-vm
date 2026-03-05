@@ -3,8 +3,8 @@ use tracing::warn;
 use vm_mm::allocator::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 
-use crate::device::pci::VirtIoPciDevice;
-use crate::transport::VirtIoDev;
+use crate::device::pci::VirtioPciDevice;
+use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
 
 #[derive(Debug, FromRepr)]
@@ -41,15 +41,15 @@ enum CommonCfgOffset {
 pub struct CommonConfigHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
-    pub transport: VirtIoDev<C, D>,
+    pub transport: VirtioDev<C, D>,
 }
 
 impl<C, D> BarHandler for CommonConfigHandler<C, D>
 where
     C: MemoryContainer,
-    D: VirtIoPciDevice<C>,
+    D: VirtioPciDevice<C>,
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {

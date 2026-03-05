@@ -85,7 +85,7 @@ pub mod req {
 
     #[derive(Clone, Copy, Debug, FromRepr)]
     #[repr(u32)]
-    pub enum VirtIoBlkReqType {
+    pub enum VirtioBlkReqType {
         /* Read */
         VirtioBlkTIn = 0,
 
@@ -114,7 +114,7 @@ pub mod req {
     #[derive(Debug)]
     #[repr(C, packed)]
     pub struct VirtioBlkReq {
-        pub r#type: VirtIoBlkReqType,
+        pub r#type: VirtioBlkReqType,
         pub reserved: u32,
         pub sector: u64,
         // pub data: *mut u8,
