@@ -56,7 +56,7 @@ where
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {
-            warn!(offset, "invalid offset");
+            warn!(name = D::NAME, offset, "invalid offset");
             return;
         };
 
@@ -101,14 +101,7 @@ where
                 let queue_ready = dev.read_reg(ControlRegister::QueueReady) as u16;
                 data.copy_from_slice(&queue_ready.to_le_bytes());
             }
-            CommonCfgOffset::QueueNotifyOff => {
-                // let val: u16 = transport
-                //     .read_reg(ControlRegister::QueueNotify)
-                //     .try_into()
-                //     .unwrap();
-                // data.copy_from_slice(&val.to_le_bytes());
-                // TODO: What's this
-            }
+            CommonCfgOffset::QueueNotifyOff => todo!(),
             CommonCfgOffset::QueueDescLow => todo!(),
             CommonCfgOffset::QueueDescHigh => todo!(),
             CommonCfgOffset::QueueDriverLow => todo!(),
@@ -120,7 +113,7 @@ where
 
     fn write(&self, offset: u64, data: &[u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {
-            warn!(offset, "invalid offset");
+            warn!(name = D::NAME, offset, "invalid offset");
             return;
         };
 
