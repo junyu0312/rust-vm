@@ -4,8 +4,8 @@ use std::sync::Mutex;
 use vm_mm::allocator::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 
-use crate::device::pci::VirtioPciDevice;
 use crate::transport::VirtioDev;
+use crate::transport::pci::VirtioPciDevice;
 
 pub struct DeviceHandler<C, D>
 where

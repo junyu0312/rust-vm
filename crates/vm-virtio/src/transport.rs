@@ -20,7 +20,7 @@ pub mod pci;
 mod control_register;
 
 pub struct VirtioDev<C, D> {
-    device: D,
+    pub device: D,
 
     device_feature_sel: Option<u32>,
     driver_features: u64,
@@ -321,5 +321,13 @@ where
         self.interrupt_status = is;
 
         self.device.trigger_irq(!self.interrupt_status.is_empty());
+    }
+
+    pub fn update_config_generation_and_notify(&mut self) {
+        self.config_generation += 1;
+
+        let mut is = self.get_interrupt_status();
+        is.insert(InterruptStatus::VIRTIO_MMIO_INT_CONFIG);
+        self.update_interrupt_status(is);
     }
 }

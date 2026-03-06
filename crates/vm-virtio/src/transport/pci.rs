@@ -6,10 +6,12 @@ use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
 use vm_pci::device::function::type0::PciType0Function;
+use vm_pci::device::function::type0::Type0Function;
+use vm_pci::device::pci_device::PciDevice;
 use vm_pci::error::Error;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 
-use crate::device::pci::VirtioPciDevice;
+use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
 use crate::transport::pci::common_config_handler::CommonConfigHandler;
 use crate::transport::pci::device_handler::DeviceHandler;
@@ -41,7 +43,7 @@ where
     D: VirtioPciDevice<C>,
 {
     const VENDOR_ID: u16 = VIRTIO_PCI_VENDOR_ID;
-    const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID as u16;
+    const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID;
     const CLASS_CODE: u32 = D::CLASS_CODE;
 
     fn legacy_interrupt(&self) -> Option<(u8, u8)> {
@@ -158,5 +160,22 @@ where
             })),
             _ => None,
         }
+    }
+}
+
+pub trait VirtioPciDevice<C>: VirtioDevice<C>
+where
+    C: MemoryContainer,
+{
+    const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize;
+    const CLASS_CODE: u32;
+    const IRQ_PIN: u8;
+
+    fn into_pci_device(self) -> PciDevice {
+        let virtio_function = VirtioPciTransport::<C, _> {
+            dev: VirtioDev::new(self),
+        };
+        let function = Type0Function::new(virtio_function).unwrap();
+        PciDevice::from_single_function(Box::new(function))
     }
 }

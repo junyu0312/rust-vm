@@ -6,9 +6,9 @@ use tracing::warn;
 use vm_mm::allocator::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 
-use crate::device::pci::VirtioPciDevice;
 use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
+use crate::transport::pci::VirtioPciDevice;
 
 #[derive(Debug, FromRepr)]
 #[repr(u64)]
