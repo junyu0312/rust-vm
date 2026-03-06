@@ -137,7 +137,7 @@ where
 
                 debug_assert!(false)
             }
-        } else if let Err(err) = dev.read_config(offset - CONFIGURATION_SPACE_OFFSET, len, data) {
+        } else if let Err(err) = dev.read_config(offset - CONFIGURATION_SPACE_OFFSET, data) {
             error!(name = D::NAME, ?err, "Failed to read device configuration");
 
             debug_assert!(false)
@@ -186,7 +186,7 @@ where
 
                 debug_assert!(false)
             }
-        } else if let Err(err) = dev.write_config(offset - CONFIGURATION_SPACE_OFFSET, len, data) {
+        } else if let Err(err) = dev.write_config(offset - CONFIGURATION_SPACE_OFFSET, data) {
             error!(name = D::NAME, ?err, "Failed to write device configuration");
 
             debug_assert!(false)

@@ -7,15 +7,16 @@ use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_virtio::device::VirtioDevice;
-use vm_virtio::device::VirtqueueHandler;
-use vm_virtio::device::VirtqueueHandlerFn;
-use vm_virtio::device::blk::config::VirtioBlkConfig;
-use vm_virtio::device::blk::req::VirtioBlkReq;
-use vm_virtio::device::blk::req::VirtioBlkReqType;
-use vm_virtio::device::pci::VirtioPciDevice;
+use vm_virtio::device::transport::TransportContext;
+use vm_virtio::device::virtqueue::VirtqueueHandler;
+use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
 use vm_virtio::result::Result;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::mmio::VirtioMmioTransport;
+use vm_virtio::transport::pci::VirtioPciDevice;
+use vm_virtio::types::device::blk::config::VirtioBlkConfig;
+use vm_virtio::types::device::blk::req::VirtioBlkReq;
+use vm_virtio::types::device::blk::req::VirtioBlkReqType;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
 use vm_virtio::types::device_id::DeviceId;
 use zerocopy::IntoBytes;
@@ -128,14 +129,22 @@ where
         })
     }
 
-    fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()> {
-        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + len]);
+    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + buf.len()]);
         Ok(())
     }
 
-    fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
-        self.cfg.as_mut_bytes()[offset..len].copy_from_slice(buf);
+    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+        self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
         Ok(())
+    }
+
+    fn transport_context(&self) -> &dyn TransportContext {
+        todo!()
+    }
+
+    fn transport_context_mit(&mut self) -> &mut dyn TransportContext {
+        todo!()
     }
 }
 

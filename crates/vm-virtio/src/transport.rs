@@ -20,7 +20,7 @@ pub mod pci;
 mod control_register;
 
 pub struct VirtioDev<C, D> {
-    device: D,
+    pub device: D,
 
     device_feature_sel: Option<u32>,
     driver_features: u64,
@@ -297,12 +297,12 @@ where
         Ok(())
     }
 
-    pub fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()> {
-        self.device.read_config(offset, len, buf)
+    pub fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+        self.device.read_config(offset, buf)
     }
 
-    pub fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
-        self.device.write_config(offset, len, buf)
+    pub fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+        self.device.write_config(offset, buf)
     }
 
     pub fn get_virtqueue(&self, queue_sel: usize) -> Option<&Virtqueue> {
@@ -321,5 +321,13 @@ where
         self.interrupt_status = is;
 
         self.device.trigger_irq(!self.interrupt_status.is_empty());
+    }
+
+    pub fn update_config_generation_and_notify(&mut self) {
+        self.config_generation += 1;
+
+        let mut is = self.get_interrupt_status();
+        is.insert(InterruptStatus::VIRTIO_MMIO_INT_CONFIG);
+        self.update_interrupt_status(is);
     }
 }

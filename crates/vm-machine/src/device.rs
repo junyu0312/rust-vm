@@ -1,9 +1,12 @@
 use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
 use vm_device::device::Device;
+use vm_device::device::virtio::virtio_balloon_traditional::VirtioBalloonApi;
 use vm_device::device::virtio::virtio_balloon_traditional::VirtioBalloonTranditional;
 use vm_device::device::virtio::virtio_balloon_traditional::VirtioMmioBalloonDevice;
 use vm_device::device::virtio::virtio_blk::VirtioBlkDevice;
@@ -11,8 +14,8 @@ use vm_device::device::virtio::virtio_blk::VirtioMmioBlkDevice;
 use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
-use vm_virtio::device::pci::VirtioPciDevice;
 use vm_virtio::transport::VirtioDev;
+use vm_virtio::transport::pci::VirtioPciDevice;
 
 use crate::error::Error;
 
@@ -88,13 +91,41 @@ impl InitDevice for DeviceManager {
             match device {
                 Device::GicV3 => (), // irq_chip is initialized already
                 Device::VirtioMmioBalloon => {
-                    // TODO: use mmio allocator
+                    let dev = VirtioDev::new(VirtioBalloonTranditional::new(
+                        3,
+                        irq_chip.clone(),
+                        mm.clone(),
+                    ));
+
+                    if false {
+                        std::thread::spawn({
+                            let dev = dev.clone();
+                            move || {
+                                let mut i = 0;
+                                loop {
+                                    i += 1;
+
+                                    {
+                                        sleep(Duration::from_secs(5));
+
+                                        let mut dev = dev.lock().unwrap();
+                                        dev.update_num_pages(i);
+                                    }
+
+                                    {
+                                        sleep(Duration::from_secs(5));
+
+                                        let mut dev = dev.lock().unwrap();
+                                        dev.update_num_pages(0);
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // TODO: use mmio allocator?
                     let virtio_mmio_balloon = VirtioMmioBalloonDevice::new(
-                        VirtioDev::new(VirtioBalloonTranditional::new(
-                            3,
-                            irq_chip.clone(),
-                            mm.clone(),
-                        )),
+                        dev,
                         MmioRange {
                             start: 0x0900_2000,
                             len: 0x1000,

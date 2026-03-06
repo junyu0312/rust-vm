@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -6,8 +7,9 @@ use vm_core::arch::irq::InterruptController;
 use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_virtio::device::VirtioDevice;
-use vm_virtio::device::VirtqueueHandler;
-use vm_virtio::device::VirtqueueHandlerFn;
+use vm_virtio::device::transport::TransportContext;
+use vm_virtio::device::virtqueue::VirtqueueHandler;
+use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
 use vm_virtio::result::Result;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::mmio::VirtioMmioTransport;
@@ -20,12 +22,50 @@ use zerocopy::IntoBytes;
 const INFLATEQ_QUEUE_SIZE_MAX: u32 = 512;
 const DEFLATEQ_QUEUE_SIZE_MAX: u32 = 512;
 
-fn inflateq_handler<C, D>() -> VirtqueueHandlerFn<C, D> {
-    Box::new(|_mm, _dev, _desc_ring, _desc_id| todo!())
+fn inflateq_handler<C>() -> VirtqueueHandlerFn<C, VirtioBalloonTranditional<C>>
+where
+    C: MemoryContainer,
+{
+    Box::new(|mm, dev, desc_ring, desc_id| {
+        let desc = desc_ring.get(desc_id);
+        let len = desc.len;
+        assert!(len.is_multiple_of(4));
+
+        let array = desc.addr(mm).unwrap().as_ptr() as *const u32;
+
+        for i in 0..(len / 4) {
+            let pfn = unsafe { *array.add(i as usize) };
+            assert!(dev.device.balloon.insert(pfn));
+            let gpa = (pfn as u64) << 12;
+            let _hva = mm.gpa_to_hva(gpa).unwrap();
+            // TODO: mmap
+        }
+
+        len
+    })
 }
 
-fn deflateq_handler<C, D>() -> VirtqueueHandlerFn<C, D> {
-    Box::new(|_mm, _dev, _desc_ring, _desc_id| todo!())
+fn deflateq_handler<C>() -> VirtqueueHandlerFn<C, VirtioBalloonTranditional<C>>
+where
+    C: MemoryContainer,
+{
+    Box::new(|mm, dev, desc_ring, desc_id| {
+        let desc = desc_ring.get(desc_id);
+        let len = desc.len;
+        assert!(len.is_multiple_of(4));
+
+        let array = desc.addr(mm).unwrap().as_ptr() as *const u32;
+
+        for i in 0..(len / 4) {
+            let pfn = unsafe { *array.add(i as usize) };
+            assert!(dev.device.balloon.remove(&pfn));
+            let gpa = (pfn as u64) << 12;
+            let _hva = mm.gpa_to_hva(gpa).unwrap();
+            // TODO: mmap
+        }
+
+        len
+    })
 }
 
 pub struct VirtioBalloonTranditional<C>
@@ -36,6 +76,7 @@ where
     irq_chip: Arc<dyn InterruptController>,
     mm: Arc<MemoryAddressSpace<C>>,
     cfg: VirtioBalloonTranditionalConfig,
+    balloon: HashSet<u32>,
 }
 
 impl<C> VirtioBalloonTranditional<C>
@@ -52,7 +93,14 @@ where
             irq_chip,
             mm,
             cfg: VirtioBalloonTranditionalConfig::default(),
+            balloon: Default::default(),
         }
+    }
+
+    pub fn set_num_pages(&mut self, num_pages: u32) {
+        self.cfg.num_pages = num_pages;
+
+        todo!("notify config generation changes");
     }
 }
 
@@ -112,14 +160,42 @@ where
         }
     }
 
-    fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()> {
-        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + len]);
+    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + buf.len()]);
         Ok(())
     }
 
-    fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
-        self.cfg.as_mut_bytes()[offset..len].copy_from_slice(buf);
+    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+        self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
         Ok(())
+    }
+
+    fn transport_context(&self) -> &dyn TransportContext {
+        todo!()
+    }
+
+    fn transport_context_mit(&mut self) -> &mut dyn TransportContext {
+        todo!()
+    }
+}
+
+pub trait VirtioBalloonApi {
+    fn update_num_pages(&mut self, num_pages: u32);
+}
+
+pub type VirtioBalloonDev<C> = VirtioDev<C, VirtioBalloonTranditional<C>>;
+
+impl<C> VirtioBalloonApi for VirtioBalloonDev<C>
+where
+    C: MemoryContainer,
+{
+    fn update_num_pages(&mut self, num_pages: u32) {
+        if self.device.cfg.num_pages == num_pages {
+            return;
+        }
+
+        self.device.cfg.num_pages = num_pages;
+        self.update_config_generation_and_notify();
     }
 }
 
