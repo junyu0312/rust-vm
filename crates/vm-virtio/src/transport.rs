@@ -297,12 +297,12 @@ where
         Ok(())
     }
 
-    pub fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()> {
-        self.device.read_config(offset, len, buf)
+    pub fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+        self.device.read_config(offset, buf)
     }
 
-    pub fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
-        self.device.write_config(offset, len, buf)
+    pub fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+        self.device.write_config(offset, buf)
     }
 
     pub fn get_virtqueue(&self, queue_sel: usize) -> Option<&Virtqueue> {

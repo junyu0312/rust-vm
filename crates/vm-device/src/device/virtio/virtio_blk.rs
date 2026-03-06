@@ -128,13 +128,13 @@ where
         })
     }
 
-    fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()> {
-        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + len]);
+    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + buf.len()]);
         Ok(())
     }
 
-    fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()> {
-        self.cfg.as_mut_bytes()[offset..len].copy_from_slice(buf);
+    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+        self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
         Ok(())
     }
 }

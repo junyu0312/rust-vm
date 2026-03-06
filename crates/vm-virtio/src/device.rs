@@ -115,7 +115,7 @@ pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
         dev: Arc<Mutex<VirtioDev<C, Self>>>,
     ) -> Option<VirtqueueHandler<C, Self>>;
 
-    fn read_config(&self, offset: usize, len: usize, buf: &mut [u8]) -> Result<()>;
+    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()>;
 
-    fn write_config(&mut self, offset: usize, len: usize, buf: &[u8]) -> Result<()>;
+    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()>;
 }

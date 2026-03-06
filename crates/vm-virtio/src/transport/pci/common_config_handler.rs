@@ -63,14 +63,26 @@ where
         let dev = self.dev.lock().unwrap();
 
         match offset {
-            CommonCfgOffset::DeviceFeatureSelect => todo!(),
+            CommonCfgOffset::DeviceFeatureSelect => {
+                assert_eq!(data.len(), 4);
+                let sel = dev.read_reg(ControlRegister::DeviceFeaturesSel);
+                data.copy_from_slice(&sel.to_le_bytes());
+            }
             CommonCfgOffset::DeviceFeature => {
                 assert_eq!(data.len(), 4);
                 let feat = dev.read_reg(ControlRegister::DeviceFeatures);
                 data.copy_from_slice(&feat.to_le_bytes());
             }
-            CommonCfgOffset::DriverFeatureSelect => todo!(),
-            CommonCfgOffset::DriverFeature => todo!(),
+            CommonCfgOffset::DriverFeatureSelect => {
+                assert_eq!(data.len(), 4);
+                let sel = dev.read_reg(ControlRegister::DriverFeaturesSel);
+                data.copy_from_slice(&sel.to_le_bytes());
+            }
+            CommonCfgOffset::DriverFeature => {
+                assert_eq!(data.len(), 4);
+                let feat = dev.read_reg(ControlRegister::DriverFeatures);
+                data.copy_from_slice(&feat.to_le_bytes());
+            }
             CommonCfgOffset::ConfigMsixVector => todo!(),
             CommonCfgOffset::NumQueues => {
                 assert_eq!(data.len(), 2);
@@ -89,7 +101,11 @@ where
                     .unwrap();
                 data[0] = cfg_generation;
             }
-            CommonCfgOffset::QueueSelect => todo!(),
+            CommonCfgOffset::QueueSelect => {
+                assert_eq!(data.len(), 2);
+                let queue_sel: u16 = dev.read_reg(ControlRegister::QueueSel).try_into().unwrap();
+                data.copy_from_slice(&queue_sel.to_le_bytes());
+            }
             CommonCfgOffset::QueueSize => {
                 assert_eq!(data.len(), 2);
                 let queue_size: u16 = dev.read_reg(ControlRegister::QueueSize).try_into().unwrap();
@@ -101,13 +117,39 @@ where
                 let queue_ready = dev.read_reg(ControlRegister::QueueReady) as u16;
                 data.copy_from_slice(&queue_ready.to_le_bytes());
             }
-            CommonCfgOffset::QueueNotifyOff => todo!(),
-            CommonCfgOffset::QueueDescLow => todo!(),
-            CommonCfgOffset::QueueDescHigh => todo!(),
-            CommonCfgOffset::QueueDriverLow => todo!(),
-            CommonCfgOffset::QueueDriverHigh => todo!(),
-            CommonCfgOffset::QueueDeviceLow => todo!(),
-            CommonCfgOffset::QueueDeviceHigh => todo!(),
+            CommonCfgOffset::QueueNotifyOff => {
+                // TODO
+            }
+            CommonCfgOffset::QueueDescLow => {
+                assert_eq!(data.len(), 4);
+                let addr = dev.read_reg(ControlRegister::QueueDescLow);
+                data.copy_from_slice(&addr.to_le_bytes());
+            }
+            CommonCfgOffset::QueueDescHigh => {
+                assert_eq!(data.len(), 4);
+                let addr = dev.read_reg(ControlRegister::QueueDescHigh);
+                data.copy_from_slice(&addr.to_le_bytes());
+            }
+            CommonCfgOffset::QueueDriverLow => {
+                assert_eq!(data.len(), 4);
+                let addr = dev.read_reg(ControlRegister::QueueAvailLow);
+                data.copy_from_slice(&addr.to_le_bytes());
+            }
+            CommonCfgOffset::QueueDriverHigh => {
+                assert_eq!(data.len(), 4);
+                let addr = dev.read_reg(ControlRegister::QueueAvailHigh);
+                data.copy_from_slice(&addr.to_le_bytes());
+            }
+            CommonCfgOffset::QueueDeviceLow => {
+                assert_eq!(data.len(), 4);
+                let addr = dev.read_reg(ControlRegister::QueueUsedLow);
+                data.copy_from_slice(&addr.to_le_bytes());
+            }
+            CommonCfgOffset::QueueDeviceHigh => {
+                assert_eq!(data.len(), 4);
+                let addr = dev.read_reg(ControlRegister::QueueUsedHigh);
+                data.copy_from_slice(&addr.to_le_bytes());
+            }
         }
     }
 
@@ -187,9 +229,7 @@ where
                 let addr = u32::from_le_bytes(data.try_into().unwrap());
                 dev.write_reg(ControlRegister::QueueUsedHigh, addr).unwrap();
             }
-            _ => {
-                warn!(?offset, "write to a RO cfg");
-            }
+            _ => warn!(name = D::NAME, ?offset, "write to a RO cfg"),
         }
     }
 }

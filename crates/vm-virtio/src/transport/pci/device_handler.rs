@@ -23,14 +23,12 @@ where
     fn read(&self, offset: u64, data: &mut [u8]) {
         let dev = self.dev.lock().unwrap();
 
-        dev.read_config(offset.try_into().unwrap(), data.len(), data)
-            .unwrap();
+        dev.read_config(offset.try_into().unwrap(), data).unwrap();
     }
 
     fn write(&self, offset: u64, data: &[u8]) {
         let mut dev = self.dev.lock().unwrap();
 
-        dev.write_config(offset.try_into().unwrap(), data.len(), data)
-            .unwrap();
+        dev.write_config(offset.try_into().unwrap(), data).unwrap();
     }
 }
