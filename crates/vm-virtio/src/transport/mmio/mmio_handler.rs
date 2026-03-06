@@ -27,7 +27,7 @@ where
         match reg {
             MmioControlRegister::MagicValue => VIRTIO_MMIO_MAGIC_VALUE,
             MmioControlRegister::Version => VIRTIO_MMIO_VERSION,
-            MmioControlRegister::DeviceId => D::DEVICE_ID,
+            MmioControlRegister::DeviceId => D::DEVICE_ID as u32,
             MmioControlRegister::VendorId => VIRTIO_MMIO_VENDOR_ID,
             MmioControlRegister::DeviceFeatures => dev.read_reg(ControlRegister::DeviceFeatures),
             MmioControlRegister::QueueSizeMax => dev.read_reg(ControlRegister::QueueSizeMax),
@@ -66,14 +66,9 @@ where
             MmioControlRegister::QueueReady => dev.write_reg(ControlRegister::QueueReady, val),
             MmioControlRegister::QueueNotify => dev.write_reg(ControlRegister::QueueNotify, val),
             MmioControlRegister::InterruptAck => {
-                // TODO
-
-                dev.interrupt_status
-                    .remove(InterruptStatus::from_bits_truncate(val));
-
-                if dev.interrupt_status.is_empty() {
-                    dev.device.trigger_irq(false);
-                }
+                let mut is = dev.get_interrupt_status();
+                is.remove(InterruptStatus::from_bits_truncate(val));
+                dev.update_interrupt_status(is);
 
                 Ok(())
             }

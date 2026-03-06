@@ -14,9 +14,10 @@ use crate::types::interrupt_status::InterruptStatus;
 use crate::types::status::Status;
 use crate::virtqueue::Virtqueue;
 
-pub mod control_register;
 pub mod mmio;
 pub mod pci;
+
+mod control_register;
 
 pub struct VirtioDev<C, D> {
     device: D,
@@ -316,7 +317,9 @@ where
         self.interrupt_status
     }
 
-    pub fn set_interrupt_status(&mut self, is: InterruptStatus) {
+    pub fn update_interrupt_status(&mut self, is: InterruptStatus) {
         self.interrupt_status = is;
+
+        self.device.trigger_irq(!self.interrupt_status.is_empty());
     }
 }

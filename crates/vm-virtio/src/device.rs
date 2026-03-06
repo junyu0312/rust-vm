@@ -78,11 +78,9 @@ where
             }
 
             if updated {
-                // update irq
                 let mut isr = dev.get_interrupt_status();
                 isr.insert(InterruptStatus::VIRTIO_MMIO_INT_VRING);
-                dev.set_interrupt_status(isr);
-                self.irq_chip.trigger_irq(self.irq_line, true);
+                dev.update_interrupt_status(isr);
             }
         }
     }
@@ -90,7 +88,7 @@ where
 
 pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
     const NAME: &str;
-    const DEVICE_ID: u32;
+    const DEVICE_ID: u16;
     const DEVICE_FEATURES: u64;
 
     fn virtqueues_size_max(&self) -> Vec<Option<u32>>;
