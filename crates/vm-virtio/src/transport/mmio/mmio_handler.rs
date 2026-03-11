@@ -3,7 +3,7 @@ use tracing::error;
 use tracing::warn;
 use vm_core::device::mmio::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioHandler;
-use vm_mm::allocator::MemoryContainer;
+use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::result::Result as VirtioResult;

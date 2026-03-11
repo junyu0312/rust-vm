@@ -1,8 +1,8 @@
 use applevisor::memory::Memory;
 use applevisor::vm::VirtualMachineInstance;
 use vm_mm::allocator::Allocator;
-use vm_mm::allocator::MemoryContainer;
 use vm_mm::error::Error;
+use vm_mm::memory_container::MemoryContainer;
 
 pub struct MemoryWrapper(pub Memory);
 
@@ -10,8 +10,12 @@ unsafe impl Send for MemoryWrapper {}
 unsafe impl Sync for MemoryWrapper {}
 
 impl MemoryContainer for MemoryWrapper {
-    fn to_hva(&self) -> *mut u8 {
+    fn hva(&self) -> *mut u8 {
         self.0.host_addr()
+    }
+
+    fn length(&self) -> usize {
+        self.0.size()
     }
 }
 

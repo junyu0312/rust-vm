@@ -6,7 +6,7 @@ use vm_core::device::mmio::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
-use vm_mm::allocator::MemoryContainer;
+use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;

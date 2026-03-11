@@ -6,8 +6,8 @@ use std::fs;
 use std::path::Path;
 
 use tracing::debug;
-use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::memory_container::MemoryContainer;
 use zerocopy::FromBytes;
 
 use crate::kernel_loader::Error;
@@ -128,7 +128,7 @@ where
         }
 
         memory
-            .copy_from_slice(kernel_start, &self.kernel, self.kernel.len())
+            .copy_from_slice(kernel_start, &self.kernel)
             .map_err(|err| Error::CopyKernelFailed(err.to_string()))?;
 
         Ok(LoadResult {

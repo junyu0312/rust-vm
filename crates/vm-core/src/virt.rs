@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::memory_container::MemoryContainer;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;

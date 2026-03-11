@@ -9,7 +9,7 @@ use vm_core::device::Device;
 use vm_core::device::mmio::MmioDevice;
 use vm_core::device::mmio::MmioRange;
 use vm_core::arch::irq::InterruptController;
-use vm_mm::allocator::MemoryContainer;
+use vm_mm::memory_container::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_virtio::transport::Virtio;
 use vm_virtio::transport::mmio::VirtioMmio;

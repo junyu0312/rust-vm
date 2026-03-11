@@ -3,8 +3,8 @@ use std::sync::Mutex;
 
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
-use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
