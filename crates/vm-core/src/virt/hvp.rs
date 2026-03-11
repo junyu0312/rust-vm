@@ -282,7 +282,7 @@ impl Virt for Hvp {
         let mut memory = allocator.alloc(memory_size, None)?;
         memory.0.map(ram_base, MemPerms::ReadWriteExec)?;
         memory_address_space
-            .try_insert(MemoryRegion::new(ram_base, memory_size, memory))
+            .try_insert(MemoryRegion::new(ram_base, memory))
             .map_err(|_| Error::FailedInitialize("Failed to initialize memory".to_string()))?;
 
         self.get_layout_mut().set_ram_size(memory_size as u64)?;

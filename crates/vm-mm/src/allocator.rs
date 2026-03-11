@@ -1,10 +1,7 @@
 use crate::error::Error;
+use crate::memory_container::MemoryContainer;
 
 pub mod mmap_allocator;
-
-pub trait MemoryContainer: Send + Sync + 'static {
-    fn to_hva(&self) -> *mut u8;
-}
 
 pub trait Allocator {
     type Container: MemoryContainer;

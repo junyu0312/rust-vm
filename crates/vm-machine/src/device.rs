@@ -11,8 +11,8 @@ use vm_device::device::virtio::virtio_balloon_traditional::VirtioBalloonTranditi
 use vm_device::device::virtio::virtio_balloon_traditional::VirtioMmioBalloonDevice;
 use vm_device::device::virtio::virtio_blk::VirtioBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtioMmioBlkDevice;
-use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::memory_container::MemoryContainer;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;

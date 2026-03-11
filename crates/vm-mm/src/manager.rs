@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
-use std::collections::btree_map;
 
-use crate::allocator::MemoryContainer;
 use crate::error::Error;
+use crate::memory_container::MemoryContainer;
 use crate::region::MemoryRegion;
 
 pub struct MemoryAddressSpace<C> {
+    /// gpa |-> memory region
     regions: BTreeMap<u64, MemoryRegion<C>>,
 }
 
@@ -14,15 +14,6 @@ impl<C> Default for MemoryAddressSpace<C> {
         Self {
             regions: Default::default(),
         }
-    }
-}
-
-impl<'a, C> IntoIterator for &'a MemoryAddressSpace<C> {
-    type Item = &'a MemoryRegion<C>;
-    type IntoIter = btree_map::Values<'a, u64, MemoryRegion<C>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.regions.values()
     }
 }
 
@@ -35,45 +26,90 @@ where
             return Err(region);
         }
 
-        self.regions.insert(region.gpa, region);
+        let old = self.regions.insert(region.gpa, region);
+        assert!(old.is_none());
 
         Ok(())
     }
 
+    // TODO: the API is not friendly to multi regions, try to avoid expose hva?
     pub fn gpa_to_hva(&self, gpa: u64) -> Result<*mut u8, Error> {
         let region = self.try_get_region_by_gpa(gpa)?;
-        let hva = region.to_hva();
+        let hva = region.hva();
 
-        let offset = gpa - region.gpa;
-
-        unsafe { Ok(hva.add(offset as usize)) }
+        unsafe { Ok(hva.add((gpa - region.gpa) as usize)) }
     }
 
-    pub fn memset(&self, gpa: u64, val: u8, len: usize) -> Result<(), Error> {
-        let region = self.try_get_region_by_gpa(gpa)?;
-        let hva = region.to_hva();
-        let offset = gpa - region.gpa;
+    pub fn memset(&self, mut gpa: u64, val: u8, len: usize) -> Result<(), Error> {
+        let mut check_gpa = gpa;
+        let mut remaining = len;
 
-        if offset + len as u64 > region.len as u64 {
-            return Err(Error::MemoryOverflow);
+        while remaining > 0 {
+            let region = self.try_get_region_by_gpa(check_gpa)?;
+
+            let offset = check_gpa - region.gpa;
+            let avail = region.len() - offset as usize;
+            let step = remaining.min(avail);
+
+            remaining -= step;
+            check_gpa += step as u64;
         }
 
-        unsafe { hva.add(offset as usize).write_bytes(val, len) };
+        remaining = len;
+
+        while remaining > 0 {
+            let region = self.try_get_region_by_gpa(gpa)?;
+
+            let offset = gpa - region.gpa;
+            let avail = region.len() - offset as usize;
+            let step = remaining.min(avail);
+
+            unsafe {
+                region.hva().add(offset as usize).write_bytes(val, step);
+            }
+
+            remaining -= step;
+            gpa += step as u64;
+        }
 
         Ok(())
     }
 
-    pub fn copy_from_slice(&self, gpa: u64, buf: &[u8], len: usize) -> Result<(), Error> {
-        let region = self.try_get_region_by_gpa(gpa)?;
-        let hva = region.to_hva();
-        let offset = gpa - region.gpa;
+    pub fn copy_from_slice(&self, mut gpa: u64, buf: &[u8]) -> Result<(), Error> {
+        let mut remaining = buf.len();
+        let mut check_gpa = gpa;
 
-        if offset + len as u64 > region.len as u64 {
-            return Err(Error::MemoryOverflow);
+        while remaining > 0 {
+            let region = self.try_get_region_by_gpa(check_gpa)?;
+
+            let offset = check_gpa - region.gpa;
+            let avail = region.len() - offset as usize;
+            let step = remaining.min(avail);
+
+            remaining -= step;
+            check_gpa += step as u64;
         }
 
-        unsafe {
-            hva.add(offset as usize).copy_from(buf.as_ptr(), len);
+        remaining = buf.len();
+        let mut src_offset = 0;
+
+        while remaining > 0 {
+            let region = self.try_get_region_by_gpa(gpa)?;
+
+            let offset = gpa - region.gpa;
+            let avail = region.len() - offset as usize;
+            let step = remaining.min(avail);
+
+            unsafe {
+                region
+                    .hva()
+                    .add(offset as usize)
+                    .copy_from_nonoverlapping(buf.as_ptr().add(src_offset), step);
+            }
+
+            remaining -= step;
+            src_offset += step;
+            gpa += step as u64;
         }
 
         Ok(())
@@ -81,20 +117,33 @@ where
 
     fn is_overlapping(&self, region: &MemoryRegion<C>) -> bool {
         let new_left = region.gpa;
-        let new_right = region.gpa + region.len as u64;
+        let new_right = region.gpa + region.len() as u64;
 
-        self.regions.values().any(|r| {
-            let left = r.gpa;
-            let right = left + r.len as u64;
-            new_left < right && left < new_right
-        })
+        if let Some((_, prev)) = self.regions.range(..=new_left).next_back() {
+            let prev_right = prev.gpa + prev.len() as u64;
+            if prev_right > new_left {
+                return true;
+            }
+        }
+
+        if let Some((_, next)) = self.regions.range(new_left..).next() {
+            let next_left = next.gpa;
+            if next_left < new_right {
+                return true;
+            }
+        }
+
+        false
     }
 
     fn get_by_gpa(&self, gpa: u64) -> Option<&MemoryRegion<C>> {
-        self.regions
-            .values()
-            .find(|region| gpa >= region.gpa && gpa < region.gpa + region.len as u64)
-            .map(|v| v as _)
+        let (_, region) = self.regions.range(..=gpa).next_back()?;
+
+        if gpa < region.gpa + region.len() as u64 {
+            Some(region)
+        } else {
+            None
+        }
     }
 
     fn try_get_region_by_gpa(&self, gpa: u64) -> Result<&MemoryRegion<C>, Error> {
@@ -119,17 +168,17 @@ mod tests {
 
         assert!(
             memory_as
-                .try_insert(MemoryRegion::new(0, 10, allocator.alloc(10, None)?))
+                .try_insert(MemoryRegion::new(0, allocator.alloc(10, None)?))
                 .is_ok()
         );
         assert!(
             memory_as
-                .try_insert(MemoryRegion::new(5, 10, allocator.alloc(10, None)?))
+                .try_insert(MemoryRegion::new(5, allocator.alloc(10, None)?))
                 .is_err()
         );
         assert!(
             memory_as
-                .try_insert(MemoryRegion::new(10, 10, allocator.alloc(10, None)?))
+                .try_insert(MemoryRegion::new(10, allocator.alloc(10, None)?))
                 .is_ok()
         );
 
@@ -144,9 +193,9 @@ mod tests {
         let mut memory_as = MemoryAddressSpace::<MmapMut>::default();
         let allocator = MmapAllocator;
 
-        let region = MemoryRegion::new(GPA, LEN, allocator.alloc(LEN, None)?);
+        let region = MemoryRegion::new(GPA, allocator.alloc(LEN, None)?);
 
-        let hva = region.to_hva();
+        let hva = region.hva();
 
         assert!(memory_as.try_insert(region).is_ok());
 
@@ -178,20 +227,80 @@ mod tests {
         {
             // Test copy_from_slice ok
             let val = 0xaa;
-            memory_as.copy_from_slice(GPA, &[val; LEN], LEN)?;
+            memory_as.copy_from_slice(GPA, &[val; LEN])?;
             assert_eq!(unsafe { *hva }, val);
             assert_eq!(unsafe { *hva.add(LEN - 1) }, val);
         }
 
         {
             // Test copy_from_slice overflow
-            assert!(
-                memory_as
-                    .copy_from_slice(GPA, &[0; LEN + 1], LEN + 1)
-                    .is_err()
-            );
-            assert!(memory_as.copy_from_slice(GPA + 1, &[0; LEN], LEN).is_err());
+            assert!(memory_as.copy_from_slice(GPA, &[0; LEN + 1],).is_err());
+            assert!(memory_as.copy_from_slice(GPA + 1, &[0; LEN],).is_err());
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_memset_multi_regions_ok() -> anyhow::Result<()> {
+        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let allocator = MmapAllocator;
+
+        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region0).is_ok());
+
+        let region1 = MemoryRegion::new(10, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region1).is_ok());
+
+        assert!(memory.memset(0, 0xff, 20).is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_memset_multi_regions_fail() -> anyhow::Result<()> {
+        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let allocator = MmapAllocator;
+
+        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region0).is_ok());
+
+        let region1 = MemoryRegion::new(20, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region1).is_ok());
+
+        assert!(memory.memset(0, 0xff, 20).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_from_slice_multi_regions_ok() -> anyhow::Result<()> {
+        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let allocator = MmapAllocator;
+
+        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region0).is_ok());
+
+        let region1 = MemoryRegion::new(10, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region1).is_ok());
+
+        assert!(memory.copy_from_slice(0, &[0xff; 20]).is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_copy_from_slice_multi_regions_fail() -> anyhow::Result<()> {
+        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let allocator = MmapAllocator;
+
+        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region0).is_ok());
+
+        let region1 = MemoryRegion::new(20, allocator.alloc(10, None)?);
+        assert!(memory.try_insert(region1).is_ok());
+
+        assert!(memory.copy_from_slice(0, &[0xff; 20]).is_err());
 
         Ok(())
     }

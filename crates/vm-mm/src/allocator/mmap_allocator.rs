@@ -2,16 +2,15 @@ use memmap2::MmapMut;
 
 use crate::allocator::Allocator;
 use crate::error::Error;
+use crate::memory_container::MemoryContainer;
 
-mod container {
-    use memmap2::MmapMut;
+impl MemoryContainer for MmapMut {
+    fn hva(&self) -> *mut u8 {
+        self.as_ptr() as *mut u8
+    }
 
-    use crate::allocator::MemoryContainer;
-
-    impl MemoryContainer for MmapMut {
-        fn to_hva(&self) -> *mut u8 {
-            self.as_ptr() as *mut u8
-        }
+    fn length(&self) -> usize {
+        self.len()
     }
 }
 
@@ -25,8 +24,6 @@ impl Allocator for MmapAllocator {
             unimplemented!()
         }
 
-        let mmap = MmapMut::map_anon(len).map_err(|_| Error::AllocAnonymousMemoryFailed { len })?;
-
-        Ok(mmap)
+        MmapMut::map_anon(len).map_err(|_| Error::AllocAnonymousMemoryFailed { len })
     }
 }

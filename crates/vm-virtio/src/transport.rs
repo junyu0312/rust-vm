@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use bitflags::Flags;
 use tokio::sync::Notify;
 use tracing::warn;
-use vm_mm::allocator::MemoryContainer;
+use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::result::Result;

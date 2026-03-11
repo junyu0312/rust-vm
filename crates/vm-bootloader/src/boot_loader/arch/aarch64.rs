@@ -9,8 +9,8 @@ use vm_core::arch::layout::MemoryLayout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
-use vm_mm::allocator::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::memory_container::MemoryContainer;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
@@ -107,7 +107,7 @@ impl AArch64BootLoader {
         }
 
         memory
-            .copy_from_slice(dtb_start, &dtb, dtb.len())
+            .copy_from_slice(dtb_start, &dtb)
             .map_err(|_| Error::LoadDtbFailed("failed to copy".to_string()))?;
 
         layout.set_dtb_len(dtb.len())?;
