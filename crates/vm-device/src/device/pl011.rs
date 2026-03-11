@@ -3,7 +3,6 @@ use std::io::Read;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
 
 use bitflags::Flags;
 use strum_macros::FromRepr;
@@ -573,9 +572,9 @@ impl<const IRQ: u32> Pl011<IRQ> {
     pub fn new(mmio_range: MmioRange, irq_chip: Arc<dyn InterruptController>) -> Self {
         let pl011 = Arc::new(Mutex::new(Pl011Internal::new(irq_chip)));
 
-        thread::spawn({
+        tokio::spawn({
             let pl011 = pl011.clone();
-            move || {
+            async move {
                 let stdin = io::stdin();
                 let mut handle = stdin.lock();
                 let mut buffer = [0u8; 1];
