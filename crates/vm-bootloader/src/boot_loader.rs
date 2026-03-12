@@ -22,21 +22,9 @@ pub enum Error {
     #[error("Memory overlap")]
     MemoryOverlap,
     #[error("Layout error, reason: {0}")]
-    LayoutError(layout::Error),
+    LayoutError(#[from] layout::Error),
     #[error("{0}")]
-    GenerateDtb(vm_fdt::Error),
-}
-
-impl From<layout::Error> for Error {
-    fn from(err: layout::Error) -> Self {
-        Error::LayoutError(err)
-    }
-}
-
-impl From<vm_fdt::Error> for Error {
-    fn from(err: vm_fdt::Error) -> Self {
-        Error::GenerateDtb(err)
-    }
+    GenerateDtb(#[from] vm_fdt::Error),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
