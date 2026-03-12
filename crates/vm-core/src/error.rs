@@ -6,38 +6,18 @@ pub enum Error {
     InterruptControllerFailed(String),
     #[cfg(feature = "kvm")]
     #[error("{0}")]
-    KvmError(kvm_ioctls::Error),
+    KvmError(#[from] kvm_ioctls::Error),
     #[cfg(feature = "hvp")]
     #[error("{0}")]
-    ApplevisorError(applevisor::error::HypervisorError),
+    ApplevisorError(#[from] applevisor::error::HypervisorError),
     #[error("{0}")]
-    MemoryError(vm_mm::error::Error),
+    MemoryError(#[from] vm_mm::error::Error),
     #[error("{0}")]
-    LayoutError(crate::arch::layout::Error),
+    LayoutError(#[from] crate::arch::layout::Error),
     #[error("{0}")]
     Internal(String),
     #[error("Unknown error: {0}")]
     Unknown(String),
-}
-
-#[cfg(feature = "kvm")]
-impl From<kvm_ioctls::Error> for Error {
-    fn from(err: kvm_ioctls::Error) -> Self {
-        Error::KvmError(err)
-    }
-}
-
-#[cfg(feature = "hvp")]
-impl From<applevisor::error::HypervisorError> for Error {
-    fn from(err: applevisor::error::HypervisorError) -> Self {
-        Error::ApplevisorError(err)
-    }
-}
-
-impl From<vm_mm::error::Error> for Error {
-    fn from(err: vm_mm::error::Error) -> Self {
-        Error::MemoryError(err)
-    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

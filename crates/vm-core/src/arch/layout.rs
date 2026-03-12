@@ -26,12 +26,6 @@ pub enum Error {
     DtbAlreadySet,
 }
 
-impl From<Error> for crate::error::Error {
-    fn from(err: Error) -> Self {
-        crate::error::Error::LayoutError(err)
-    }
-}
-
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub trait MemoryLayout: Clone {
