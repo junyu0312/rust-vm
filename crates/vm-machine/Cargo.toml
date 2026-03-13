@@ -10,6 +10,7 @@ kvm-ioctls = { workspace = true, optional = true }
 lazy_static = { workspace = true }
 maplit = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 vm-bootloader = { workspace = true }
 vm-core = { workspace = true }

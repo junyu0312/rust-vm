@@ -4,6 +4,7 @@ use vm_core::arch::layout::MemoryLayout;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioLayout;
+use vm_core::monitor::MonitorServerBuilder;
 use vm_core::virt::Virt;
 use vm_device::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
@@ -38,6 +39,8 @@ impl VmBuilder {
     where
         V: Virt,
     {
+        let monitor_server_builder = MonitorServerBuilder::default();
+
         let mut virt = V::new(self.vcpus)?;
 
         let mut memory_regions = MemoryAddressSpace::default();
@@ -62,6 +65,7 @@ impl VmBuilder {
             irq_chip,
             device_manager: Arc::new(device_manager),
             gdb_stub: self.gdb_port.map(GdbStub::new),
+            monitor: monitor_server_builder.build(),
         };
 
         Ok(vm)
