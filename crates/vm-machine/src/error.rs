@@ -23,6 +23,9 @@ pub enum Error {
 
     #[error("gdb_stub failed, error: {0}")]
     GdbStub(String),
+
+    #[error("monitor error: {0}")]
+    Monitor(#[from] vm_core::monitor::Error),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

@@ -4,6 +4,7 @@ use vm_bootloader::boot_loader::BootLoader;
 use vm_core::arch::irq::InterruptController;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::device_manager::DeviceManager;
+use vm_core::monitor::MonitorServer;
 use vm_core::virt::Virt;
 use vm_mm::manager::MemoryAddressSpace;
 
@@ -16,6 +17,7 @@ pub struct Vm<V: Virt> {
     pub(crate) irq_chip: Arc<dyn InterruptController>,
     pub(crate) device_manager: Arc<DeviceManager>,
     pub(crate) gdb_stub: Option<GdbStub>,
+    pub(crate) monitor: MonitorServer,
 }
 
 impl<V> Vm<V>
@@ -29,6 +31,8 @@ where
             self.irq_chip.as_ref(),
             self.device_manager.mmio_devices(),
         )?;
+
+        self.monitor.start();
 
         if let Some(gdb_stub) = &self.gdb_stub {
             gdb_stub

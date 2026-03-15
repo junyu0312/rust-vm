@@ -1,9 +1,11 @@
+#![deny(warnings)]
+
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 use tokio::io::AsyncReadExt;
 use tokio::net::UnixStream;
 
-const PATH: &'static str = "/tmp/vm.sock";
+const PATH: &str = "/tmp/vm.sock";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -27,8 +29,10 @@ async fn main() -> anyhow::Result<()> {
                 stream.try_write(line.as_bytes())?;
 
                 stream.readable().await?;
-                let mut buf = vec![0u8; 1024];
+
+                let mut buf = vec![];
                 let n = stream.read_buf(&mut buf).await?;
+
                 println!("{}", str::from_utf8(&buf[..n])?);
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => break,
