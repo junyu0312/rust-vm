@@ -36,6 +36,10 @@ where
     pub fn new(dev: Arc<Mutex<VirtioDev<C, D>>>, mmio_range: MmioRange) -> Self {
         VirtioMmioTransport { mmio_range, dev }
     }
+
+    pub fn dev(&self) -> Arc<Mutex<VirtioDev<C, D>>> {
+        self.dev.clone()
+    }
 }
 
 impl<C, D> Device for VirtioMmioTransport<C, D>

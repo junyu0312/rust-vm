@@ -1,14 +1,13 @@
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::MmioRange;
+use vm_core::monitor::MonitorServerBuilder;
 use vm_device::device::Device;
-use vm_device::device::virtio::virtio_balloon_traditional::VirtioBalloonApi;
-use vm_device::device::virtio::virtio_balloon_traditional::VirtioBalloonTranditional;
-use vm_device::device::virtio::virtio_balloon_traditional::VirtioMmioBalloonDevice;
+use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;
+use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioMmioBalloonDevice;
+use vm_device::device::virtio::virtio_balloon_traditional::monitor::VirtioBalloonMonitor;
 use vm_device::device::virtio::virtio_blk::VirtioBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtioMmioBlkDevice;
 use vm_mm::manager::MemoryAddressSpace;
@@ -22,6 +21,7 @@ use crate::error::Error;
 pub trait InitDevice {
     fn init_devices<C>(
         &mut self,
+        monitor_server_builder: &mut MonitorServerBuilder,
         mm: Arc<MemoryAddressSpace<C>>,
         devices: Vec<Device>,
         irq_chip: Arc<dyn InterruptController>,
@@ -33,6 +33,7 @@ pub trait InitDevice {
 impl InitDevice for DeviceManager {
     fn init_devices<C>(
         &mut self,
+        monitor_server_builder: &mut MonitorServerBuilder,
         mm: Arc<MemoryAddressSpace<C>>,
         devices: Vec<Device>,
         irq_chip: Arc<dyn InterruptController>,
@@ -97,31 +98,9 @@ impl InitDevice for DeviceManager {
                         mm.clone(),
                     ));
 
-                    if false {
-                        std::thread::spawn({
-                            let dev = dev.clone();
-                            move || {
-                                let mut i = 0;
-                                loop {
-                                    i += 1;
-
-                                    {
-                                        sleep(Duration::from_secs(5));
-
-                                        let mut dev = dev.lock().unwrap();
-                                        dev.update_num_pages(i);
-                                    }
-
-                                    {
-                                        sleep(Duration::from_secs(5));
-
-                                        let mut dev = dev.lock().unwrap();
-                                        dev.update_num_pages(0);
-                                    }
-                                }
-                            }
-                        });
-                    }
+                    let monitor = VirtioBalloonMonitor::new(dev.clone());
+                    monitor_server_builder
+                        .register_command_handler("balloon", Box::new(monitor))?;
 
                     // TODO: use mmio allocator?
                     let virtio_mmio_balloon = VirtioMmioBalloonDevice::new(

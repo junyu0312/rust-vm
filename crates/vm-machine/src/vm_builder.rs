@@ -39,7 +39,7 @@ impl VmBuilder {
     where
         V: Virt,
     {
-        let monitor_server_builder = MonitorServerBuilder::default();
+        let mut monitor_server_builder = MonitorServerBuilder::default();
 
         let mut virt = V::new(self.vcpus)?;
 
@@ -57,7 +57,12 @@ impl VmBuilder {
         };
 
         let mut device_manager = DeviceManager::new(mmio_layout);
-        device_manager.init_devices(memory.clone(), self.devices, irq_chip.clone())?;
+        device_manager.init_devices(
+            &mut monitor_server_builder,
+            memory.clone(),
+            self.devices,
+            irq_chip.clone(),
+        )?;
 
         let vm = Vm {
             memory,

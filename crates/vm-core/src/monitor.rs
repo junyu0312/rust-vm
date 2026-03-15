@@ -17,8 +17,17 @@ pub enum Error {
     #[error("{0}")]
     CommandHandlerConflicat(String),
 
+    #[error("{0}")]
+    Serde(#[from] serde_json::Error),
+
     #[error("Unknown cmd {0}")]
     UnknownCmd(String),
+
+    #[error("unknown subcommand {0:?}")]
+    UnknownSubcommand(Vec<String>),
+
+    #[error("{0}")]
+    Error(String),
 }
 
 #[async_trait]
@@ -55,7 +64,6 @@ impl MonitorConnection {
                                 continue;
                             }
 
-                            println!("line: {line}");
                             let mut tokens = line.split_whitespace();
                             let command = match tokens.next() {
                                 Some(f) => f,
@@ -75,7 +83,6 @@ impl MonitorConnection {
                                     }
                                 },
                                 None => {
-                                    println!("write aaa");
                                     stream
                                         .write_all(
                                             format!("ERR unknown command {command}\n").as_bytes(),
