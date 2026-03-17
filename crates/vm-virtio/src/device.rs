@@ -3,7 +3,6 @@ use std::sync::Mutex;
 
 use tokio::sync::Notify;
 
-use crate::device::transport::TransportContext;
 use crate::device::virtqueue::VirtqueueHandler;
 use crate::result::Result;
 use crate::transport::VirtioDev;
@@ -43,8 +42,4 @@ pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
     fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()>;
 
     fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()>;
-
-    fn transport_context(&self) -> &dyn TransportContext;
-
-    fn transport_context_mit(&mut self) -> &mut dyn TransportContext;
 }

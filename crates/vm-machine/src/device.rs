@@ -10,6 +10,9 @@ use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioMmioBal
 use vm_device::device::virtio::virtio_balloon_traditional::monitor::VirtioBalloonMonitor;
 use vm_device::device::virtio::virtio_blk::VirtioBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtioMmioBlkDevice;
+use vm_device::device::virtio::virtio_entropy::VirtioEntropy;
+// use vm_device::device::virtio::virtio_entropy::VirtioEntropy;
+use vm_device::device::virtio::virtio_entropy::VirtioMmioEntropyDevice;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::memory_container::MemoryContainer;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
@@ -60,6 +63,15 @@ impl InitDevice for DeviceManager {
                     .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
             }
 
+            // {
+            //     let virtio_entropy =
+            //         VirtioEntropy::new(11, irq_chip.clone(), mm.clone()).into_pci_device();
+
+            //     pci_rc
+            //         .register_device(virtio_entropy)
+            //         .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
+            // }
+
             self.register_mmio_device(Box::new(pci_rc))?;
         }
 
@@ -86,6 +98,18 @@ impl InitDevice for DeviceManager {
                 },
             );
             self.register_mmio_device(Box::new(virtio_mmio_blk))?;
+        }
+
+        {
+            let virtio_entropy = VirtioMmioEntropyDevice::new(
+                VirtioDev::new(VirtioEntropy::new(4, irq_chip.clone(), mm.clone())),
+                MmioRange {
+                    start: 0x0900_3000,
+                    len: 0x1000,
+                },
+            );
+
+            self.register_mmio_device(Box::new(virtio_entropy))?;
         }
 
         for device in devices {

@@ -30,7 +30,6 @@ impl VirtqUsed {
     pub fn incr_idx(&mut self) {
         let mut val = self.idx();
         val += 1;
-        val %= self.queue_size;
         unsafe { *(self.addr_of_idx() as *mut u16) = val };
     }
 
