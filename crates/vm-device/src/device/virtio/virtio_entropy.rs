@@ -124,7 +124,7 @@ where
 {
     const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = size_of::<VirtioEntropyConfig>();
     const CLASS_CODE: u32 = 0x00ff00;
-    const IRQ_PIN: u8 = InterruptPin::INTA as u8;
+    const IRQ_PIN: u8 = InterruptPin::INTB as u8;
 }
 
 pub type VirtioMmioEntropyDevice<C> = VirtioMmioTransport<C, VirtioEntropy<C>>;
