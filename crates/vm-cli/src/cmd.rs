@@ -15,6 +15,7 @@ pub enum Error {
 pub enum Device {
     GicV3,
     VirtioMmioBalloon,
+    VirtioMmioEntropy,
 }
 
 impl From<Device> for vm_device::device::Device {
@@ -22,6 +23,7 @@ impl From<Device> for vm_device::device::Device {
         match device {
             Device::GicV3 => vm_device::device::Device::GicV3,
             Device::VirtioMmioBalloon => vm_device::device::Device::VirtioMmioBalloon,
+            Device::VirtioMmioEntropy => vm_device::device::Device::VirtioMmioEntropy,
         }
     }
 }

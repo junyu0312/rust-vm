@@ -100,21 +100,9 @@ impl InitDevice for DeviceManager {
             self.register_mmio_device(Box::new(virtio_mmio_blk))?;
         }
 
-        {
-            let virtio_entropy = VirtioMmioEntropyDevice::new(
-                VirtioDev::new(VirtioEntropy::new(4, irq_chip.clone(), mm.clone())),
-                MmioRange {
-                    start: 0x0900_3000,
-                    len: 0x1000,
-                },
-            );
-
-            self.register_mmio_device(Box::new(virtio_entropy))?;
-        }
-
         for device in devices {
             match device {
-                Device::GicV3 => (), // irq_chip is initialized already
+                Device::GicV3 => (),
                 Device::VirtioMmioBalloon => {
                     let dev = VirtioDev::new(VirtioBalloonTranditional::new(
                         3,
@@ -135,6 +123,17 @@ impl InitDevice for DeviceManager {
                         },
                     );
                     self.register_mmio_device(Box::new(virtio_mmio_balloon))?;
+                }
+                Device::VirtioMmioEntropy => {
+                    let virtio_entropy = VirtioMmioEntropyDevice::new(
+                        VirtioDev::new(VirtioEntropy::new(4, irq_chip.clone(), mm.clone())),
+                        MmioRange {
+                            start: 0x0900_3000,
+                            len: 0x1000,
+                        },
+                    );
+
+                    self.register_mmio_device(Box::new(virtio_entropy))?;
                 }
             }
         }
