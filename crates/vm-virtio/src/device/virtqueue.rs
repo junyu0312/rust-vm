@@ -47,7 +47,7 @@ where
                     let q = dev.get_virtqueue_mut(self.queue_sel).unwrap();
                     let avail_ring = q.avail_ring(mm).unwrap();
 
-                    if q.last_available_idx() == avail_ring.idx() {
+                    if q.last_available_idx() == avail_ring.idx() % q.read_queue_size() {
                         break;
                     }
 
@@ -64,7 +64,7 @@ where
                     let q = dev.get_virtqueue_mut(self.queue_sel).unwrap();
 
                     let mut used_ring = q.used_ring(mm).unwrap();
-                    let used_idx = used_ring.idx();
+                    let used_idx = used_ring.idx() % q.read_queue_size();
                     let used_entry = used_ring.ring(used_idx);
                     used_entry.id = desc_id as u32;
                     used_entry.len = len;

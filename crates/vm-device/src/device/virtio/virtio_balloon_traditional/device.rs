@@ -7,7 +7,6 @@ use vm_core::arch::irq::InterruptController;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::memory_container::MemoryContainer;
 use vm_virtio::device::VirtioDevice;
-use vm_virtio::device::transport::TransportContext;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
 use vm_virtio::result::Result;
@@ -166,14 +165,6 @@ where
     fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
         self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
         Ok(())
-    }
-
-    fn transport_context(&self) -> &dyn TransportContext {
-        todo!()
-    }
-
-    fn transport_context_mit(&mut self) -> &mut dyn TransportContext {
-        todo!()
     }
 }
 
