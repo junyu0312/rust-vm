@@ -44,35 +44,35 @@ impl InitDevice for DeviceManager {
     where
         C: MemoryContainer,
     {
+        let pci_rc = PciRootComplexMmio::new(
+            MmioRange {
+                start: 0x1000_0000,
+                len: 0x1000_0000,
+            },
+            0x2000_0000,
+            0x1000_0000,
+        );
+
+        // TODO: Add cli
         {
-            let pci_rc = PciRootComplexMmio::new(
+            let virtio_pci_blk =
+                VirtioBlkDevice::new(10, irq_chip.clone(), mm.clone()).into_pci_device();
+
+            pci_rc
+                .register_device(virtio_pci_blk)
+                .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
+        }
+
+        // TODO: Add cli
+        {
+            let virtio_mmio_blk = VirtioMmioBlkDevice::new(
+                VirtioDev::new(VirtioBlkDevice::new(2, irq_chip.clone(), mm.clone())),
                 MmioRange {
-                    start: 0x1000_0000,
-                    len: 0x1000_0000,
+                    start: 0x0900_1000,
+                    len: 0x1000,
                 },
-                0x2000_0000,
-                0x1000_0000,
             );
-
-            {
-                let virtio_pci_blk =
-                    VirtioBlkDevice::new(10, irq_chip.clone(), mm.clone()).into_pci_device();
-
-                pci_rc
-                    .register_device(virtio_pci_blk)
-                    .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
-            }
-
-            // {
-            //     let virtio_entropy =
-            //         VirtioEntropy::new(11, irq_chip.clone(), mm.clone()).into_pci_device();
-
-            //     pci_rc
-            //         .register_device(virtio_entropy)
-            //         .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
-            // }
-
-            self.register_mmio_device(Box::new(pci_rc))?;
+            self.register_mmio_device(Box::new(virtio_mmio_blk))?;
         }
 
         #[cfg(target_arch = "aarch64")]
@@ -89,32 +89,9 @@ impl InitDevice for DeviceManager {
             self.register_mmio_device(Box::new(pl011))?;
         }
 
-        {
-            let virtio_mmio_blk = VirtioMmioBlkDevice::new(
-                VirtioDev::new(VirtioBlkDevice::new(2, irq_chip.clone(), mm.clone())),
-                MmioRange {
-                    start: 0x0900_1000,
-                    len: 0x1000,
-                },
-            );
-            self.register_mmio_device(Box::new(virtio_mmio_blk))?;
-        }
-
-        {
-            let virtio_entropy = VirtioMmioEntropyDevice::new(
-                VirtioDev::new(VirtioEntropy::new(4, irq_chip.clone(), mm.clone())),
-                MmioRange {
-                    start: 0x0900_3000,
-                    len: 0x1000,
-                },
-            );
-
-            self.register_mmio_device(Box::new(virtio_entropy))?;
-        }
-
         for device in devices {
             match device {
-                Device::GicV3 => (), // irq_chip is initialized already
+                Device::GicV3 => (),
                 Device::VirtioMmioBalloon => {
                     let dev = VirtioDev::new(VirtioBalloonTranditional::new(
                         3,
@@ -136,8 +113,29 @@ impl InitDevice for DeviceManager {
                     );
                     self.register_mmio_device(Box::new(virtio_mmio_balloon))?;
                 }
+                Device::VirtioMmioEntropy => {
+                    let virtio_entropy = VirtioMmioEntropyDevice::new(
+                        VirtioDev::new(VirtioEntropy::new(4, irq_chip.clone(), mm.clone())),
+                        MmioRange {
+                            start: 0x0900_3000,
+                            len: 0x1000,
+                        },
+                    );
+
+                    self.register_mmio_device(Box::new(virtio_entropy))?;
+                }
+                Device::VirtioPciEntropy => {
+                    let virtio_entropy =
+                        VirtioEntropy::new(11, irq_chip.clone(), mm.clone()).into_pci_device();
+
+                    pci_rc
+                        .register_device(virtio_entropy)
+                        .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
+                }
             }
         }
+
+        self.register_mmio_device(Box::new(pci_rc))?;
 
         Ok(())
     }

@@ -15,13 +15,17 @@ pub mod pl011;
 pub enum Device {
     GicV3,
     VirtioMmioBalloon,
+    VirtioMmioEntropy,
+    VirtioPciEntropy,
 }
 
 impl Device {
     pub fn is_irq_chip(&self) -> bool {
         match self {
             Device::GicV3 => true,
-            Device::VirtioMmioBalloon => false,
+            Device::VirtioMmioBalloon | Device::VirtioMmioEntropy | Device::VirtioPciEntropy => {
+                false
+            }
         }
     }
 }

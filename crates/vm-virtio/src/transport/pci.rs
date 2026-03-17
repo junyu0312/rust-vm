@@ -105,7 +105,7 @@ where
             cfg.alloc_capability(virtio_pci_isr_cap.into())?;
         }
 
-        {
+        if D::DEVICE_SPECIFICATION_CONFIGURATION_LEN != 0 {
             let virtio_pci_device_cfg_cap = VirtioPciCap {
                 cfg_type: VirtioPciCapCfgType::VirtioPciCapDeviceCfg as u8,
                 bar: 3,
@@ -139,7 +139,11 @@ where
         // virtio_pci_isr_cap
         Some(0x1000),
         // device_spec_cfg
-        Some(0x1000),
+        if D::DEVICE_SPECIFICATION_CONFIGURATION_LEN == 0 {
+            None
+        } else {
+            Some(0x1000)
+        },
         None,
         None,
     ];
@@ -167,7 +171,7 @@ pub trait VirtioPciDevice<C>: VirtioDevice<C>
 where
     C: MemoryContainer,
 {
-    const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize;
+    const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = 0;
     const CLASS_CODE: u32;
     const IRQ_PIN: u8;
 
