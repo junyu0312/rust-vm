@@ -1,6 +1,6 @@
 use tracing::debug;
 use vm_core::device::mmio::layout::MmioRange;
-use vm_core::device::utils::address_space::AddressSpace;
+use vm_core::utils::address_space::AddressSpace;
 
 use crate::device::function::BarHandler;
 
@@ -12,16 +12,9 @@ struct Destination {
     handler: Box<dyn BarHandler>,
 }
 
+#[derive(Default)]
 pub struct MmioRouter {
     pci_address_space: AddressSpace<u64, Destination>,
-}
-
-impl Default for MmioRouter {
-    fn default() -> Self {
-        Self {
-            pci_address_space: AddressSpace::new(),
-        }
-    }
 }
 
 impl MmioRouter {
@@ -45,7 +38,7 @@ impl MmioRouter {
 
         if self
             .pci_address_space
-            .insert(
+            .try_insert(
                 pci_address_range,
                 Destination {
                     bus,

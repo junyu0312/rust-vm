@@ -7,7 +7,7 @@ use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::layout::MmioRange;
 use crate::device::mmio::mmio_device::MmioDevice;
 use crate::device::mmio::mmio_device::MmioHandler;
-use crate::device::utils::address_space::AddressSpace;
+use crate::utils::address_space::AddressSpace;
 
 pub struct MmioAddressSpaceManager {
     mmio_layout: Arc<MmioLayout>,
@@ -20,7 +20,7 @@ impl MmioAddressSpaceManager {
         MmioAddressSpaceManager {
             mmio_layout: mmio_layout.into(),
             devices: Default::default(),
-            address_space: AddressSpace::new(),
+            address_space: AddressSpace::default(),
         }
     }
 
