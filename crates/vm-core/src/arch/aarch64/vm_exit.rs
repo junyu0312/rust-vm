@@ -5,12 +5,13 @@ use crate::arch::aarch64::firmware::psci::error::PsciError;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::device_manager::vm_exit::DeviceError;
+use crate::device_manager::vm_exit::DeviceVmExitHandler;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to handle mmio, err: {0}")]
-    MmioErr(#[from] crate::device::Error),
+    DeviceError(#[from] DeviceError),
 
     #[error("Failed to rw vcpu, err: {0}")]
     VcpuError(String),

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use vm_bootloader::boot_loader::BootLoader;
 use vm_core::arch::irq::InterruptController;
 use vm_core::debug::gdbstub::GdbStub;
-use vm_core::device::device_manager::DeviceManager;
+use vm_core::device_manager::manager::DeviceManager;
 use vm_core::monitor::MonitorServer;
 use vm_core::virt::Virt;
 use vm_mm::manager::MemoryAddressSpace;

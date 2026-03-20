@@ -28,7 +28,7 @@ use crate::arch::aarch64::vm_exit::handle_vm_exit;
 use crate::arch::irq::InterruptController;
 use crate::arch::layout::MemoryLayout;
 use crate::arch::vcpu::Vcpu;
-use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
 use crate::virt::Virt;

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use vm_core::arch::irq::InterruptController;
-use vm_core::device::device_manager::DeviceManager;
 use vm_core::device::mmio::layout::MmioRange;
+use vm_core::device_manager::manager::DeviceManager;
 use vm_core::monitor::MonitorServerBuilder;
 use vm_device::device::Device;
 use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;
@@ -11,7 +11,6 @@ use vm_device::device::virtio::virtio_balloon_traditional::monitor::VirtioBalloo
 use vm_device::device::virtio::virtio_blk::VirtioBlkDevice;
 use vm_device::device::virtio::virtio_blk::VirtioMmioBlkDevice;
 use vm_device::device::virtio::virtio_entropy::VirtioEntropy;
-// use vm_device::device::virtio::virtio_entropy::VirtioEntropy;
 use vm_device::device::virtio::virtio_entropy::VirtioMmioEntropyDevice;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::memory_container::MemoryContainer;
