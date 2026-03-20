@@ -14,7 +14,7 @@ use crate::arch::aarch64::vcpu::reg::esr_el2;
 use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::arch::vcpu::Vcpu;
-use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
 
 enum HvpReg {

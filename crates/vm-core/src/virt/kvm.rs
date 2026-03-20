@@ -9,9 +9,9 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
-use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
+use crate::virt::DeviceVmExitHandler;
 use crate::virt::Vcpu;
 use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;

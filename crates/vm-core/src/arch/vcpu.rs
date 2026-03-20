@@ -1,5 +1,5 @@
 use crate::arch::Arch;
-use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
 
 pub trait Vcpu<A>

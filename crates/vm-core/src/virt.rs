@@ -6,7 +6,7 @@ use vm_mm::memory_container::MemoryContainer;
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
 use crate::arch::vcpu::Vcpu;
-use crate::device::vm_exit::DeviceVmExitHandler;
+use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
 
 #[cfg(feature = "kvm")]

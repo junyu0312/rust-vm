@@ -1,3 +1,5 @@
+use vm_core::utils::address_space::AddressSpaceError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Platform error: {0}")]
@@ -6,8 +8,8 @@ pub enum Error {
     #[error("No irq_chip is specified")]
     NoIrqChipSpecified,
 
-    #[error("Device error: {0}")]
-    Device(#[from] vm_core::device::Error),
+    #[error("Device address space error: {0}")]
+    DeviceAddressSpace(#[from] AddressSpaceError),
 
     #[error("Pci device error: {0}")]
     PciDevice(#[from] vm_pci::error::Error),

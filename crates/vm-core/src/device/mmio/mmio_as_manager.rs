@@ -1,12 +1,11 @@
 use std::slice::Iter;
 
-use crate::device::Error;
-use crate::device::Result;
 use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::layout::MmioRange;
 use crate::device::mmio::mmio_device::MmioDevice;
 use crate::device::mmio::mmio_device::MmioHandler;
 use crate::utils::address_space::AddressSpace;
+use crate::utils::address_space::AddressSpaceError;
 
 pub struct MmioAddressSpaceManager {
     mmio_layout: MmioLayout,
@@ -23,21 +22,27 @@ impl MmioAddressSpaceManager {
         }
     }
 
-    pub fn register(&mut self, device: Box<dyn MmioDevice>) -> Result<()> {
+    pub fn register(&mut self, device: Box<dyn MmioDevice>) -> Result<(), AddressSpaceError> {
         let ranges = device.mmio_range_handlers();
 
         for range in &ranges {
             let mmio_range = range.mmio_range();
 
             if !self.mmio_layout.includes(mmio_range) {
-                return Err(Error::InvalidRange(mmio_range.start, mmio_range.len));
+                return Err(AddressSpaceError::RangeOverlap(
+                    mmio_range.start,
+                    mmio_range.len,
+                ));
             }
 
             if self
                 .address_space
                 .is_overlap(mmio_range.start, mmio_range.len)
             {
-                return Err(Error::InvalidRange(mmio_range.start, mmio_range.len));
+                return Err(AddressSpaceError::RangeOverlap(
+                    mmio_range.start,
+                    mmio_range.len,
+                ));
             }
         }
 

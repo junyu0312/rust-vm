@@ -1,7 +1,6 @@
-use crate::device::Error;
-use crate::device::Result;
 use crate::device::pio::pio_device::PioDevice;
 use crate::utils::address_space::AddressSpace;
+use crate::utils::address_space::AddressSpaceError;
 
 #[derive(Default)]
 pub struct PioAddressSpaceManager {
@@ -10,10 +9,13 @@ pub struct PioAddressSpaceManager {
 }
 
 impl PioAddressSpaceManager {
-    pub fn register(&mut self, device: Box<dyn PioDevice>) -> Result<()> {
+    pub fn register(&mut self, device: Box<dyn PioDevice>) -> Result<(), AddressSpaceError> {
         for range in device.ports() {
             if self.address_space.is_overlap(range.start, range.len) {
-                return Err(Error::InvalidRange(range.start.into(), range.len));
+                return Err(AddressSpaceError::RangeOverlap(
+                    range.start.into(),
+                    range.len,
+                ));
             }
         }
 

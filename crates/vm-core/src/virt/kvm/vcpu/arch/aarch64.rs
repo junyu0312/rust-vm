@@ -5,8 +5,8 @@ use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vm_exit::VmExitReason;
-use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
+use crate::virt::DeviceVmExitHandler;
 use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
