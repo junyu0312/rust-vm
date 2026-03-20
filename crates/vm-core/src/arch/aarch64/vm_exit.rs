@@ -53,7 +53,7 @@ pub fn handle_vm_exit(
     vcpu: &dyn AArch64Vcpu,
     exit_reason: VmExitReason,
     psci: &dyn Psci,
-    device: &dyn DeviceVmExitHandler,
+    device_vm_exit_handler: &dyn DeviceVmExitHandler,
 ) -> Result<HandleVmExitResult, Error> {
     trace!(?exit_reason);
 
@@ -62,13 +62,13 @@ pub fn handle_vm_exit(
         VmExitReason::Wf => Ok(HandleVmExitResult::NextInstruction),
         VmExitReason::MMIORead { gpa, srt, len } => {
             let mut buf = [0; 8];
-            device.mmio_read(gpa, len, &mut buf[0..len])?;
+            device_vm_exit_handler.mmio_read(gpa, len, &mut buf[0..len])?;
             vcpu.set_core_reg(srt, u64::from_le_bytes(buf))
                 .map_err(|err| Error::VcpuError(err.to_string()))?;
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMIOWrite { gpa, buf, len } => {
-            device.mmio_write(gpa, len, &buf)?;
+            device_vm_exit_handler.mmio_write(gpa, len, &buf)?;
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::TrappedRead { .. } => todo!(),

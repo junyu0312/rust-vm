@@ -14,7 +14,7 @@ use crate::arch::aarch64::vcpu::reg::esr_el2;
 use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::arch::vcpu::Vcpu;
-use crate::device::mmio::layout::MmioLayout;
+use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
 
 enum HvpReg {
@@ -114,7 +114,7 @@ impl AArch64Vcpu for HvpVcpu {
 }
 
 impl Vcpu<AArch64> for HvpVcpu {
-    fn run(&mut self, mmio_layout: &MmioLayout) -> Result<VmExitReason> {
+    fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<VmExitReason> {
         self.vcpu.run()?;
 
         let exit_info = self.vcpu.get_exit_info();
@@ -164,7 +164,7 @@ impl Vcpu<AArch64> for HvpVcpu {
                     esr_el2::Ec::DA => {
                         let far_el2 = exit_info.exception.physical_address;
 
-                        if mmio_layout.in_mmio_region(far_el2) {
+                        if device_vm_exit_handler.in_mmio_region(far_el2) {
                             let is_write = (iss >> 6) & 0x1 != 0;
                             let len = match (iss >> 22) & 0x3 {
                                 0 => 1,

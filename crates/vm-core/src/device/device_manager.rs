@@ -1,5 +1,4 @@
 use std::slice::Iter;
-use std::sync::Arc;
 
 use crate::device::Error;
 use crate::device::Result;
@@ -84,8 +83,8 @@ impl DeviceVmExitHandler for DeviceManager {
         Ok(())
     }
 
-    fn mmio_layout(&self) -> Arc<MmioLayout> {
-        self.mmio_manager.mmio_layout()
+    fn in_mmio_region(&self, addr: u64) -> bool {
+        self.mmio_manager.mmio_layout().in_mmio_region(addr)
     }
 }
 

@@ -37,5 +37,5 @@ pub trait Virt: Sized {
     fn get_vcpus(&self) -> Result<&Vec<Self::Vcpu>>;
     fn get_vcpus_mut(&mut self) -> Result<&mut Vec<Self::Vcpu>>;
 
-    fn run(&mut self, device_manager: &dyn DeviceVmExitHandler) -> Result<()>;
+    fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()>;
 }
