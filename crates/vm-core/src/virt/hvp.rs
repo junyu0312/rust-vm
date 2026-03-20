@@ -1,6 +1,5 @@
 use std::cell::OnceCell;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
@@ -128,7 +127,7 @@ pub struct Hvp {
     gic_chip: Arc<HvpGicV3>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
     num_vcpus: usize,
-    psci: Arc<Mutex<Psci02>>,
+    psci: Arc<Psci02>,
     cpu_on_receiver: Option<Vec<Receiver<(u64, u64)>>>,
 }
 
@@ -262,7 +261,7 @@ impl Virt for Hvp {
             gic_chip,
             vcpus: OnceCell::default(),
             num_vcpus,
-            psci: Arc::new(Mutex::new(Psci02 { cpu_on_barrier })),
+            psci: Arc::new(Psci02 { cpu_on_barrier }),
             cpu_on_receiver: Some(cpu_on_receiver),
         })
     }
@@ -360,8 +359,8 @@ impl Virt for Hvp {
                         match handle_vm_exit(
                             &vcpu,
                             vm_exit_info,
-                            psci.clone(),
-                            device_manager.clone(),
+                            psci.as_ref(),
+                            device_manager.as_ref(),
                         )? {
                             HandleVmExitResult::Continue => (),
                             HandleVmExitResult::NextInstruction => {
