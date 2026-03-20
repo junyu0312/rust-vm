@@ -1,6 +1,6 @@
 use anyhow::bail;
 
-use crate::device::address_space::Range;
+use crate::device::utils::address_space::Range;
 
 pub mod mmio_as_manager;
 pub mod mmio_device;

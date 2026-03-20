@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-pub mod address_space;
 pub mod device_manager;
 pub mod mmio;
 pub mod pio;
+pub mod utils;
 pub mod vm_exit;
 
 #[derive(Debug, thiserror::Error)]

@@ -1,5 +1,5 @@
 use crate::device::Device;
-use crate::device::address_space::Range;
+use crate::device::utils::address_space::Range;
 
 pub type PortRange = Range<u16>;
 
