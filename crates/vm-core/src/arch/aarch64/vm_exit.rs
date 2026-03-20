@@ -1,23 +1,22 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use tracing::trace;
 
 use crate::arch::aarch64::firmware::psci::Psci;
+use crate::arch::aarch64::firmware::psci::error::PsciError;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::arch::aarch64::vm_exit::smc::handle_smc;
 use crate::device::vm_exit::DeviceVmExitHandler;
-
-pub mod smc;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to handle mmio, err: {0}")]
-    MmioErr(String),
+    MmioErr(#[from] crate::device::Error),
+
+    #[error("Failed to rw vcpu, err: {0}")]
+    VcpuError(String),
+
     #[error("Failed to handle smc, err: {0}")]
-    SmcErr(String),
+    PsciError(#[from] PsciError),
 }
 
 #[derive(Debug)]
@@ -53,8 +52,8 @@ pub enum HandleVmExitResult {
 pub fn handle_vm_exit(
     vcpu: &dyn AArch64Vcpu,
     exit_reason: VmExitReason,
-    psci: Arc<Mutex<dyn Psci>>,
-    device: Arc<dyn DeviceVmExitHandler>,
+    psci: &dyn Psci,
+    device: &dyn DeviceVmExitHandler,
 ) -> Result<HandleVmExitResult, Error> {
     trace!(?exit_reason);
 
@@ -63,30 +62,27 @@ pub fn handle_vm_exit(
         VmExitReason::Wf => Ok(HandleVmExitResult::NextInstruction),
         VmExitReason::MMIORead { gpa, srt, len } => {
             let mut buf = [0; 8];
-            device
-                .mmio_read(gpa, len, &mut buf[0..len])
-                .map_err(|err| Error::MmioErr(err.to_string()))?;
+            device.mmio_read(gpa, len, &mut buf[0..len])?;
             vcpu.set_core_reg(srt, u64::from_le_bytes(buf))
-                .map_err(|err| Error::MmioErr(err.to_string()))?;
+                .map_err(|err| Error::VcpuError(err.to_string()))?;
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMIOWrite { gpa, buf, len } => {
-            device
-                .mmio_write(gpa, len, &buf)
-                .map_err(|err| Error::MmioErr(err.to_string()))?;
+            device.mmio_write(gpa, len, &buf)?;
             Ok(HandleVmExitResult::NextInstruction)
         }
-        VmExitReason::TrappedRead { .. } => Ok(HandleVmExitResult::NextInstruction),
+        VmExitReason::TrappedRead { .. } => todo!(),
         VmExitReason::TrappedWrite { reg, .. } => {
             match reg {
-                SysRegister::OslarEl1 => (),
-                SysRegister::OsdlrEl1 => (),
+                SysRegister::OslarEl1 => (), // TODO
+                SysRegister::OsdlrEl1 => (), // TODO
                 _ => unimplemented!(),
             }
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::Smc => {
-            handle_smc(psci, vcpu)?;
+            // We only support psci for smc now
+            psci.call(vcpu)?;
 
             Ok(HandleVmExitResult::NextInstruction)
         }
