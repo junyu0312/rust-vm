@@ -2,10 +2,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use vm_core::device::Device;
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
-use vm_core::device::utils::address_space::AddressSpace;
+use vm_core::utils::address_space::AddressSpace;
 use vm_fdt::FdtWriter;
 
 use crate::device::pci_device::PciDevice;
@@ -50,7 +50,7 @@ impl PciRootComplexMmio {
         physical_address_start: u64,
         pci_address_space_len: usize,
     ) -> Self {
-        let mut pci_to_gpa_mapping = PciToGpaMapping::new();
+        let mut pci_to_gpa_mapping = PciToGpaMapping::default();
         pci_to_gpa_mapping
             .try_insert(
                 MmioRange {

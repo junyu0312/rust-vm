@@ -1,7 +1,7 @@
 use tracing::debug;
 use tracing::error;
 use tracing::warn;
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_mm::memory_container::MemoryContainer;
 

@@ -5,7 +5,7 @@ use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vm_exit::VmExitReason;
-use crate::device::mmio::MmioLayout;
+use crate::device::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
 use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
@@ -47,7 +47,7 @@ impl AArch64Vcpu for KvmVcpu {
 }
 
 impl Vcpu<AArch64> for KvmVcpu {
-    fn run(&mut self, _mmio_layout: &MmioLayout) -> Result<VmExitReason> {
+    fn run(&mut self, _device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<VmExitReason> {
         todo!()
     }
 }

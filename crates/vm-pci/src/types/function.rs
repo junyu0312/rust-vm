@@ -1,4 +1,4 @@
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 
 use crate::device::function::BarHandler;
 use crate::types::interrupt::InterruptMapEntry;

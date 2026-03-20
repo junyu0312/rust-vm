@@ -10,7 +10,7 @@ use vm_core::arch::aarch64::irq::GIC_SPI;
 use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;

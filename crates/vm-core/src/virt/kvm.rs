@@ -101,7 +101,7 @@ where
             .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
-    fn run(&mut self, device: Arc<dyn DeviceVmExitHandler>) -> Result<()> {
+    fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()
@@ -109,9 +109,7 @@ where
 
         assert_eq!(vcpus.len(), 1);
 
-        let mmio_layout = device.mmio_layout();
-
-        vcpus.get_mut(0).unwrap().run(mmio_layout.as_ref())?;
+        vcpus.get_mut(0).unwrap().run(device_vm_exit_handler)?;
 
         Ok(())
     }

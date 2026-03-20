@@ -4,8 +4,8 @@ use kvm_ioctls::Kvm;
 use crate::arch::x86_64::X86_64;
 use crate::arch::x86_64::vcpu::X86Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
-use crate::device::mmio::MmioLayout;
 use crate::error::Result;
+use crate::virt::DeviceVmExitHandler;
 use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
@@ -71,7 +71,7 @@ impl X86Vcpu for KvmVcpu {
 }
 
 impl Vcpu<X86_64> for KvmVcpu {
-    fn run(&mut self, _mmio_layout: &MmioLayout) -> Result<VmExitReason> {
+    fn run(&mut self, _device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<VmExitReason> {
         todo!()
         /*
             loop {

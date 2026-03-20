@@ -1,7 +1,7 @@
 use crate::device::Error;
 use crate::device::Result;
 use crate::device::pio::pio_device::PioDevice;
-use crate::device::utils::address_space::AddressSpace;
+use crate::utils::address_space::AddressSpace;
 
 #[derive(Default)]
 pub struct PioAddressSpaceManager {

@@ -1,16 +1,15 @@
 use std::slice::Iter;
-use std::sync::Arc;
 
 use crate::device::Error;
 use crate::device::Result;
-use crate::device::mmio::MmioLayout;
-use crate::device::mmio::MmioRange;
+use crate::device::mmio::layout::MmioLayout;
+use crate::device::mmio::layout::MmioRange;
 use crate::device::mmio::mmio_device::MmioDevice;
 use crate::device::mmio::mmio_device::MmioHandler;
-use crate::device::utils::address_space::AddressSpace;
+use crate::utils::address_space::AddressSpace;
 
 pub struct MmioAddressSpaceManager {
-    mmio_layout: Arc<MmioLayout>,
+    mmio_layout: MmioLayout,
     devices: Vec<Box<dyn MmioDevice>>,
     address_space: AddressSpace<u64, Box<dyn MmioHandler>>,
 }
@@ -18,9 +17,9 @@ pub struct MmioAddressSpaceManager {
 impl MmioAddressSpaceManager {
     pub fn new(mmio_layout: MmioLayout) -> Self {
         MmioAddressSpaceManager {
-            mmio_layout: mmio_layout.into(),
+            mmio_layout,
             devices: Default::default(),
-            address_space: AddressSpace::new(),
+            address_space: AddressSpace::default(),
         }
     }
 
@@ -59,8 +58,8 @@ impl MmioAddressSpaceManager {
         Some((range, handler.as_ref()))
     }
 
-    pub fn mmio_layout(&self) -> Arc<MmioLayout> {
-        self.mmio_layout.clone()
+    pub fn mmio_layout(&self) -> &MmioLayout {
+        &self.mmio_layout
     }
 
     pub fn devices(&self) -> Iter<'_, Box<dyn MmioDevice>> {

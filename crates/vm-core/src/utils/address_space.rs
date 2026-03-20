@@ -2,8 +2,13 @@ use std::collections::BTreeMap;
 use std::collections::btree_map::Iter;
 use std::fmt::Debug;
 
-use crate::device::Error;
-use crate::device::Result;
+#[derive(Debug, thiserror::Error)]
+pub enum AddressSpaceError {
+    #[error("invalid length of range")]
+    InvalidLen,
+    #[error("range overlap, offset: 0x{0:x}, len: {1}")]
+    RangeOverlap(u64, usize),
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Range<K>
@@ -14,37 +19,33 @@ where
     pub len: usize,
 }
 
-// start |-> (len, device)
-#[derive(Default)]
 pub struct AddressSpace<K, V>(BTreeMap<K, (usize, V)>)
 where
     K: Debug;
+
+impl<K, V> Default for AddressSpace<K, V>
+where
+    K: Debug,
+{
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 impl<K, V> AddressSpace<K, V>
 where
     K: Copy + Debug + Ord + Into<u64>,
 {
-    pub fn new() -> Self {
-        AddressSpace(BTreeMap::new())
-    }
-
-    pub fn try_insert(&mut self, range: Range<K>, value: V) -> Result<()> {
+    pub fn try_insert(&mut self, range: Range<K>, value: V) -> Result<(), AddressSpaceError> {
         if range.len == 0 {
-            return Err(Error::InvalidLen);
+            return Err(AddressSpaceError::InvalidLen);
         }
 
         if self.is_overlap(range.start, range.len) {
-            return Err(Error::InvalidRange(range.start.into(), range.len));
-        }
-
-        self.0.insert(range.start, (range.len, value));
-
-        Ok(())
-    }
-
-    pub fn insert(&mut self, range: Range<K>, value: V) -> Result<()> {
-        if range.len == 0 {
-            return Err(Error::InvalidLen);
+            return Err(AddressSpaceError::RangeOverlap(
+                range.start.into(),
+                range.len,
+            ));
         }
 
         self.0.insert(range.start, (range.len, value));
