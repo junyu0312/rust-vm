@@ -68,7 +68,7 @@ impl VmBuilder {
             memory,
             virt,
             irq_chip,
-            device_manager: Arc::new(device_manager),
+            device_manager,
             gdb_stub: self.gdb_port.map(GdbStub::new),
             monitor: monitor_server_builder.build(),
         };

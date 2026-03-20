@@ -101,7 +101,7 @@ where
             .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
-    fn run(&mut self, device: Arc<dyn DeviceVmExitHandler>) -> Result<()> {
+    fn run(&mut self, device: &dyn DeviceVmExitHandler) -> Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()

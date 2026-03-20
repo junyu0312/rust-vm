@@ -15,7 +15,7 @@ pub struct Vm<V: Virt> {
     pub(crate) memory: Arc<MemoryAddressSpace<V::Memory>>,
     pub(crate) virt: V,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
-    pub(crate) device_manager: Arc<DeviceManager>,
+    pub(crate) device_manager: DeviceManager,
     pub(crate) gdb_stub: Option<GdbStub>,
     pub(crate) monitor: MonitorServer,
 }
@@ -40,7 +40,7 @@ where
                 .map_err(|err| Error::GdbStub(err.to_string()))?;
         }
 
-        self.virt.run(self.device_manager.clone())?;
+        self.virt.run(&self.device_manager)?;
 
         Ok(())
     }
