@@ -14,7 +14,6 @@ where
     pub len: usize,
 }
 
-// start |-> (len, device)
 #[derive(Default)]
 pub struct AddressSpace<K, V>(BTreeMap<K, (usize, V)>)
 where

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::device::Result;
-use crate::device::mmio::MmioLayout;
+use crate::device::mmio::layout::MmioLayout;
 
 pub trait DeviceVmExitHandler: Send + Sync {
     fn io_in(&mut self, port: u16, data: &mut [u8]) -> Result<()>;

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 
 use crate::root_complex::PciRootComplex;

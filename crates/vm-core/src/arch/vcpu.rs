@@ -1,5 +1,5 @@
 use crate::arch::Arch;
-use crate::device::mmio::MmioLayout;
+use crate::device::mmio::layout::MmioLayout;
 use crate::error::Result;
 
 pub trait Vcpu<A>

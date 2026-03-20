@@ -3,7 +3,7 @@ use std::sync::Arc;
 use vm_core::arch::layout::MemoryLayout;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::device_manager::DeviceManager;
-use vm_core::device::mmio::MmioLayout;
+use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::monitor::MonitorServerBuilder;
 use vm_core::virt::Virt;
 use vm_device::device::Device;

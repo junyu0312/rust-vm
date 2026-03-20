@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::device::Error;
 use crate::device::Result;
-use crate::device::mmio::MmioLayout;
+use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::mmio_as_manager::MmioAddressSpaceManager;
 use crate::device::mmio::mmio_device::MmioDevice;
 use crate::device::pio::pio_as_manager::PioAddressSpaceManager;

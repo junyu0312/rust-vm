@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use tracing::warn;
 use vm_core::device::Device;
 use vm_core::device::mmio::MmioDevice;
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 use vm_core::arch::irq::InterruptController;
 use vm_mm::memory_container::MemoryContainer;
 use vm_mm::manager::MemoryAddressSpace;

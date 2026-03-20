@@ -4,7 +4,7 @@ use kvm_ioctls::Kvm;
 use crate::arch::x86_64::X86_64;
 use crate::arch::x86_64::vcpu::X86Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
-use crate::device::mmio::MmioLayout;
+use crate::device::mmio::layout::MmioLayout;
 use crate::error::Result;
 use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;

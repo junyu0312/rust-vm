@@ -1,5 +1,5 @@
 use tracing::debug;
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::utils::address_space::AddressSpace;
 
 use crate::device::function::BarHandler;

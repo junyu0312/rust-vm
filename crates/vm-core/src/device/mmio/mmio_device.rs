@@ -1,7 +1,7 @@
 use vm_fdt::FdtWriter;
 
 use crate::device::Device;
-use crate::device::mmio::MmioRange;
+use crate::device::mmio::layout::MmioRange;
 
 pub trait MmioHandler: Send + Sync {
     fn mmio_range(&self) -> MmioRange;

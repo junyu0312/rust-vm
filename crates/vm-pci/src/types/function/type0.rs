@@ -1,5 +1,5 @@
 use strum_macros::FromRepr;
-use vm_core::device::mmio::MmioRange;
+use vm_core::device::mmio::layout::MmioRange;
 
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
