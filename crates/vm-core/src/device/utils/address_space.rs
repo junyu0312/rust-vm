@@ -6,13 +6,19 @@ use crate::device::Error;
 use crate::device::Result;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Range<K: Debug + Into<u64>> {
+pub struct Range<K>
+where
+    K: Debug + Into<u64>,
+{
     pub start: K,
     pub len: usize,
 }
 
+// start |-> (len, device)
 #[derive(Default)]
-pub struct AddressSpace<K: Debug, V>(BTreeMap<K, (usize, V)>); // start |-> (len, device)
+pub struct AddressSpace<K, V>(BTreeMap<K, (usize, V)>)
+where
+    K: Debug;
 
 impl<K, V> AddressSpace<K, V>
 where
