@@ -18,7 +18,10 @@ use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
+use crate::device::irq_allocation::IrqAllocation;
 use crate::error::Error;
+
+mod irq_allocation;
 
 pub trait InitDevice {
     fn init_devices<C>(
@@ -43,6 +46,8 @@ impl InitDevice for DeviceManager {
     where
         C: MemoryContainer,
     {
+        let mut irq_allocation = IrqAllocation::new(0);
+
         let pci_rc = PciRootComplexMmio::new(
             MmioRange {
                 start: 0x1000_0000,
@@ -52,37 +57,16 @@ impl InitDevice for DeviceManager {
             0x1000_0000,
         );
 
-        // TODO: Add cli
-        {
-            let virtio_pci_blk =
-                VirtioBlkDevice::new(10, irq_chip.clone(), mm.clone()).into_pci_device();
-
-            pci_rc
-                .register_device(virtio_pci_blk)
-                .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
-        }
-
-        // TODO: Add cli
-        {
-            let virtio_mmio_blk = VirtioMmioBlkDevice::new(
-                VirtioDev::new(VirtioBlkDevice::new(2, irq_chip.clone(), mm.clone())),
-                MmioRange {
-                    start: 0x0900_1000,
-                    len: 0x1000,
-                },
-            );
-            self.register_mmio_device(Box::new(virtio_mmio_blk))?;
-        }
-
         #[cfg(target_arch = "aarch64")]
         {
             use vm_device::device::pl011::Pl011;
 
-            let pl011 = Pl011::<1>::new(
+            let pl011 = Pl011::new(
                 MmioRange {
                     start: 0x0900_0000,
                     len: 0x1000,
                 },
+                irq_allocation.alloc(),
                 irq_chip.clone(),
             );
             self.register_mmio_device(Box::new(pl011))?;
@@ -93,7 +77,7 @@ impl InitDevice for DeviceManager {
                 Device::GicV3 => (),
                 Device::VirtioMmioBalloon => {
                     let dev = VirtioDev::new(VirtioBalloonTranditional::new(
-                        3,
+                        irq_allocation.alloc(),
                         irq_chip.clone(),
                         mm.clone(),
                     ));
@@ -114,7 +98,11 @@ impl InitDevice for DeviceManager {
                 }
                 Device::VirtioMmioEntropy => {
                     let virtio_entropy = VirtioMmioEntropyDevice::new(
-                        VirtioDev::new(VirtioEntropy::new(4, irq_chip.clone(), mm.clone())),
+                        VirtioDev::new(VirtioEntropy::new(
+                            irq_allocation.alloc(),
+                            irq_chip.clone(),
+                            mm.clone(),
+                        )),
                         MmioRange {
                             start: 0x0900_3000,
                             len: 0x1000,
@@ -125,13 +113,41 @@ impl InitDevice for DeviceManager {
                 }
                 Device::VirtioPciEntropy => {
                     let virtio_entropy =
-                        VirtioEntropy::new(11, irq_chip.clone(), mm.clone()).into_pci_device();
+                        VirtioEntropy::new(irq_allocation.alloc(), irq_chip.clone(), mm.clone())
+                            .into_pci_device();
 
                     pci_rc
                         .register_device(virtio_entropy)
                         .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
                 }
             }
+        }
+
+        // TODO: Add cli
+        {
+            let virtio_pci_blk =
+                VirtioBlkDevice::new(irq_allocation.alloc(), irq_chip.clone(), mm.clone())
+                    .into_pci_device();
+
+            pci_rc
+                .register_device(virtio_pci_blk)
+                .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
+        }
+
+        // TODO: Add cli
+        {
+            let virtio_mmio_blk = VirtioMmioBlkDevice::new(
+                VirtioDev::new(VirtioBlkDevice::new(
+                    irq_allocation.alloc(),
+                    irq_chip.clone(),
+                    mm.clone(),
+                )),
+                MmioRange {
+                    start: 0x0900_1000,
+                    len: 0x1000,
+                },
+            );
+            self.register_mmio_device(Box::new(virtio_mmio_blk))?;
         }
 
         self.register_mmio_device(Box::new(pci_rc))?;

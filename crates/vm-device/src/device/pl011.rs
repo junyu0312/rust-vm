@@ -236,7 +236,8 @@ enum Register {
     CellId3 = 0xffc,
 }
 
-struct Pl011Internal<const IRQ: u32> {
+struct Pl011Internal {
+    irq: u32,
     irq_chip: Arc<dyn InterruptController>,
 
     fr: Fr,
@@ -253,9 +254,10 @@ struct Pl011Internal<const IRQ: u32> {
     rx_w_cursor: usize,
 }
 
-impl<const IRQ: u32> Pl011Internal<IRQ> {
-    fn new(irq_chip: Arc<dyn InterruptController>) -> Self {
+impl Pl011Internal {
+    fn new(irq: u32, irq_chip: Arc<dyn InterruptController>) -> Self {
         Pl011Internal {
+            irq,
             irq_chip,
             fr: Fr::default(),
             ibrd: Ibrd::default(),
@@ -484,7 +486,7 @@ impl<const IRQ: u32> Pl011Internal<IRQ> {
     }
 
     fn trigger_irq(&self, active: bool) {
-        self.irq_chip.trigger_irq(32 + IRQ, active);
+        self.irq_chip.trigger_irq(32 + self.irq, active);
     }
 
     fn mmio_read(&mut self, offset: u64, len: usize, data: &mut [u8]) {
@@ -544,12 +546,12 @@ impl<const IRQ: u32> Pl011Internal<IRQ> {
     }
 }
 
-struct Pl011Handler<const IRQ: u32> {
+struct Pl011Handler {
     mmio_range: MmioRange,
-    pl011: Arc<Mutex<Pl011Internal<IRQ>>>,
+    pl011: Arc<Mutex<Pl011Internal>>,
 }
 
-impl<const IRQ: u32> MmioHandler for Pl011Handler<IRQ> {
+impl MmioHandler for Pl011Handler {
     fn mmio_range(&self) -> MmioRange {
         self.mmio_range
     }
@@ -563,14 +565,15 @@ impl<const IRQ: u32> MmioHandler for Pl011Handler<IRQ> {
     }
 }
 
-pub struct Pl011<const IRQ: u32> {
+pub struct Pl011 {
+    irq: u32,
     mmio_range: MmioRange,
-    pl011: Arc<Mutex<Pl011Internal<IRQ>>>,
+    pl011: Arc<Mutex<Pl011Internal>>,
 }
 
-impl<const IRQ: u32> Pl011<IRQ> {
-    pub fn new(mmio_range: MmioRange, irq_chip: Arc<dyn InterruptController>) -> Self {
-        let pl011 = Arc::new(Mutex::new(Pl011Internal::new(irq_chip)));
+impl Pl011 {
+    pub fn new(mmio_range: MmioRange, irq: u32, irq_chip: Arc<dyn InterruptController>) -> Self {
+        let pl011 = Arc::new(Mutex::new(Pl011Internal::new(irq, irq_chip)));
 
         tokio::spawn({
             let pl011 = pl011.clone();
@@ -589,17 +592,21 @@ impl<const IRQ: u32> Pl011<IRQ> {
             }
         });
 
-        Pl011 { mmio_range, pl011 }
+        Pl011 {
+            irq,
+            mmio_range,
+            pl011,
+        }
     }
 }
 
-impl<const IRQ: u32> Device for Pl011<IRQ> {
+impl Device for Pl011 {
     fn name(&self) -> String {
         "pl011".to_string()
     }
 }
 
-impl<const IRQ: u32> MmioDevice for Pl011<IRQ> {
+impl MmioDevice for Pl011 {
     fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
         vec![Box::new(Pl011Handler {
             mmio_range: self.mmio_range,
@@ -628,7 +635,7 @@ impl<const IRQ: u32> MmioDevice for Pl011<IRQ> {
             vec!["arm,pl011".to_string(), "arm,primecell".to_string()],
         )?;
         fdt.property_array_u64("reg", &[self.mmio_range.start, self.mmio_range.len as u64])?;
-        fdt.property_array_u32("interrupts", &[GIC_SPI, IRQ, IRQ_TYPE_LEVEL_HIGH])?;
+        fdt.property_array_u32("interrupts", &[GIC_SPI, self.irq, IRQ_TYPE_LEVEL_HIGH])?;
         fdt.property_array_u32("clocks", &[3, 3])?;
         fdt.property_string_list(
             "clock-names",
