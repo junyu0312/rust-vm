@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use vm_bootloader::boot_loader::BootLoader;
 use vm_core::arch::irq::InterruptController;
-use vm_core::debug::gdbstub::GdbStub;
+use vm_core::debug::gdbstub::GdbStubBuilder;
 use vm_core::device_manager::manager::DeviceManager;
 use vm_core::monitor::MonitorServer;
 use vm_core::virt::Virt;
 use vm_mm::manager::MemoryAddressSpace;
 
-use crate::error::Error;
 use crate::error::Result;
 
 pub struct Vm<V: Virt> {
@@ -16,7 +15,7 @@ pub struct Vm<V: Virt> {
     pub(crate) virt: V,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
     pub(crate) device_manager: DeviceManager,
-    pub(crate) gdb_stub: Option<GdbStub>,
+    pub(crate) gdb_stub: Option<GdbStubBuilder<V::Memory>>,
     pub(crate) monitor: MonitorServer,
 }
 
@@ -34,10 +33,8 @@ where
 
         self.monitor.start();
 
-        if let Some(gdb_stub) = &self.gdb_stub {
-            gdb_stub
-                .wait_for_connection()
-                .map_err(|err| Error::GdbStub(err.to_string()))?;
+        if let Some(gdb_stub_builder) = &self.gdb_stub {
+            let _handle = gdb_stub_builder.wait_and_then_run::<V::GdbStubArch>()?;
         }
 
         self.virt.run(&self.device_manager)?;

@@ -1,3 +1,4 @@
+use vm_core::debug::gdbstub::GdbStubError;
 use vm_core::utils::address_space::AddressSpaceError;
 
 #[derive(Debug, thiserror::Error)]
@@ -23,8 +24,8 @@ pub enum Error {
     #[error("Failed to setup with bootloader, error: {0}")]
     Bootloader(#[from] vm_bootloader::boot_loader::Error),
 
-    #[error("gdb_stub failed, error: {0}")]
-    GdbStub(String),
+    #[error("gdb_stub error: {0}")]
+    GdbStub(#[from] GdbStubError),
 
     #[error("monitor error: {0}")]
     Monitor(#[from] vm_core::monitor::Error),

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use vm_core::arch::layout::MemoryLayout;
-use vm_core::debug::gdbstub::GdbStub;
+use vm_core::debug::gdbstub::GdbStubBuilder;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::manager::DeviceManager;
 use vm_core::monitor::MonitorServerBuilder;
@@ -65,11 +65,11 @@ impl VmBuilder {
         )?;
 
         let vm = Vm {
-            memory,
+            memory: memory.clone(),
             virt,
             irq_chip,
             device_manager,
-            gdb_stub: self.gdb_port.map(GdbStub::new),
+            gdb_stub: self.gdb_port.map(|port| GdbStubBuilder::new(memory, port)),
             monitor: monitor_server_builder.build(),
         };
 

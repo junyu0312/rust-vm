@@ -135,6 +135,7 @@ impl Virt for Hvp {
     type Arch = AArch64;
     type Vcpu = HvpVcpu;
     type Memory = MemoryWrapper;
+    type GdbStubArch = gdbstub_arch::aarch64::AArch64;
 
     fn new(num_vcpus: usize) -> Result<Self> {
         let layout = AArch64Layout::default();

@@ -19,6 +19,7 @@ pub trait Virt: Sized {
     type Arch: Arch;
     type Vcpu: Vcpu<Self::Arch>;
     type Memory: MemoryContainer;
+    type GdbStubArch: gdbstub::arch::Arch;
 
     fn new(num_vcpus: usize) -> Result<Self>;
 
