@@ -3,7 +3,6 @@ use std::sync::Mutex;
 
 use strum_macros::FromRepr;
 use tracing::warn;
-use vm_mm::memory_container::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 
 use crate::transport::VirtioDev;
@@ -41,18 +40,16 @@ enum CommonCfgOffset {
     // AdminQueueNum = 0x3e,
 }
 
-pub struct CommonConfigHandler<C, D>
+pub struct CommonConfigHandler<D>
 where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
+    D: VirtioPciDevice,
 {
-    pub dev: Arc<Mutex<VirtioDev<C, D>>>,
+    pub dev: Arc<Mutex<VirtioDev<D>>>,
 }
 
-impl<C, D> BarHandler for CommonConfigHandler<C, D>
+impl<D> BarHandler for CommonConfigHandler<D>
 where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
+    D: VirtioPciDevice,
 {
     fn read(&self, offset: u64, data: &mut [u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {

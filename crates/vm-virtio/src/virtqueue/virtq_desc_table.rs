@@ -1,7 +1,6 @@
 use std::ptr::NonNull;
 
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::result::Result;
 use crate::result::VirtioError;
@@ -28,10 +27,7 @@ pub struct VirtqDesc {
 
 impl VirtqDesc {
     /// Get hva of the buf
-    pub fn addr<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<NonNull<u8>>
-    where
-        C: MemoryContainer,
-    {
+    pub fn addr(&self, mm: &MemoryAddressSpace) -> Result<NonNull<u8>> {
         let addr = mm
             .gpa_to_hva(self.addr)
             .map_err(|_| VirtioError::AccessInvalidGpa(self.addr))?;

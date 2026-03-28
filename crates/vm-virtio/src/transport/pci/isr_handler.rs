@@ -1,25 +1,22 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_mm::memory_container::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 
 use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::VirtioPciDevice;
 
-pub struct IsrHandler<C, D>
+pub struct IsrHandler<D>
 where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
+    D: VirtioPciDevice,
 {
-    pub dev: Arc<Mutex<VirtioDev<C, D>>>,
+    pub dev: Arc<Mutex<VirtioDev<D>>>,
 }
 
-impl<C, D> BarHandler for IsrHandler<C, D>
+impl<D> BarHandler for IsrHandler<D>
 where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
+    D: VirtioPciDevice,
 {
     fn read(&self, _offset: u64, data: &mut [u8]) {
         let mut dev = self.dev.lock().unwrap();

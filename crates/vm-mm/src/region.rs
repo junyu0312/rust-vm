@@ -1,15 +1,12 @@
 use crate::memory_container::MemoryContainer;
 
-pub struct MemoryRegion<C> {
+pub struct MemoryRegion {
     pub gpa: u64,
-    pub memory: C,
+    pub memory: Box<dyn MemoryContainer>,
 }
 
-impl<C> MemoryRegion<C>
-where
-    C: MemoryContainer,
-{
-    pub fn new(gpa: u64, memory: C) -> Self {
+impl MemoryRegion {
+    pub fn new(gpa: u64, memory: Box<dyn MemoryContainer>) -> Self {
         MemoryRegion { gpa, memory }
     }
 

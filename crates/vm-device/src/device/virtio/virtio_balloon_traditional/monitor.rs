@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use serde::Serialize;
 use vm_core::monitor::Error;
 use vm_core::monitor::MonitorCommand;
-use vm_mm::memory_container::MemoryContainer;
 use vm_virtio::transport::VirtioDev;
 
 use crate::device::virtio::virtio_balloon_traditional::device::VirtioBalloonApi;
@@ -17,27 +16,18 @@ pub struct BalloonInfo {
     num_pages: u32,
 }
 
-pub struct VirtioBalloonMonitor<C>
-where
-    C: MemoryContainer,
-{
-    device: Arc<Mutex<VirtioDev<C, VirtioBalloonTranditional<C>>>>,
+pub struct VirtioBalloonMonitor {
+    device: Arc<Mutex<VirtioDev<VirtioBalloonTranditional>>>,
 }
 
-impl<C> VirtioBalloonMonitor<C>
-where
-    C: MemoryContainer,
-{
-    pub fn new(device: Arc<Mutex<VirtioDev<C, VirtioBalloonTranditional<C>>>>) -> Self {
+impl VirtioBalloonMonitor {
+    pub fn new(device: Arc<Mutex<VirtioDev<VirtioBalloonTranditional>>>) -> Self {
         VirtioBalloonMonitor { device }
     }
 }
 
 #[async_trait]
-impl<C> MonitorCommand for VirtioBalloonMonitor<C>
-where
-    C: MemoryContainer,
-{
+impl MonitorCommand for VirtioBalloonMonitor {
     async fn handle_command(&self, subcommands: &[&str]) -> Result<String, Error> {
         match *subcommands {
             ["info"] => {

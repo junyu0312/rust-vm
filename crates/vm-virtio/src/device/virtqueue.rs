@@ -4,33 +4,29 @@ use std::sync::Mutex;
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
 use crate::types::interrupt_status::InterruptStatus;
 use crate::virtqueue::virtq_desc_table::VirtqDescTableRef;
 
-pub type VirtqueueHandlerFn<C, D> = Box<
-    dyn Fn(&MemoryAddressSpace<C>, &mut VirtioDev<C, D>, &VirtqDescTableRef, u16) -> u32
-        + Send
-        + Sync,
+pub type VirtqueueHandlerFn<D> = Box<
+    dyn Fn(&MemoryAddressSpace, &mut VirtioDev<D>, &VirtqDescTableRef, u16) -> u32 + Send + Sync,
 >;
 
-pub struct VirtqueueHandler<C, D> {
+pub struct VirtqueueHandler<D> {
     pub queue_sel: usize,
     pub notifier: Arc<Notify>,
-    pub dev: Arc<Mutex<VirtioDev<C, D>>>,
-    pub mm: Arc<MemoryAddressSpace<C>>,
+    pub dev: Arc<Mutex<VirtioDev<D>>>,
+    pub mm: Arc<MemoryAddressSpace>,
     pub irq_chip: Arc<dyn InterruptController>,
     pub irq_line: u32,
-    pub handle_desc: VirtqueueHandlerFn<C, D>,
+    pub handle_desc: VirtqueueHandlerFn<D>,
 }
 
-impl<C, D> VirtqueueHandler<C, D>
+impl<D> VirtqueueHandler<D>
 where
-    C: MemoryContainer,
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
     pub async fn run(self) {
         let mm = self.mm.as_ref();

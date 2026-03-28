@@ -3,7 +3,6 @@ use std::path::Path;
 
 use header::*;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::kernel_loader::Error;
 use crate::kernel_loader::KernelLoader;
@@ -171,16 +170,13 @@ impl BzImage {
     }
 }
 
-impl<C> KernelLoader<C> for BzImage
-where
-    C: MemoryContainer,
-{
+impl KernelLoader for BzImage {
     type BootParams = ();
 
     fn load(
         &self,
         _boot_params: &Self::BootParams,
-        _memory: &MemoryAddressSpace<C>,
+        _memory: &MemoryAddressSpace,
     ) -> Result<LoadResult> {
         todo!()
     }

@@ -12,7 +12,7 @@ use crate::error::Error;
 use crate::error::Result;
 
 pub struct Vm<V: Virt> {
-    pub(crate) memory: Arc<MemoryAddressSpace<V::Memory>>,
+    pub(crate) memory: Arc<MemoryAddressSpace>,
     pub(crate) virt: V,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
     pub(crate) device_manager: DeviceManager,

@@ -6,7 +6,6 @@ use rand::Rng;
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
@@ -21,10 +20,7 @@ use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
 use vm_virtio::types::device_id::DeviceId;
 use vm_virtio::virtqueue::virtq_desc_table::VIRTQ_DESC_F_WRITE;
 
-fn requestq_handler<C>() -> VirtqueueHandlerFn<C, VirtioEntropy<C>>
-where
-    C: MemoryContainer,
-{
+fn requestq_handler() -> VirtqueueHandlerFn<VirtioEntropy> {
     Box::new(|mm, _dev, desc_ring, desc_id| {
         let desc = desc_ring.get(desc_id);
         let len = desc.len;
@@ -44,32 +40,23 @@ where
     })
 }
 
-pub struct VirtioEntropy<C>
-where
-    C: MemoryContainer,
-{
+pub struct VirtioEntropy {
     irq: u32,
     irq_chip: Arc<dyn InterruptController>,
-    mm: Arc<MemoryAddressSpace<C>>,
+    mm: Arc<MemoryAddressSpace>,
 }
 
-impl<C> VirtioEntropy<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioEntropy {
     pub fn new(
         irq: u32,
         irq_chip: Arc<dyn InterruptController>,
-        mm: Arc<MemoryAddressSpace<C>>,
+        mm: Arc<MemoryAddressSpace>,
     ) -> Self {
         VirtioEntropy { irq, irq_chip, mm }
     }
 }
 
-impl<C> VirtioDevice<C> for VirtioEntropy<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioDevice for VirtioEntropy {
     const NAME: &str = "virtio-entropy";
     const DEVICE_ID: u16 = DeviceId::Entropy as u16;
     const DEVICE_FEATURES: u64 = (1 << VIRTIO_F_VERSION_1);
@@ -92,8 +79,8 @@ where
         &self,
         queue: usize,
         notifier: Arc<Notify>,
-        dev: Arc<Mutex<VirtioDev<C, Self>>>,
-    ) -> Option<VirtqueueHandler<C, Self>> {
+        dev: Arc<Mutex<VirtioDev<Self>>>,
+    ) -> Option<VirtqueueHandler<Self>> {
         if queue != 0 {
             return None;
         }
@@ -118,13 +105,10 @@ where
     }
 }
 
-impl<C> VirtioPciDevice<C> for VirtioEntropy<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioPciDevice for VirtioEntropy {
     const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = size_of::<VirtioEntropyConfig>();
     const CLASS_CODE: u32 = 0x00ff00;
     const IRQ_PIN: u8 = InterruptPin::INTB as u8;
 }
 
-pub type VirtioMmioEntropyDevice<C> = VirtioMmioTransport<C, VirtioEntropy<C>>;
+pub type VirtioMmioEntropyDevice = VirtioMmioTransport<VirtioEntropy>;

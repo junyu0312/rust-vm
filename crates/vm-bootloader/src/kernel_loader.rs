@@ -34,12 +34,12 @@ pub struct LoadResult {
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub trait KernelLoader<C> {
+pub trait KernelLoader {
     type BootParams;
 
     fn load(
         &self,
         boot_params: &Self::BootParams,
-        memory: &MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace,
     ) -> Result<LoadResult>;
 }

@@ -1,5 +1,4 @@
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::result::Result;
 use crate::result::VirtioError;
@@ -106,10 +105,7 @@ impl Virtqueue {
         self.queue_used_high = Some(addr);
     }
 
-    pub fn desc_table_ref<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<VirtqDescTableRef>
-    where
-        C: MemoryContainer,
-    {
+    pub fn desc_table_ref(&self, mm: &MemoryAddressSpace) -> Result<VirtqDescTableRef> {
         let gpa = self
             .queue_desc_table_gpa()
             .ok_or(VirtioError::AccessVirtqueueNotReady)?;
@@ -120,10 +116,7 @@ impl Virtqueue {
         Ok(VirtqDescTableRef::new(self.queue_size, hva))
     }
 
-    pub fn avail_ring<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<VirtqAvail>
-    where
-        C: MemoryContainer,
-    {
+    pub fn avail_ring(&self, mm: &MemoryAddressSpace) -> Result<VirtqAvail> {
         let gpa = self
             .queue_available_ring_gpa()
             .ok_or(VirtioError::AccessVirtqueueNotReady)?;
@@ -134,10 +127,7 @@ impl Virtqueue {
         Ok(VirtqAvail::new(self.queue_size, hva as *const u16))
     }
 
-    pub fn used_ring<C>(&self, mm: &MemoryAddressSpace<C>) -> Result<VirtqUsed>
-    where
-        C: MemoryContainer,
-    {
+    pub fn used_ring(&self, mm: &MemoryAddressSpace) -> Result<VirtqUsed> {
         let gpa = self
             .queue_used_ring_gpa()
             .ok_or(VirtioError::AccessVirtqueueNotReady)?;
