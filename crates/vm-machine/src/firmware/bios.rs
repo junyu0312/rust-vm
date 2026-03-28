@@ -1,5 +1,4 @@
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::firmware::bios::e820::*;
 use crate::firmware::bios::ivt::InterruptVectorTable;
@@ -112,11 +111,7 @@ pub struct Bios;
 const BIOS_OFFSET: usize = 0xf000;
 
 impl Bios {
-    pub fn init<C>(
-        &self,
-        _memory: &mut MemoryAddressSpace<C>,
-        _memory_size: usize,
-    ) -> anyhow::Result<()>
+    pub fn init(&self, _memory: &mut MemoryAddressSpace, _memory_size: usize) -> anyhow::Result<()>
     where
         C: MemoryContainer,
     {
