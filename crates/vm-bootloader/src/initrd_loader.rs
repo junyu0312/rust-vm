@@ -2,7 +2,6 @@ use std::fs;
 use std::path::Path;
 
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -30,10 +29,7 @@ impl InitrdLoader {
         Ok(InitrdLoader { initrd })
     }
 
-    pub fn load<C>(&self, addr: u64, memory: &MemoryAddressSpace<C>) -> Result<LoadResult>
-    where
-        C: MemoryContainer,
-    {
+    pub fn load(&self, addr: u64, memory: &MemoryAddressSpace) -> Result<LoadResult> {
         memory
             .copy_from_slice(addr, &self.initrd)
             .map_err(|_| Error::CopyFailed)?;

@@ -4,7 +4,6 @@ use std::sync::Mutex;
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
@@ -20,10 +19,7 @@ use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
 use vm_virtio::types::device_id::DeviceId;
 use zerocopy::IntoBytes;
 
-fn requestq0_handler<C, D>() -> VirtqueueHandlerFn<C, D>
-where
-    C: MemoryContainer,
-{
+fn requestq0_handler<D>() -> VirtqueueHandlerFn<D> {
     Box::new(|mm, _dev, desc_ring, desc_id| {
         let desc_entry = desc_ring.get(desc_id);
         let req = desc_entry.addr(mm).unwrap();
@@ -55,21 +51,18 @@ where
     })
 }
 
-pub struct VirtioBlkDevice<C> {
+pub struct VirtioBlkDevice {
     irq: u32,
     irq_chip: Arc<dyn InterruptController>,
-    mm: Arc<MemoryAddressSpace<C>>,
+    mm: Arc<MemoryAddressSpace>,
     cfg: VirtioBlkConfig,
 }
 
-impl<C> VirtioBlkDevice<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioBlkDevice {
     pub fn new(
         irq: u32,
         irq_chip: Arc<dyn InterruptController>,
-        mm: Arc<MemoryAddressSpace<C>>,
+        mm: Arc<MemoryAddressSpace>,
     ) -> Self {
         let cfg = VirtioBlkConfig {
             capacity: 50,
@@ -85,10 +78,7 @@ where
     }
 }
 
-impl<C> VirtioDevice<C> for VirtioBlkDevice<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioDevice for VirtioBlkDevice {
     const NAME: &str = "virtio-blk";
     const DEVICE_ID: u16 = DeviceId::Blk as u16;
     const DEVICE_FEATURES: u64 = (1 << VIRTIO_F_VERSION_1);
@@ -111,8 +101,8 @@ where
         &self,
         queue_sel: usize,
         notifier: Arc<Notify>,
-        dev: Arc<Mutex<VirtioDev<C, Self>>>,
-    ) -> Option<VirtqueueHandler<C, Self>> {
+        dev: Arc<Mutex<VirtioDev<Self>>>,
+    ) -> Option<VirtqueueHandler<Self>> {
         if queue_sel != 0 {
             return None;
         }
@@ -139,13 +129,10 @@ where
     }
 }
 
-impl<C> VirtioPciDevice<C> for VirtioBlkDevice<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioPciDevice for VirtioBlkDevice {
     const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = size_of::<VirtioBlkConfig>();
     const CLASS_CODE: u32 = 0x018000;
     const IRQ_PIN: u8 = InterruptPin::INTA as u8;
 }
 
-pub type VirtioMmioBlkDevice<C> = VirtioMmioTransport<C, VirtioBlkDevice<C>>;
+pub type VirtioMmioBlkDevice = VirtioMmioTransport<VirtioBlkDevice>;

@@ -34,7 +34,6 @@ use crate::error::Result;
 use crate::virt::Virt;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::mm::HvpAllocator;
-use crate::virt::hvp::mm::MemoryWrapper;
 use crate::virt::hvp::vcpu::HvpVcpu;
 
 pub(crate) mod vcpu;
@@ -134,7 +133,6 @@ pub struct Hvp {
 impl Virt for Hvp {
     type Arch = AArch64;
     type Vcpu = HvpVcpu;
-    type Memory = MemoryWrapper;
 
     fn new(num_vcpus: usize) -> Result<Self> {
         let layout = AArch64Layout::default();
@@ -272,7 +270,7 @@ impl Virt for Hvp {
 
     fn init_memory(
         &mut self,
-        memory_address_space: &mut MemoryAddressSpace<MemoryWrapper>,
+        memory_address_space: &mut MemoryAddressSpace,
         memory_size: usize,
     ) -> Result<()> {
         let allocator = HvpAllocator { vm: &self.vm };
@@ -281,7 +279,7 @@ impl Virt for Hvp {
         let mut memory = allocator.alloc(memory_size, None)?;
         memory.0.map(ram_base, MemPerms::ReadWriteExec)?;
         memory_address_space
-            .try_insert(MemoryRegion::new(ram_base, memory))
+            .try_insert(MemoryRegion::new(ram_base, Box::new(memory)))
             .map_err(|_| Error::FailedInitialize("Failed to initialize memory".to_string()))?;
 
         self.get_layout_mut().set_ram_size(memory_size as u64)?;

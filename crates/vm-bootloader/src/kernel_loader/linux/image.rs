@@ -7,7 +7,6 @@ use std::path::Path;
 
 use tracing::debug;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 use zerocopy::FromBytes;
 
 use crate::kernel_loader::Error;
@@ -80,16 +79,13 @@ pub struct AArch64BootParams {
     pub ram_size: u64,
 }
 
-impl<C> KernelLoader<C> for Image
-where
-    C: MemoryContainer,
-{
+impl KernelLoader for Image {
     type BootParams = AArch64BootParams;
 
     fn load(
         &self,
         boot_params: &AArch64BootParams,
-        memory: &MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace,
     ) -> Result<LoadResult> {
         let header = self.get_header()?;
 

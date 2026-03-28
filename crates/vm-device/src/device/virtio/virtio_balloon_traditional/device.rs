@@ -5,7 +5,6 @@ use std::sync::Mutex;
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
@@ -25,10 +24,7 @@ pub trait VirtioBalloonApi {
 const INFLATEQ_QUEUE_SIZE_MAX: u32 = 512;
 const DEFLATEQ_QUEUE_SIZE_MAX: u32 = 512;
 
-fn inflateq_handler<C>() -> VirtqueueHandlerFn<C, VirtioBalloonTranditional<C>>
-where
-    C: MemoryContainer,
-{
+fn inflateq_handler() -> VirtqueueHandlerFn<VirtioBalloonTranditional> {
     Box::new(|mm, dev, desc_ring, desc_id| {
         let desc = desc_ring.get(desc_id);
         let len = desc.len;
@@ -48,10 +44,7 @@ where
     })
 }
 
-fn deflateq_handler<C>() -> VirtqueueHandlerFn<C, VirtioBalloonTranditional<C>>
-where
-    C: MemoryContainer,
-{
+fn deflateq_handler() -> VirtqueueHandlerFn<VirtioBalloonTranditional> {
     Box::new(|mm, dev, desc_ring, desc_id| {
         let desc = desc_ring.get(desc_id);
         let len = desc.len;
@@ -71,25 +64,19 @@ where
     })
 }
 
-pub struct VirtioBalloonTranditional<C>
-where
-    C: MemoryContainer,
-{
+pub struct VirtioBalloonTranditional {
     pub(crate) irq: u32,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
-    pub(crate) mm: Arc<MemoryAddressSpace<C>>,
+    pub(crate) mm: Arc<MemoryAddressSpace>,
     pub(crate) cfg: VirtioBalloonTranditionalConfig,
     pub(crate) balloon: HashSet<u32>,
 }
 
-impl<C> VirtioBalloonTranditional<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioBalloonTranditional {
     pub fn new(
         irq: u32,
         irq_chip: Arc<dyn InterruptController>,
-        mm: Arc<MemoryAddressSpace<C>>,
+        mm: Arc<MemoryAddressSpace>,
     ) -> Self {
         VirtioBalloonTranditional {
             irq,
@@ -101,10 +88,7 @@ where
     }
 }
 
-impl<C> VirtioDevice<C> for VirtioBalloonTranditional<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioDevice for VirtioBalloonTranditional {
     const NAME: &str = "virtio-balloon-tranditional";
     const DEVICE_ID: u16 = DeviceId::Balloon as u16;
     const DEVICE_FEATURES: u64 = (1 << VIRTIO_F_VERSION_1);
@@ -127,8 +111,8 @@ where
         &self,
         queue: usize,
         notifier: Arc<Notify>,
-        dev: Arc<Mutex<VirtioDev<C, Self>>>,
-    ) -> Option<VirtqueueHandler<C, Self>> {
+        dev: Arc<Mutex<VirtioDev<Self>>>,
+    ) -> Option<VirtqueueHandler<Self>> {
         match VirtioBalloonTranditionalVirtqueue::from_repr(queue) {
             Some(virtq) => match virtq {
                 VirtioBalloonTranditionalVirtqueue::Inflateq => Some(VirtqueueHandler {
@@ -168,14 +152,11 @@ where
     }
 }
 
-pub type VirtioBalloonDev<C> = VirtioDev<C, VirtioBalloonTranditional<C>>;
+pub type VirtioBalloonDev = VirtioDev<VirtioBalloonTranditional>;
 
-pub type VirtioMmioBalloonDevice<C> = VirtioMmioTransport<C, VirtioBalloonTranditional<C>>;
+pub type VirtioMmioBalloonDevice = VirtioMmioTransport<VirtioBalloonTranditional>;
 
-impl<C> VirtioBalloonApi for VirtioBalloonDev<C>
-where
-    C: MemoryContainer,
-{
+impl VirtioBalloonApi for VirtioBalloonDev {
     fn update_num_pages(&mut self, num_pages: u32) {
         if self.device.cfg.num_pages == num_pages {
             return;

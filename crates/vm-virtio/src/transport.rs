@@ -1,11 +1,9 @@
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use bitflags::Flags;
 use tokio::sync::Notify;
 use tracing::warn;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::result::Result;
@@ -19,7 +17,7 @@ pub mod pci;
 
 mod control_register;
 
-pub struct VirtioDev<C, D> {
+pub struct VirtioDev<D> {
     pub device: D,
 
     device_feature_sel: Option<u32>,
@@ -31,14 +29,11 @@ pub struct VirtioDev<C, D> {
     interrupt_status: InterruptStatus,
     status: Status,
     config_generation: u32,
-
-    _mark: PhantomData<C>,
 }
 
-impl<C, D> VirtioDev<C, D>
+impl<D> VirtioDev<D>
 where
-    C: MemoryContainer,
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
     pub fn new(device: D) -> Arc<Mutex<Self>> {
         let virtqueues_size_max = device.virtqueues_size_max();
@@ -64,7 +59,6 @@ where
             interrupt_status: Default::default(),
             status: Default::default(),
             config_generation: Default::default(),
-            _mark: PhantomData,
         }));
 
         {
@@ -93,9 +87,9 @@ where
     }
 }
 
-impl<C, D> VirtioDev<C, D>
+impl<D> VirtioDev<D>
 where
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
     fn reset(&mut self) {
         self.device.reset();

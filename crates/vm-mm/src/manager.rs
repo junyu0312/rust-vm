@@ -1,27 +1,16 @@
 use std::collections::BTreeMap;
 
 use crate::error::Error;
-use crate::memory_container::MemoryContainer;
 use crate::region::MemoryRegion;
 
-pub struct MemoryAddressSpace<C> {
+#[derive(Default)]
+pub struct MemoryAddressSpace {
     /// gpa |-> memory region
-    regions: BTreeMap<u64, MemoryRegion<C>>,
+    regions: BTreeMap<u64, MemoryRegion>,
 }
 
-impl<C> Default for MemoryAddressSpace<C> {
-    fn default() -> Self {
-        Self {
-            regions: Default::default(),
-        }
-    }
-}
-
-impl<C> MemoryAddressSpace<C>
-where
-    C: MemoryContainer,
-{
-    pub fn try_insert(&mut self, region: MemoryRegion<C>) -> Result<(), MemoryRegion<C>> {
+impl MemoryAddressSpace {
+    pub fn try_insert(&mut self, region: MemoryRegion) -> Result<(), MemoryRegion> {
         if self.is_overlapping(&region) {
             return Err(region);
         }
@@ -115,7 +104,7 @@ where
         Ok(())
     }
 
-    fn is_overlapping(&self, region: &MemoryRegion<C>) -> bool {
+    fn is_overlapping(&self, region: &MemoryRegion) -> bool {
         let new_left = region.gpa;
         let new_right = region.gpa + region.len() as u64;
 
@@ -136,7 +125,7 @@ where
         false
     }
 
-    fn get_by_gpa(&self, gpa: u64) -> Option<&MemoryRegion<C>> {
+    fn get_by_gpa(&self, gpa: u64) -> Option<&MemoryRegion> {
         let (_, region) = self.regions.range(..=gpa).next_back()?;
 
         if gpa < region.gpa + region.len() as u64 {
@@ -146,15 +135,13 @@ where
         }
     }
 
-    fn try_get_region_by_gpa(&self, gpa: u64) -> Result<&MemoryRegion<C>, Error> {
+    fn try_get_region_by_gpa(&self, gpa: u64) -> Result<&MemoryRegion, Error> {
         self.get_by_gpa(gpa).ok_or(Error::AccessInvalidGpa(gpa))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use memmap2::MmapMut;
-
     use crate::allocator::Allocator;
     use crate::allocator::mmap_allocator::MmapAllocator;
     use crate::manager::MemoryAddressSpace;
@@ -162,23 +149,23 @@ mod tests {
 
     #[test]
     fn test_memory_layout() -> anyhow::Result<()> {
-        let mut memory_as = MemoryAddressSpace::<MmapMut>::default();
+        let mut memory_as = MemoryAddressSpace::default();
 
         let allocator = MmapAllocator;
 
         assert!(
             memory_as
-                .try_insert(MemoryRegion::new(0, allocator.alloc(10, None)?))
+                .try_insert(MemoryRegion::new(0, Box::new(allocator.alloc(10, None)?)))
                 .is_ok()
         );
         assert!(
             memory_as
-                .try_insert(MemoryRegion::new(5, allocator.alloc(10, None)?))
+                .try_insert(MemoryRegion::new(5, Box::new(allocator.alloc(10, None)?)))
                 .is_err()
         );
         assert!(
             memory_as
-                .try_insert(MemoryRegion::new(10, allocator.alloc(10, None)?))
+                .try_insert(MemoryRegion::new(10, Box::new(allocator.alloc(10, None)?)))
                 .is_ok()
         );
 
@@ -190,10 +177,10 @@ mod tests {
         const GPA: u64 = 0;
         const LEN: usize = 512;
 
-        let mut memory_as = MemoryAddressSpace::<MmapMut>::default();
+        let mut memory_as = MemoryAddressSpace::default();
         let allocator = MmapAllocator;
 
-        let region = MemoryRegion::new(GPA, allocator.alloc(LEN, None)?);
+        let region = MemoryRegion::new(GPA, Box::new(allocator.alloc(LEN, None)?));
 
         let hva = region.hva();
 
@@ -243,13 +230,13 @@ mod tests {
 
     #[test]
     fn test_memset_multi_regions_ok() -> anyhow::Result<()> {
-        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let mut memory = MemoryAddressSpace::default();
         let allocator = MmapAllocator;
 
-        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        let region0 = MemoryRegion::new(0, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region0).is_ok());
 
-        let region1 = MemoryRegion::new(10, allocator.alloc(10, None)?);
+        let region1 = MemoryRegion::new(10, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region1).is_ok());
 
         assert!(memory.memset(0, 0xff, 20).is_ok());
@@ -259,13 +246,13 @@ mod tests {
 
     #[test]
     fn test_memset_multi_regions_fail() -> anyhow::Result<()> {
-        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let mut memory = MemoryAddressSpace::default();
         let allocator = MmapAllocator;
 
-        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        let region0 = MemoryRegion::new(0, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region0).is_ok());
 
-        let region1 = MemoryRegion::new(20, allocator.alloc(10, None)?);
+        let region1 = MemoryRegion::new(20, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region1).is_ok());
 
         assert!(memory.memset(0, 0xff, 20).is_err());
@@ -275,13 +262,13 @@ mod tests {
 
     #[test]
     fn test_copy_from_slice_multi_regions_ok() -> anyhow::Result<()> {
-        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let mut memory = MemoryAddressSpace::default();
         let allocator = MmapAllocator;
 
-        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        let region0 = MemoryRegion::new(0, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region0).is_ok());
 
-        let region1 = MemoryRegion::new(10, allocator.alloc(10, None)?);
+        let region1 = MemoryRegion::new(10, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region1).is_ok());
 
         assert!(memory.copy_from_slice(0, &[0xff; 20]).is_ok());
@@ -291,13 +278,13 @@ mod tests {
 
     #[test]
     fn test_copy_from_slice_multi_regions_fail() -> anyhow::Result<()> {
-        let mut memory = MemoryAddressSpace::<MmapMut>::default();
+        let mut memory = MemoryAddressSpace::default();
         let allocator = MmapAllocator;
 
-        let region0 = MemoryRegion::new(0, allocator.alloc(10, None)?);
+        let region0 = MemoryRegion::new(0, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region0).is_ok());
 
-        let region1 = MemoryRegion::new(20, allocator.alloc(10, None)?);
+        let region1 = MemoryRegion::new(20, Box::new(allocator.alloc(10, None)?));
         assert!(memory.try_insert(region1).is_ok());
 
         assert!(memory.copy_from_slice(0, &[0xff; 20]).is_err());

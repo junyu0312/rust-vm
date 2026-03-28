@@ -10,7 +10,6 @@ use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
@@ -30,14 +29,7 @@ pub struct AArch64BootLoader {
 }
 
 impl AArch64BootLoader {
-    fn load_image<C>(
-        &self,
-        layout: &mut AArch64Layout,
-        memory: &MemoryAddressSpace<C>,
-    ) -> Result<()>
-    where
-        C: MemoryContainer,
-    {
+    fn load_image(&self, layout: &mut AArch64Layout, memory: &MemoryAddressSpace) -> Result<()> {
         let image =
             Image::new(&self.kernel).map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
@@ -58,14 +50,7 @@ impl AArch64BootLoader {
         Ok(())
     }
 
-    fn load_initrd<C>(
-        &self,
-        layout: &mut AArch64Layout,
-        memory: &MemoryAddressSpace<C>,
-    ) -> Result<()>
-    where
-        C: MemoryContainer,
-    {
+    fn load_initrd(&self, layout: &mut AArch64Layout, memory: &MemoryAddressSpace) -> Result<()> {
         let Some(initrd) = self.initrd.as_deref() else {
             return Ok(());
         };
@@ -85,15 +70,12 @@ impl AArch64BootLoader {
         Ok(())
     }
 
-    fn load_dtb<C>(
+    fn load_dtb(
         &self,
         layout: &mut AArch64Layout,
-        memory: &MemoryAddressSpace<C>,
+        memory: &MemoryAddressSpace,
         dtb: Vec<u8>,
-    ) -> Result<()>
-    where
-        C: MemoryContainer,
-    {
+    ) -> Result<()> {
         let dtb_start = layout.get_dtb_start();
 
         if !dtb_start.is_multiple_of(8) {
@@ -256,7 +238,7 @@ where
     fn load(
         &self,
         virt: &mut V,
-        memory: &MemoryAddressSpace<V::Memory>,
+        memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
     ) -> Result<()> {

@@ -3,7 +3,6 @@ use tracing::error;
 use tracing::warn;
 use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioHandler;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::result::Result as VirtioResult;
@@ -19,11 +18,11 @@ const VIRTIO_MMIO_MAGIC_VALUE: u32 = u32::from_le_bytes(*b"virt");
 const VIRTIO_MMIO_VERSION: u32 = 0x2;
 const VIRTIO_MMIO_VENDOR_ID: u32 = u32::from_le_bytes(*b"QEMU");
 
-impl<C, D> VirtioMmioTransport<C, D>
+impl<D> VirtioMmioTransport<D>
 where
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
-    fn read_reg(&self, dev: &VirtioDev<C, D>, reg: MmioControlRegister) -> u32 {
+    fn read_reg(&self, dev: &VirtioDev<D>, reg: MmioControlRegister) -> u32 {
         match reg {
             MmioControlRegister::MagicValue => VIRTIO_MMIO_MAGIC_VALUE,
             MmioControlRegister::Version => VIRTIO_MMIO_VERSION,
@@ -47,7 +46,7 @@ where
 
     fn write_reg(
         &self,
-        dev: &mut VirtioDev<C, D>,
+        dev: &mut VirtioDev<D>,
         reg: MmioControlRegister,
         val: u32,
     ) -> VirtioResult<()> {
@@ -97,10 +96,9 @@ where
     }
 }
 
-impl<C, D> MmioHandler for VirtioMmioTransport<C, D>
+impl<D> MmioHandler for VirtioMmioTransport<D>
 where
-    C: MemoryContainer,
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
     fn mmio_range(&self) -> MmioRange {
         self.mmio_range

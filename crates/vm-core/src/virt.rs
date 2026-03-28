@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
@@ -18,16 +17,11 @@ pub mod hvp;
 pub trait Virt: Sized {
     type Arch: Arch;
     type Vcpu: Vcpu<Self::Arch>;
-    type Memory: MemoryContainer;
 
     fn new(num_vcpus: usize) -> Result<Self>;
 
     fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>>;
-    fn init_memory(
-        &mut self,
-        memory: &mut MemoryAddressSpace<Self::Memory>,
-        memory_size: usize,
-    ) -> Result<()>;
+    fn init_memory(&mut self, memory: &mut MemoryAddressSpace, memory_size: usize) -> Result<()>;
 
     fn get_layout(&self) -> &<Self::Arch as Arch>::Layout;
     fn get_layout_mut(&mut self) -> &mut <Self::Arch as Arch>::Layout;

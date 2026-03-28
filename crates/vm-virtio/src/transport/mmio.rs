@@ -6,7 +6,6 @@ use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
-use vm_mm::memory_container::MemoryContainer;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
@@ -14,12 +13,12 @@ use crate::transport::VirtioDev;
 mod control_register;
 mod mmio_handler;
 
-pub struct VirtioMmioTransport<C, D> {
+pub struct VirtioMmioTransport<D> {
     mmio_range: MmioRange,
-    dev: Arc<Mutex<VirtioDev<C, D>>>,
+    dev: Arc<Mutex<VirtioDev<D>>>,
 }
 
-impl<C, D> Clone for VirtioMmioTransport<C, D> {
+impl<D> Clone for VirtioMmioTransport<D> {
     fn clone(&self) -> Self {
         Self {
             mmio_range: self.mmio_range,
@@ -28,34 +27,31 @@ impl<C, D> Clone for VirtioMmioTransport<C, D> {
     }
 }
 
-impl<C, D> VirtioMmioTransport<C, D>
+impl<D> VirtioMmioTransport<D>
 where
-    C: MemoryContainer,
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
-    pub fn new(dev: Arc<Mutex<VirtioDev<C, D>>>, mmio_range: MmioRange) -> Self {
+    pub fn new(dev: Arc<Mutex<VirtioDev<D>>>, mmio_range: MmioRange) -> Self {
         VirtioMmioTransport { mmio_range, dev }
     }
 
-    pub fn dev(&self) -> Arc<Mutex<VirtioDev<C, D>>> {
+    pub fn dev(&self) -> Arc<Mutex<VirtioDev<D>>> {
         self.dev.clone()
     }
 }
 
-impl<C, D> Device for VirtioMmioTransport<C, D>
+impl<D> Device for VirtioMmioTransport<D>
 where
-    C: MemoryContainer,
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
     fn name(&self) -> String {
         D::NAME.to_string()
     }
 }
 
-impl<C, D> MmioDevice for VirtioMmioTransport<C, D>
+impl<D> MmioDevice for VirtioMmioTransport<D>
 where
-    C: MemoryContainer,
-    D: VirtioDevice<C>,
+    D: VirtioDevice,
 {
     fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
         vec![Box::new(self.clone())]

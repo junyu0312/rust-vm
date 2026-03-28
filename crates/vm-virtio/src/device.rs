@@ -10,7 +10,7 @@ use crate::transport::VirtioDev;
 pub mod transport;
 pub mod virtqueue;
 
-pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
+pub trait VirtioDevice: Sized + Send + Sync + 'static {
     const NAME: &str;
     const DEVICE_ID: u16;
     const DEVICE_FEATURES: u64;
@@ -36,8 +36,8 @@ pub trait VirtioDevice<C>: Sized + Send + Sync + 'static {
         &self,
         queue: usize,
         notifier: Arc<Notify>,
-        dev: Arc<Mutex<VirtioDev<C, Self>>>,
-    ) -> Option<VirtqueueHandler<C, Self>>;
+        dev: Arc<Mutex<VirtioDev<Self>>>,
+    ) -> Option<VirtqueueHandler<Self>>;
 
     fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()>;
 

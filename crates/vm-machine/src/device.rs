@@ -13,7 +13,6 @@ use vm_device::device::virtio::virtio_blk::VirtioMmioBlkDevice;
 use vm_device::device::virtio::virtio_entropy::VirtioEntropy;
 use vm_device::device::virtio::virtio_entropy::VirtioMmioEntropyDevice;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
@@ -24,28 +23,23 @@ use crate::error::Error;
 mod irq_allocation;
 
 pub trait InitDevice {
-    fn init_devices<C>(
+    fn init_devices(
         &mut self,
         monitor_server_builder: &mut MonitorServerBuilder,
-        mm: Arc<MemoryAddressSpace<C>>,
+        mm: Arc<MemoryAddressSpace>,
         devices: Vec<Device>,
         irq_chip: Arc<dyn InterruptController>,
-    ) -> Result<(), Error>
-    where
-        C: MemoryContainer;
+    ) -> Result<(), Error>;
 }
 
 impl InitDevice for DeviceManager {
-    fn init_devices<C>(
+    fn init_devices(
         &mut self,
         monitor_server_builder: &mut MonitorServerBuilder,
-        mm: Arc<MemoryAddressSpace<C>>,
+        mm: Arc<MemoryAddressSpace>,
         devices: Vec<Device>,
         irq_chip: Arc<dyn InterruptController>,
-    ) -> Result<(), Error>
-    where
-        C: MemoryContainer,
-    {
+    ) -> Result<(), Error> {
         let mut irq_allocation = IrqAllocation::new(0);
 
         let pci_rc = PciRootComplexMmio::new(

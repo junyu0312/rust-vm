@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_mm::memory_container::MemoryContainer;
 use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
@@ -29,18 +28,16 @@ mod notify_handler;
 
 const VIRTIO_PCI_VENDOR_ID: u16 = 0x1AF4;
 
-pub struct VirtioPciTransport<C, D>
+pub struct VirtioPciTransport<D>
 where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
+    D: VirtioPciDevice,
 {
-    pub dev: Arc<Mutex<VirtioDev<C, D>>>,
+    pub dev: Arc<Mutex<VirtioDev<D>>>,
 }
 
-impl<C, D> PciTypeFunctionCommon for VirtioPciTransport<C, D>
+impl<D> PciTypeFunctionCommon for VirtioPciTransport<D>
 where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
+    D: VirtioPciDevice,
 {
     const VENDOR_ID: u16 = VIRTIO_PCI_VENDOR_ID;
     const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID;
@@ -126,10 +123,9 @@ where
     }
 }
 
-impl<C, D> PciType0Function for VirtioPciTransport<C, D>
+impl<D> PciType0Function for VirtioPciTransport<D>
 where
-    C: MemoryContainer,
-    D: VirtioPciDevice<C>,
+    D: VirtioPciDevice,
 {
     const BAR_SIZE: [Option<u32>; 6] = [
         // virtio_pci_common_cfg
@@ -167,16 +163,13 @@ where
     }
 }
 
-pub trait VirtioPciDevice<C>: VirtioDevice<C>
-where
-    C: MemoryContainer,
-{
+pub trait VirtioPciDevice: VirtioDevice {
     const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize = 0;
     const CLASS_CODE: u32;
     const IRQ_PIN: u8;
 
     fn into_pci_device(self) -> PciDevice {
-        let virtio_function = VirtioPciTransport::<C, _> {
+        let virtio_function = VirtioPciTransport::<_> {
             dev: VirtioDev::new(self),
         };
         let function = Type0Function::new(virtio_function).unwrap();
