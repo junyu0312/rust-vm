@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use kvm_ioctls::*;
-use memmap2::MmapMut;
 use vm_mm::allocator::mmap_allocator::MmapAllocator;
 use vm_mm::manager::MemoryAddressSpace;
 
@@ -35,7 +34,6 @@ where
 {
     type Arch = A;
     type Vcpu = KvmVcpu;
-    type Memory = MmapMut;
 
     fn new(_cpu_number: usize) -> Result<Self> {
         let kvm = Kvm::new()
@@ -58,11 +56,7 @@ where
         Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
     }
 
-    fn init_memory(
-        &mut self,
-        _memory: &mut MemoryAddressSpace<MmapMut>,
-        _memory_size: usize,
-    ) -> Result<()> {
+    fn init_memory(&mut self, _memory: &mut MemoryAddressSpace, _memory_size: usize) -> Result<()> {
         let _allocator = MmapAllocator;
 
         todo!()
