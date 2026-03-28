@@ -111,10 +111,11 @@ pub struct Bios;
 const BIOS_OFFSET: usize = 0xf000;
 
 impl Bios {
-    pub fn init(&self, _memory: &mut MemoryAddressSpace, _memory_size: usize) -> anyhow::Result<()>
-    where
-        C: MemoryContainer,
-    {
+    pub fn init(
+        &self,
+        _memory: &mut MemoryAddressSpace,
+        _memory_size: usize,
+    ) -> anyhow::Result<()> {
         todo!()
         /*
                 let bios_bin = include_bytes!("../../../../bios.bin");
