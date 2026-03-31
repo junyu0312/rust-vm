@@ -12,7 +12,7 @@ use crate::error::Error;
 use crate::error::Result;
 
 pub struct Vm<V: Virt> {
-    pub(crate) memory: Arc<MemoryAddressSpace>,
+    pub(crate) memory_address_space: Arc<MemoryAddressSpace>,
     pub(crate) virt: V,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
     pub(crate) device_manager: DeviceManager,
@@ -27,7 +27,7 @@ where
     pub fn run(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
         boot_loader.load(
             &mut self.virt,
-            &self.memory,
+            &self.memory_address_space,
             self.irq_chip.as_ref(),
             self.device_manager.mmio_devices(),
         )?;

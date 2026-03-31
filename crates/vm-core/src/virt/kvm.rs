@@ -3,8 +3,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use kvm_ioctls::*;
-use vm_mm::allocator::mmap_allocator::MmapAllocator;
-use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
@@ -55,9 +53,13 @@ where
         Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
     }
 
-    fn init_memory(&mut self, _memory: &mut MemoryAddressSpace, _memory_size: usize) -> Result<()> {
-        let _allocator = MmapAllocator;
-
+    fn set_user_memory_region(
+        &mut self,
+        _userspace_addr: u64,
+        _guest_phys_addr: u64,
+        _memory_size: usize,
+        _flags: super::SetUserMemoryRegionFlags,
+    ) -> Result<()> {
         todo!()
     }
 

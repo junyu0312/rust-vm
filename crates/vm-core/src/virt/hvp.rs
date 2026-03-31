@@ -7,7 +7,6 @@ use std::thread;
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
 use applevisor::prelude::HypervisorError;
-use applevisor_sys::PAGE_SIZE;
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_gic_config_create;
 use applevisor_sys::hv_gic_config_set_distributor_base;
@@ -22,11 +21,6 @@ use applevisor_sys::hv_vm_config_create;
 use applevisor_sys::hv_vm_config_set_el2_enabled;
 use applevisor_sys::hv_vm_create;
 use applevisor_sys::hv_vm_map;
-use vm_mm::allocator::Allocator;
-use vm_mm::allocator::std_allocator::StdAllocator;
-use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
-use vm_mm::region::MemoryRegion;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
@@ -45,6 +39,7 @@ use crate::arch::vcpu::Vcpu;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
+use crate::virt::SetUserMemoryRegionFlags;
 use crate::virt::Virt;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::vcpu::HvpVcpu;
@@ -66,6 +61,14 @@ macro_rules! hv_unsafe_call {
 }
 
 pub(crate) use hv_unsafe_call;
+
+impl From<SetUserMemoryRegionFlags> for MemPerms {
+    fn from(flags: SetUserMemoryRegionFlags) -> Self {
+        match flags {
+            SetUserMemoryRegionFlags::ReadWriteExec => MemPerms::ReadWriteExec,
+        }
+    }
+}
 
 fn setup_cpu<C>(dtb_start: u64, start_pc: u64, cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
 where
@@ -284,27 +287,19 @@ impl Virt for Hvp {
         )))
     }
 
-    fn init_memory(
+    fn set_user_memory_region(
         &mut self,
-        memory_address_space: &mut MemoryAddressSpace,
+        userspace_addr: u64,
+        guest_phys_addr: u64,
         memory_size: usize,
+        flags: SetUserMemoryRegionFlags,
     ) -> Result<()> {
-        let memory = StdAllocator.alloc(memory_size, Some(PAGE_SIZE))?;
-
-        let ram_base = self.get_layout().get_ram_base();
-
         hv_unsafe_call!(hv_vm_map(
-            memory.hva() as _,
-            ram_base,
+            userspace_addr as _,
+            guest_phys_addr,
             memory_size,
-            MemPerms::ReadWriteExec as u64
+            MemPerms::from(flags) as u64,
         ))?;
-
-        memory_address_space
-            .try_insert(MemoryRegion::new(ram_base, Box::new(memory)))
-            .map_err(|_| Error::FailedInitialize("Failed to initialize memory".to_string()))?;
-
-        self.get_layout_mut().set_ram_size(memory_size as u64)?;
 
         Ok(())
     }
