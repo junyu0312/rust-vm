@@ -74,27 +74,6 @@ where
         todo!()
     }
 
-    fn get_vcpu_mut(&mut self, vcpu: u64) -> Result<Option<&mut KvmVcpu>> {
-        let vcpus = self
-            .vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))?;
-
-        Ok(vcpus.get_mut(vcpu as usize))
-    }
-
-    fn get_vcpus(&self) -> Result<&Vec<KvmVcpu>> {
-        self.vcpus
-            .get()
-            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
-    }
-
-    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<KvmVcpu>> {
-        self.vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
-    }
-
     fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()> {
         let vcpus = self
             .vcpus

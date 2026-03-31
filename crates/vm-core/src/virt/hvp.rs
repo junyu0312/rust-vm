@@ -1,4 +1,3 @@
-use std::cell::OnceCell;
 use std::ptr::null_mut;
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -149,7 +148,6 @@ where
 
 pub struct Hvp {
     arch: AArch64,
-    vcpus: OnceCell<Vec<HvpVcpu>>,
     num_vcpus: usize,
     psci: Arc<Psci02>,
     cpu_on_receiver: Option<Vec<Receiver<(u64, u64)>>>,
@@ -176,7 +174,6 @@ impl Virt for Hvp {
             arch: AArch64 {
                 layout: AArch64Layout::default(),
             },
-            vcpus: OnceCell::default(),
             num_vcpus,
             psci: Arc::new(Psci02 { cpu_on_barrier }),
             cpu_on_receiver: Some(cpu_on_receiver),
@@ -323,26 +320,6 @@ impl Virt for Hvp {
 
     fn get_vcpu_number(&self) -> usize {
         self.num_vcpus
-    }
-
-    fn get_vcpu_mut(&mut self, vcpu_id: u64) -> Result<Option<&mut HvpVcpu>> {
-        Ok(self
-            .vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))?
-            .get_mut(vcpu_id as usize))
-    }
-
-    fn get_vcpus(&self) -> Result<&Vec<Self::Vcpu>> {
-        self.vcpus
-            .get()
-            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
-    }
-
-    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<Self::Vcpu>> {
-        self.vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
     }
 
     fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()> {
