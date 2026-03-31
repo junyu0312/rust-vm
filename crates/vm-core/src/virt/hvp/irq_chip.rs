@@ -1,31 +1,27 @@
 use applevisor::gic::GicConfig;
-use applevisor::vm::GicEnabled;
-use applevisor::vm::VirtualMachineInstance;
+use applevisor::prelude::HypervisorError;
+use applevisor_sys::hv_error_t;
+use applevisor_sys::hv_gic_send_msi;
+use applevisor_sys::hv_gic_set_spi;
 use tracing::warn;
 
 use crate::arch::aarch64::irq::AArch64IrqChip;
 use crate::arch::irq::InterruptController;
 use crate::arch::irq::Phandle;
+use crate::virt::hvp::hv_unsafe_call;
 
 pub struct HvpGicV3 {
     distributor_base: u64,
     redistributor_base: u64,
     msi_base: u64,
-    vm: VirtualMachineInstance<GicEnabled>,
 }
 
 impl HvpGicV3 {
-    pub fn new(
-        distributor_base: u64,
-        redistributor_base: u64,
-        msi_base: u64,
-        vm: VirtualMachineInstance<GicEnabled>,
-    ) -> Self {
+    pub fn new(distributor_base: u64, redistributor_base: u64, msi_base: u64) -> Self {
         HvpGicV3 {
             distributor_base,
             redistributor_base,
             msi_base,
-            vm,
         }
     }
 }
@@ -34,13 +30,13 @@ impl InterruptController for HvpGicV3 {
     fn trigger_irq(&self, irq_line: u32, active: bool) {
         // assert!(irq_line >= 32);
 
-        if let Err(err) = self.vm.gic_set_spi(irq_line, active) {
+        if let Err(err) = hv_unsafe_call!(hv_gic_set_spi(irq_line, active)) {
             warn!(irq_line, ?err, "Failed to send spi");
         }
     }
 
     fn send_msi(&self, intid: u32) {
-        self.vm.gic_send_msi(self.msi_base, intid).unwrap();
+        hv_unsafe_call!(hv_gic_send_msi(self.msi_base, intid)).unwrap()
     }
 
     fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<Phandle> {

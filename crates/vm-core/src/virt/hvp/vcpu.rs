@@ -1,6 +1,14 @@
+use applevisor::prelude::HypervisorError;
+use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_exit_reason_t;
 use applevisor_sys::hv_reg_t;
 use applevisor_sys::hv_sys_reg_t;
+use applevisor_sys::hv_vcpu_exit_t;
+use applevisor_sys::hv_vcpu_get_reg;
+use applevisor_sys::hv_vcpu_get_sys_reg;
+use applevisor_sys::hv_vcpu_run;
+use applevisor_sys::hv_vcpu_set_reg;
+use applevisor_sys::hv_vcpu_set_sys_reg;
 use tracing::debug;
 use tracing::error;
 use tracing::trace;
@@ -16,6 +24,7 @@ use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::arch::vcpu::Vcpu;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
+use crate::virt::hvp::hv_unsafe_call;
 
 enum HvpReg {
     CoreReg(hv_reg_t),
@@ -78,47 +87,66 @@ impl SysRegister {
 
 pub struct HvpVcpu {
     vcpu_id: u64,
-    vcpu: applevisor::vcpu::Vcpu,
+    handler: u64,
+    exit: *const hv_vcpu_exit_t,
 }
 
 impl HvpVcpu {
-    pub fn new(vcpu_id: u64, vcpu: applevisor::vcpu::Vcpu) -> Self {
-        HvpVcpu { vcpu_id, vcpu }
+    pub fn new(vcpu_id: u64, handler: u64, exit: *const hv_vcpu_exit_t) -> Self {
+        HvpVcpu {
+            vcpu_id,
+            handler,
+            exit,
+        }
     }
 }
 
 impl AArch64Vcpu for HvpVcpu {
     fn get_core_reg(&self, reg: CoreRegister) -> Result<u64> {
+        let mut value = 0;
+
         match reg.to_hvp_reg() {
-            HvpReg::CoreReg(reg) => Ok(self.vcpu.get_reg(reg)?),
-            HvpReg::SysReg(reg) => Ok(self.vcpu.get_sys_reg(reg)?),
+            HvpReg::CoreReg(reg) => {
+                hv_unsafe_call!(hv_vcpu_get_reg(self.handler, reg, &mut value))?
+            }
+            HvpReg::SysReg(reg) => {
+                hv_unsafe_call!(hv_vcpu_get_sys_reg(self.handler, reg, &mut value))?
+            }
         }
+
+        Ok(value)
     }
 
     fn set_core_reg(&self, reg: CoreRegister, value: u64) -> Result<()> {
         match reg.to_hvp_reg() {
-            HvpReg::CoreReg(reg) => Ok(self.vcpu.set_reg(reg, value)?),
-            HvpReg::SysReg(reg) => Ok(self.vcpu.set_sys_reg(reg, value)?),
+            HvpReg::CoreReg(reg) => hv_unsafe_call!(hv_vcpu_set_reg(self.handler, reg, value)),
+            HvpReg::SysReg(reg) => hv_unsafe_call!(hv_vcpu_set_sys_reg(self.handler, reg, value)),
         }
     }
 
     fn get_sys_reg(&self, reg: SysRegister) -> Result<u64> {
-        Ok(self.vcpu.get_sys_reg(reg.to_hvp_reg())?)
+        let mut value = 0;
+
+        hv_unsafe_call!(hv_vcpu_get_sys_reg(
+            self.handler,
+            reg.to_hvp_reg(),
+            &mut value
+        ))?;
+
+        Ok(value)
     }
 
     fn set_sys_reg(&self, reg: SysRegister, value: u64) -> Result<()> {
-        self.vcpu.set_sys_reg(reg.to_hvp_reg(), value)?;
-
-        Ok(())
+        hv_unsafe_call!(hv_vcpu_set_sys_reg(self.handler, reg.to_hvp_reg(), value))
     }
 }
 
 impl Vcpu<AArch64> for HvpVcpu {
     fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<VmExitReason> {
-        self.vcpu.run()?;
+        hv_unsafe_call!(hv_vcpu_run(self.handler))?;
 
-        let exit_info = self.vcpu.get_exit_info();
-        let pc = self.vcpu.get_reg(hv_reg_t::PC)?;
+        let exit_info = unsafe { *self.exit };
+        let pc = self.get_core_reg(CoreRegister::PC)?;
         trace!(pc, self.vcpu_id, ?exit_info, "vm exit");
 
         match exit_info.reason {
@@ -180,16 +208,16 @@ impl Vcpu<AArch64> for HvpVcpu {
                                 todo!()
                             };
                             let data = match srt {
-                                0 => self.vcpu.get_reg(hv_reg_t::X0),
-                                1 => self.vcpu.get_reg(hv_reg_t::X1),
-                                2 => self.vcpu.get_reg(hv_reg_t::X2),
-                                3 => self.vcpu.get_reg(hv_reg_t::X3),
-                                4 => self.vcpu.get_reg(hv_reg_t::X4),
-                                5 => self.vcpu.get_reg(hv_reg_t::X5),
-                                6 => self.vcpu.get_reg(hv_reg_t::X6),
-                                19 => self.vcpu.get_reg(hv_reg_t::X19),
-                                21 => self.vcpu.get_reg(hv_reg_t::X21),
-                                22 => self.vcpu.get_reg(hv_reg_t::X22),
+                                0 => self.get_core_reg(CoreRegister::X0),
+                                1 => self.get_core_reg(CoreRegister::X1),
+                                2 => self.get_core_reg(CoreRegister::X2),
+                                3 => self.get_core_reg(CoreRegister::X3),
+                                4 => self.get_core_reg(CoreRegister::X4),
+                                5 => self.get_core_reg(CoreRegister::X5),
+                                6 => self.get_core_reg(CoreRegister::X6),
+                                19 => self.get_core_reg(CoreRegister::X19),
+                                21 => self.get_core_reg(CoreRegister::X21),
+                                22 => self.get_core_reg(CoreRegister::X22),
                                 31 => Ok(0), // xzr
                                 _ => unimplemented!("{srt}"),
                             }?;

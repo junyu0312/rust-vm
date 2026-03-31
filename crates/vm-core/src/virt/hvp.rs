@@ -1,4 +1,5 @@
 use std::cell::OnceCell;
+use std::ptr::null_mut;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
@@ -6,12 +7,26 @@ use std::thread;
 
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
-use applevisor::vm::GicEnabled;
-use applevisor::vm::VirtualMachine;
-use applevisor::vm::VirtualMachineConfig;
-use applevisor::vm::VirtualMachineInstance;
+use applevisor::prelude::HypervisorError;
+use applevisor_sys::PAGE_SIZE;
+use applevisor_sys::hv_error_t;
+use applevisor_sys::hv_gic_config_create;
+use applevisor_sys::hv_gic_config_set_distributor_base;
+use applevisor_sys::hv_gic_config_set_msi_interrupt_range;
+use applevisor_sys::hv_gic_config_set_msi_region_base;
+use applevisor_sys::hv_gic_config_set_redistributor_base;
+use applevisor_sys::hv_gic_config_t;
+use applevisor_sys::hv_gic_create;
+use applevisor_sys::hv_vcpu_create;
+use applevisor_sys::hv_vcpu_exit_t;
+use applevisor_sys::hv_vm_config_create;
+use applevisor_sys::hv_vm_config_set_el2_enabled;
+use applevisor_sys::hv_vm_create;
+use applevisor_sys::hv_vm_map;
 use vm_mm::allocator::Allocator;
+use vm_mm::allocator::std_allocator::StdAllocator;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_mm::memory_container::MemoryContainer;
 use vm_mm::region::MemoryRegion;
 
 use crate::arch::Arch;
@@ -33,13 +48,25 @@ use crate::error::Error;
 use crate::error::Result;
 use crate::virt::Virt;
 use crate::virt::hvp::irq_chip::HvpGicV3;
-use crate::virt::hvp::mm::HvpAllocator;
 use crate::virt::hvp::vcpu::HvpVcpu;
 
 pub(crate) mod vcpu;
 
 mod irq_chip;
-mod mm;
+
+macro_rules! hv_unsafe_call {
+    ($x:expr) => {{
+        let ret = unsafe { $x };
+        match ret {
+            x if x == hv_error_t::HV_SUCCESS as i32 => Ok(()),
+            code => Err(crate::error::Error::ApplevisorError(HypervisorError::from(
+                code,
+            ))),
+        }
+    }};
+}
+
+pub(crate) use hv_unsafe_call;
 
 fn setup_cpu<C>(dtb_start: u64, start_pc: u64, cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
 where
@@ -122,8 +149,6 @@ where
 
 pub struct Hvp {
     arch: AArch64,
-    vm: VirtualMachineInstance<GicEnabled>,
-    gic_chip: Arc<HvpGicV3>,
     vcpus: OnceCell<Vec<HvpVcpu>>,
     num_vcpus: usize,
     psci: Arc<Psci02>,
@@ -135,18 +160,38 @@ impl Virt for Hvp {
     type Vcpu = HvpVcpu;
 
     fn new(num_vcpus: usize) -> Result<Self> {
-        let layout = AArch64Layout::default();
+        let vm_config = unsafe { hv_vm_config_create() };
+        hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;
+        hv_unsafe_call!(hv_vm_create(vm_config))?;
 
-        let mut vm_config = VirtualMachineConfig::default();
-        vm_config
-            .set_el2_enabled(true)
-            .map_err(|err| Error::FailedInitialize(err.to_string()))?;
+        let mut cpu_on_receiver = vec![];
+        let mut cpu_on_barrier = vec![];
+        for _ in 0..num_vcpus {
+            let (tx, rx) = mpsc::channel();
+            cpu_on_receiver.push(rx);
+            cpu_on_barrier.push(tx);
+        }
 
-        let mut gic_config = GicConfig::default();
+        Ok(Hvp {
+            arch: AArch64 {
+                layout: AArch64Layout::default(),
+            },
+            vcpus: OnceCell::default(),
+            num_vcpus,
+            psci: Arc::new(Psci02 { cpu_on_barrier }),
+            cpu_on_receiver: Some(cpu_on_receiver),
+        })
+    }
+
+    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>> {
+        let layout = self.get_layout_mut();
+
+        let gic_config: hv_gic_config_t = unsafe { hv_gic_config_create() };
 
         let distributor_base = layout.get_distributor_start();
         let redistributor_base = layout.get_redistributor_start();
         let msi_base = layout.get_msi_start();
+
         let distributor_base_alignment = GicConfig::get_distributor_base_alignment()
             .map_err(|err| Error::InterruptControllerFailed(err.to_string()))?;
         let redistributor_base_alignment = GicConfig::get_redistributor_base_alignment()
@@ -188,9 +233,10 @@ impl Virt for Hvp {
                     "The base address of gic distributor is not aligned".to_string(),
                 ));
             }
-            gic_config
-                .set_distributor_base(distributor_base)
-                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
+            hv_unsafe_call!(hv_gic_config_set_distributor_base(
+                gic_config,
+                distributor_base
+            ))?;
         }
 
         {
@@ -205,9 +251,10 @@ impl Virt for Hvp {
                     "distributor too large".to_string(),
                 ));
             }
-            gic_config
-                .set_redistributor_base(redistributor_base)
-                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
+            hv_unsafe_call!(hv_gic_config_set_redistributor_base(
+                gic_config,
+                redistributor_base
+            ))?;
         }
 
         {
@@ -222,12 +269,8 @@ impl Virt for Hvp {
                     "redistributor too large".to_string(),
                 ));
             }
-            gic_config
-                .set_msi_region_base(msi_base)
-                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
-            gic_config
-                .set_msi_interrupt_range(256, 256)
-                .map_err(|err| Error::FailedInitialize(err.to_string()))?;
+            hv_unsafe_call!(hv_gic_config_set_msi_region_base(gic_config, msi_base))?;
+            hv_unsafe_call!(hv_gic_config_set_msi_interrupt_range(gic_config, 256, 256))?;
         }
 
         if msi_base + gic_msi_region_size as u64 > layout.get_ram_base() {
@@ -236,36 +279,13 @@ impl Virt for Hvp {
             ));
         }
 
-        let vm = VirtualMachine::with_gic(vm_config, gic_config).map_err(|err| {
-            Error::FailedInitialize(
-                format!("hvp: Failed to create a vm instance, reason: {}", err).to_string(),
-            )
-        })?;
+        hv_unsafe_call!(hv_gic_create(gic_config))?;
 
-        let gic_chip = HvpGicV3::new(distributor_base, redistributor_base, msi_base, vm.clone());
-        let gic_chip = Arc::new(gic_chip);
-
-        let mut cpu_on_receiver = vec![];
-        let mut cpu_on_barrier = vec![];
-        for _ in 0..num_vcpus {
-            let (tx, rx) = mpsc::channel();
-            cpu_on_receiver.push(rx);
-            cpu_on_barrier.push(tx);
-        }
-
-        Ok(Hvp {
-            arch: AArch64 { layout },
-            vm,
-            gic_chip,
-            vcpus: OnceCell::default(),
-            num_vcpus,
-            psci: Arc::new(Psci02 { cpu_on_barrier }),
-            cpu_on_receiver: Some(cpu_on_receiver),
-        })
-    }
-
-    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>> {
-        Ok(self.gic_chip.clone())
+        Ok(Arc::new(HvpGicV3::new(
+            distributor_base,
+            redistributor_base,
+            msi_base,
+        )))
     }
 
     fn init_memory(
@@ -273,11 +293,17 @@ impl Virt for Hvp {
         memory_address_space: &mut MemoryAddressSpace,
         memory_size: usize,
     ) -> Result<()> {
-        let allocator = HvpAllocator { vm: &self.vm };
+        let memory = StdAllocator.alloc(memory_size, Some(PAGE_SIZE))?;
 
         let ram_base = self.get_layout().get_ram_base();
-        let mut memory = allocator.alloc(memory_size, None)?;
-        memory.0.map(ram_base, MemPerms::ReadWriteExec)?;
+
+        hv_unsafe_call!(hv_vm_map(
+            memory.hva() as _,
+            ram_base,
+            memory_size,
+            MemPerms::ReadWriteExec as u64
+        ))?;
+
         memory_address_space
             .try_insert(MemoryRegion::new(ram_base, Box::new(memory)))
             .map_err(|_| Error::FailedInitialize("Failed to initialize memory".to_string()))?;
@@ -324,15 +350,16 @@ impl Virt for Hvp {
             let cpu_on_receiver = self.cpu_on_receiver.take().unwrap();
 
             for (vcpu_id, rx) in (0..self.num_vcpus).zip(cpu_on_receiver.into_iter()) {
-                let vm = self.vm.clone();
                 let psci = self.psci.clone();
 
                 let layout = self.get_layout().clone();
 
                 s.spawn(move || -> anyhow::Result<()> {
-                    let vcpu = vm.vcpu_create()?;
+                    let mut vcpu = 0;
+                    let mut exit = null_mut() as *const hv_vcpu_exit_t;
+                    hv_unsafe_call!(hv_vcpu_create(&mut vcpu, &mut exit, null_mut()))?;
 
-                    let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu);
+                    let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu, exit);
 
                     setup_cpu(
                         layout.get_dtb_start(),
