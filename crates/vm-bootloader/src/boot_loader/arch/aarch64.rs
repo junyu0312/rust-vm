@@ -3,7 +3,6 @@ use std::slice::Iter;
 
 use vm_core::arch::Arch;
 use vm_core::arch::aarch64::layout::AArch64Layout;
-use vm_core::arch::aarch64::vcpu::AArch64Vcpu;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::layout::MemoryLayout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
@@ -217,7 +216,6 @@ impl AArch64BootLoader {
 impl<V> BootLoaderBuilder<V> for AArch64BootLoader
 where
     V: Virt,
-    V::Vcpu: AArch64Vcpu,
     V::Arch: Arch<Layout = AArch64Layout>,
 {
     fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self {
@@ -232,7 +230,6 @@ where
 impl<V> BootLoader<V> for AArch64BootLoader
 where
     V: Virt,
-    V::Vcpu: AArch64Vcpu,
     V::Arch: Arch<Layout = AArch64Layout>,
 {
     fn load(

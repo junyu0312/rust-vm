@@ -4,7 +4,6 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
-use crate::arch::vcpu::Vcpu;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Result;
 
@@ -16,7 +15,6 @@ pub mod hvp;
 
 pub trait Virt: Sized {
     type Arch: Arch;
-    type Vcpu: Vcpu<Self::Arch>;
 
     fn new(num_vcpus: usize) -> Result<Self>;
 

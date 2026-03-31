@@ -8,10 +8,10 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
+use crate::arch::vcpu::Vcpu;
 use crate::error::Error;
 use crate::error::Result;
 use crate::virt::DeviceVmExitHandler;
-use crate::virt::Vcpu;
 use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;
 use crate::virt::kvm::vcpu::KvmVcpu;
@@ -33,7 +33,6 @@ where
     KvmVcpu: Vcpu<A>,
 {
     type Arch = A;
-    type Vcpu = KvmVcpu;
 
     fn new(_cpu_number: usize) -> Result<Self> {
         let kvm = Kvm::new()

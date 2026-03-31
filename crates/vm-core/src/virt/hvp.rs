@@ -155,7 +155,6 @@ pub struct Hvp {
 
 impl Virt for Hvp {
     type Arch = AArch64;
-    type Vcpu = HvpVcpu;
 
     fn new(num_vcpus: usize) -> Result<Self> {
         let vm_config = unsafe { hv_vm_config_create() };
