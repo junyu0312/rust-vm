@@ -1,4 +1,3 @@
-use std::cell::OnceCell;
 use std::ptr::null_mut;
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -8,7 +7,6 @@ use std::thread;
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
 use applevisor::prelude::HypervisorError;
-use applevisor_sys::PAGE_SIZE;
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_gic_config_create;
 use applevisor_sys::hv_gic_config_set_distributor_base;
@@ -23,11 +21,6 @@ use applevisor_sys::hv_vm_config_create;
 use applevisor_sys::hv_vm_config_set_el2_enabled;
 use applevisor_sys::hv_vm_create;
 use applevisor_sys::hv_vm_map;
-use vm_mm::allocator::Allocator;
-use vm_mm::allocator::std_allocator::StdAllocator;
-use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
-use vm_mm::region::MemoryRegion;
 
 use crate::arch::Arch;
 use crate::arch::aarch64::AArch64;
@@ -46,6 +39,7 @@ use crate::arch::vcpu::Vcpu;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
+use crate::virt::SetUserMemoryRegionFlags;
 use crate::virt::Virt;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::vcpu::HvpVcpu;
@@ -67,6 +61,14 @@ macro_rules! hv_unsafe_call {
 }
 
 pub(crate) use hv_unsafe_call;
+
+impl From<SetUserMemoryRegionFlags> for MemPerms {
+    fn from(flags: SetUserMemoryRegionFlags) -> Self {
+        match flags {
+            SetUserMemoryRegionFlags::ReadWriteExec => MemPerms::ReadWriteExec,
+        }
+    }
+}
 
 fn setup_cpu<C>(dtb_start: u64, start_pc: u64, cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
 where
@@ -149,7 +151,6 @@ where
 
 pub struct Hvp {
     arch: AArch64,
-    vcpus: OnceCell<Vec<HvpVcpu>>,
     num_vcpus: usize,
     psci: Arc<Psci02>,
     cpu_on_receiver: Option<Vec<Receiver<(u64, u64)>>>,
@@ -157,7 +158,6 @@ pub struct Hvp {
 
 impl Virt for Hvp {
     type Arch = AArch64;
-    type Vcpu = HvpVcpu;
 
     fn new(num_vcpus: usize) -> Result<Self> {
         let vm_config = unsafe { hv_vm_config_create() };
@@ -176,7 +176,6 @@ impl Virt for Hvp {
             arch: AArch64 {
                 layout: AArch64Layout::default(),
             },
-            vcpus: OnceCell::default(),
             num_vcpus,
             psci: Arc::new(Psci02 { cpu_on_barrier }),
             cpu_on_receiver: Some(cpu_on_receiver),
@@ -288,27 +287,19 @@ impl Virt for Hvp {
         )))
     }
 
-    fn init_memory(
+    fn set_user_memory_region(
         &mut self,
-        memory_address_space: &mut MemoryAddressSpace,
+        userspace_addr: u64,
+        guest_phys_addr: u64,
         memory_size: usize,
+        flags: SetUserMemoryRegionFlags,
     ) -> Result<()> {
-        let memory = StdAllocator.alloc(memory_size, Some(PAGE_SIZE))?;
-
-        let ram_base = self.get_layout().get_ram_base();
-
         hv_unsafe_call!(hv_vm_map(
-            memory.hva() as _,
-            ram_base,
+            userspace_addr as _,
+            guest_phys_addr,
             memory_size,
-            MemPerms::ReadWriteExec as u64
+            MemPerms::from(flags) as u64,
         ))?;
-
-        memory_address_space
-            .try_insert(MemoryRegion::new(ram_base, Box::new(memory)))
-            .map_err(|_| Error::FailedInitialize("Failed to initialize memory".to_string()))?;
-
-        self.get_layout_mut().set_ram_size(memory_size as u64)?;
 
         Ok(())
     }
@@ -323,26 +314,6 @@ impl Virt for Hvp {
 
     fn get_vcpu_number(&self) -> usize {
         self.num_vcpus
-    }
-
-    fn get_vcpu_mut(&mut self, vcpu_id: u64) -> Result<Option<&mut HvpVcpu>> {
-        Ok(self
-            .vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))?
-            .get_mut(vcpu_id as usize))
-    }
-
-    fn get_vcpus(&self) -> Result<&Vec<Self::Vcpu>> {
-        self.vcpus
-            .get()
-            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
-    }
-
-    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<Self::Vcpu>> {
-        self.vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpu is not initialized".to_string()))
     }
 
     fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()> {

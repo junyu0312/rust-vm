@@ -6,7 +6,7 @@ use crate::arch::x86_64::vcpu::X86Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
 use crate::error::Result;
 use crate::virt::DeviceVmExitHandler;
-use crate::virt::Vcpu;
+use crate::virt::kvm::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 impl KvmVcpu {

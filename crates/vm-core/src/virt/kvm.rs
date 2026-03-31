@@ -3,15 +3,13 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use kvm_ioctls::*;
-use vm_mm::allocator::mmap_allocator::MmapAllocator;
-use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::Arch;
 use crate::arch::irq::InterruptController;
+use crate::arch::vcpu::Vcpu;
 use crate::error::Error;
 use crate::error::Result;
 use crate::virt::DeviceVmExitHandler;
-use crate::virt::Vcpu;
 use crate::virt::Virt;
 use crate::virt::kvm::irq_chip::KvmIRQ;
 use crate::virt::kvm::vcpu::KvmVcpu;
@@ -33,7 +31,6 @@ where
     KvmVcpu: Vcpu<A>,
 {
     type Arch = A;
-    type Vcpu = KvmVcpu;
 
     fn new(_cpu_number: usize) -> Result<Self> {
         let kvm = Kvm::new()
@@ -56,9 +53,13 @@ where
         Ok(Arc::new(KvmIRQ::new(self.vm_fd.clone())?))
     }
 
-    fn init_memory(&mut self, _memory: &mut MemoryAddressSpace, _memory_size: usize) -> Result<()> {
-        let _allocator = MmapAllocator;
-
+    fn set_user_memory_region(
+        &mut self,
+        _userspace_addr: u64,
+        _guest_phys_addr: u64,
+        _memory_size: usize,
+        _flags: super::SetUserMemoryRegionFlags,
+    ) -> Result<()> {
         todo!()
     }
 
@@ -72,27 +73,6 @@ where
 
     fn get_vcpu_number(&self) -> usize {
         todo!()
-    }
-
-    fn get_vcpu_mut(&mut self, vcpu: u64) -> Result<Option<&mut KvmVcpu>> {
-        let vcpus = self
-            .vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))?;
-
-        Ok(vcpus.get_mut(vcpu as usize))
-    }
-
-    fn get_vcpus(&self) -> Result<&Vec<KvmVcpu>> {
-        self.vcpus
-            .get()
-            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
-    }
-
-    fn get_vcpus_mut(&mut self) -> Result<&mut Vec<KvmVcpu>> {
-        self.vcpus
-            .get_mut()
-            .ok_or_else(|| Error::Internal("vcpus is not init".to_string()))
     }
 
     fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()> {

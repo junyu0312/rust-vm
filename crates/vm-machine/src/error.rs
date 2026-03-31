@@ -14,6 +14,12 @@ pub enum Error {
     #[error("Pci device error: {0}")]
     PciDevice(#[from] vm_pci::error::Error),
 
+    #[error("{0}")]
+    Memory(#[from] vm_mm::error::Error),
+
+    #[error("{0}")]
+    LayoutError(#[from] vm_core::arch::layout::Error),
+
     #[error("Failed to init memory, error: {0}")]
     InitMemory(String),
 
