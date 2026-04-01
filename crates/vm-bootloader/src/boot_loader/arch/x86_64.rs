@@ -3,7 +3,6 @@ use std::slice::Iter;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::virt::Virt;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::boot_loader::BootLoader;
@@ -12,26 +11,21 @@ use crate::boot_loader::Result;
 
 pub struct X86_64BootLoader {}
 
-impl<V> BootLoaderBuilder<V> for X86_64BootLoader
-where
-    V: Virt,
-{
+impl BootLoaderBuilder for X86_64BootLoader {
     fn new(_kernel: PathBuf, _initramfs: Option<PathBuf>, _cmdline: Option<String>) -> Self {
         todo!()
     }
 }
 
-impl<V> BootLoader<V> for X86_64BootLoader
-where
-    V: Virt,
-{
+impl BootLoader for X86_64BootLoader {
     fn load(
         &self,
-        _virt: &mut V,
+        _ram_size: u64,
+        _vcpus: usize,
         _memory: &MemoryAddressSpace,
         _irq_chip: &dyn InterruptController,
         _devices: Iter<'_, Box<dyn MmioDevice>>,
-    ) -> Result<()> {
+    ) -> Result<u64> {
         todo!()
     }
 }

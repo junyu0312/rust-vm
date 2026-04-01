@@ -18,7 +18,7 @@ mod term;
 fn build_and_run_vm<V, Loader>(args: Command) -> anyhow::Result<()>
 where
     V: Virt,
-    Loader: BootLoaderBuilder<V>,
+    Loader: BootLoaderBuilder,
 {
     let vm_builder = VmBuilder::new(
         parse_memory(&args.memory)?,

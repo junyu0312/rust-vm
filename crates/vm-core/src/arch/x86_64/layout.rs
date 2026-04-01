@@ -1,6 +1,11 @@
 use crate::arch::MemoryLayout;
 use crate::arch::layout::Error;
 
+// TODO
+pub const MMIO_START: u64 = 0x0000_0000;
+pub const MMIO_LEN: usize = 0x0000_0000;
+pub const RAM_BASE: u64 = 0x0000_0000;
+
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone)]

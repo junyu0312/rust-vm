@@ -1,12 +1,11 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
-use vm_core::arch::Arch;
-use vm_core::arch::aarch64::layout::AArch64Layout;
+use vm_core::arch::aarch64::layout::DTB_START;
+use vm_core::arch::aarch64::layout::INITRD_START;
+use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
-use vm_core::arch::layout::MemoryLayout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
 use vm_mm::manager::MemoryAddressSpace;
 
@@ -14,7 +13,9 @@ use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
 use crate::boot_loader::Error;
 use crate::boot_loader::Result;
+use crate::initrd_loader;
 use crate::initrd_loader::InitrdLoader;
+use crate::kernel_loader;
 use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::linux::image::AArch64BootParams;
 use crate::kernel_loader::linux::image::Image;
@@ -28,54 +29,50 @@ pub struct AArch64BootLoader {
 }
 
 impl AArch64BootLoader {
-    fn load_image(&self, layout: &mut AArch64Layout, memory: &MemoryAddressSpace) -> Result<()> {
+    fn load_image(
+        &self,
+        ram_size: u64,
+        memory: &MemoryAddressSpace,
+    ) -> Result<kernel_loader::LoadResult> {
         let image =
             Image::new(&self.kernel).map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
         let boot_params = AArch64BootParams {
-            ram_base: layout.get_ram_base(),
-            ram_size: layout.get_ram_size()?,
+            ram_base: RAM_BASE,
+            ram_size,
         };
         let load_result = image
             .load(&boot_params, memory)
             .map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
-        layout.set_kernel(
-            load_result.kernel_start,
-            load_result.kernel_len,
-            load_result.start_pc,
-        )?;
-
-        Ok(())
+        Ok(load_result)
     }
 
-    fn load_initrd(&self, layout: &mut AArch64Layout, memory: &MemoryAddressSpace) -> Result<()> {
+    fn load_initrd(
+        &self,
+        memory: &MemoryAddressSpace,
+    ) -> Result<Option<initrd_loader::LoadResult>> {
         let Some(initrd) = self.initrd.as_deref() else {
-            return Ok(());
+            return Ok(None);
         };
 
         let loader =
             InitrdLoader::new(initrd).map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
 
-        let addr = layout.get_initrd_start();
+        let addr = INITRD_START;
 
         let result = loader
             .load(addr, memory)
             .map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
 
         assert_eq!(result.initrd_start, addr);
-        layout.set_initrd_len(result.initrd_len)?;
+        // layout.set_initrd_len(result.initrd_len)?;
 
-        Ok(())
+        Ok(Some(result))
     }
 
-    fn load_dtb(
-        &self,
-        layout: &mut AArch64Layout,
-        memory: &MemoryAddressSpace,
-        dtb: Vec<u8>,
-    ) -> Result<()> {
-        let dtb_start = layout.get_dtb_start();
+    fn load_dtb(&self, memory: &MemoryAddressSpace, dtb: Vec<u8>) -> Result<()> {
+        let dtb_start = DTB_START;
 
         if !dtb_start.is_multiple_of(8) {
             return Err(Error::LoadDtbFailed(
@@ -91,14 +88,15 @@ impl AArch64BootLoader {
             .copy_from_slice(dtb_start, &dtb)
             .map_err(|_| Error::LoadDtbFailed("failed to copy".to_string()))?;
 
-        layout.set_dtb_len(dtb.len())?;
+        // layout.set_dtb_len(dtb.len())?;
 
         Ok(())
     }
 
     fn generate_dtb(
         &self,
-        layout: &AArch64Layout,
+        ram_size: u64,
+        initrd_load_result: Option<initrd_loader::LoadResult>,
         vcpus: usize,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
@@ -111,9 +109,9 @@ impl AArch64BootLoader {
         fdt.property_u32("#size-cells", 2)?;
 
         {
-            let memory_node = fdt.begin_node(&format!("memory@{:08x}", layout.get_ram_base()))?;
+            let memory_node = fdt.begin_node(&format!("memory@{:08x}", RAM_BASE))?;
             fdt.property_string("device_type", "memory")?;
-            fdt.property_array_u64("reg", &[layout.get_ram_base(), layout.get_ram_size()?])?;
+            fdt.property_array_u64("reg", &[RAM_BASE, ram_size])?;
             fdt.end_node(memory_node)?;
         }
 
@@ -197,10 +195,11 @@ impl AArch64BootLoader {
                 fdt.property_string("bootargs", cmdline)?;
             }
             if self.initrd.is_some() {
-                fdt.property_u64("linux,initrd-start", layout.get_initrd_start())?;
+                fdt.property_u64("linux,initrd-start", INITRD_START)?;
                 fdt.property_u64(
                     "linux,initrd-end",
-                    layout.get_initrd_start() + layout.get_initrd_len()? as u64,
+                    initrd_load_result.as_ref().unwrap().initrd_start
+                        + initrd_load_result.as_ref().unwrap().initrd_len as u64,
                 )?;
             }
 
@@ -213,11 +212,7 @@ impl AArch64BootLoader {
     }
 }
 
-impl<V> BootLoaderBuilder<V> for AArch64BootLoader
-where
-    V: Virt,
-    V::Arch: Arch<Layout = AArch64Layout>,
-{
+impl BootLoaderBuilder for AArch64BootLoader {
     fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self {
         AArch64BootLoader {
             kernel,
@@ -227,36 +222,30 @@ where
     }
 }
 
-impl<V> BootLoader<V> for AArch64BootLoader
-where
-    V: Virt,
-    V::Arch: Arch<Layout = AArch64Layout>,
-{
+impl BootLoader for AArch64BootLoader {
     fn load(
         &self,
-        virt: &mut V,
+        ram_size: u64,
+        vcpus: usize,
         memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
-    ) -> Result<()> {
+    ) -> Result<u64> {
+        let kernel_loader;
+        let initrd_loader;
         {
-            let layout = virt.get_layout_mut();
-
-            self.load_image(layout, memory)?;
-            self.load_initrd(layout, memory)?;
+            kernel_loader = self.load_image(ram_size, memory)?;
+            initrd_loader = self.load_initrd(memory)?;
         }
 
         {
-            let vcpus = virt.get_vcpu_number();
-            let layout = virt.get_layout_mut();
-
-            let dtb = self.generate_dtb(layout, vcpus, irq_chip, devices)?;
-            self.load_dtb(layout, memory, dtb)?;
+            let dtb = self.generate_dtb(ram_size, initrd_loader, vcpus, irq_chip, devices)?;
+            self.load_dtb(memory, dtb)?;
         }
 
-        let layout = virt.get_layout();
-        layout.validate()?;
+        // let layout = virt.get_layout();
+        // layout.validate()?;
 
-        Ok(())
+        Ok(kernel_loader.start_pc)
     }
 }
