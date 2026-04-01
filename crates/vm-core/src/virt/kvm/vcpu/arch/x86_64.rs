@@ -1,22 +1,24 @@
+use std::sync::Arc;
+
 use kvm_bindings::*;
 use kvm_ioctls::Kvm;
 
 use crate::arch::x86_64::X86_64;
-use crate::arch::x86_64::vcpu::X86Vcpu;
+use crate::arch::x86_64::vcpu::X86_64Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
-use crate::error::Result;
+use crate::vcpu::error::VcpuError;
 use crate::virt::DeviceVmExitHandler;
-use crate::virt::kvm::Vcpu;
+use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 impl KvmVcpu {
-    pub fn set_cpuid2(&self, cpuid: &CpuId) -> Result<()> {
+    pub fn set_cpuid2(&self, cpuid: &CpuId) -> Result<(), VcpuError> {
         self.vcpu_fd.set_cpuid2(cpuid)?;
 
         Ok(())
     }
 
-    pub fn init_arch_vcpu(&self, kvm: &Kvm) -> Result<()> {
+    pub fn init_arch_vcpu(&self, kvm: &Kvm) -> Result<(), VcpuError> {
         let mut cpuid = kvm.get_supported_cpuid(KVM_MAX_CPUID_ENTRIES)?;
 
         let entries = cpuid.as_mut_slice();
@@ -37,96 +39,49 @@ impl KvmVcpu {
         Ok(())
     }
 
-    pub fn set_guest_debug(&self, ctl: &kvm_guest_debug) -> Result<()> {
+    pub fn set_guest_debug(&self, ctl: &kvm_guest_debug) -> Result<(), VcpuError> {
         self.vcpu_fd.set_guest_debug(ctl)?;
 
         Ok(())
     }
 }
 
-impl X86Vcpu for KvmVcpu {
-    fn get_regs(&self) -> Result<kvm_regs> {
+impl X86_64Vcpu for KvmVcpu {
+    fn get_regs(&self) -> Result<kvm_regs, VcpuError> {
         let regs = self.vcpu_fd.get_regs()?;
 
         Ok(regs)
     }
 
-    fn set_regs(&mut self, regs: &kvm_regs) -> Result<()> {
+    fn set_regs(&mut self, regs: &kvm_regs) -> Result<(), VcpuError> {
         self.vcpu_fd.set_regs(regs)?;
 
         Ok(())
     }
 
-    fn get_sregs(&self) -> Result<kvm_bindings::kvm_sregs> {
+    fn get_sregs(&self) -> Result<kvm_bindings::kvm_sregs, VcpuError> {
         let sregs = self.vcpu_fd.get_sregs()?;
 
         Ok(sregs)
     }
 
-    fn set_sregs(&self, sregs: &kvm_bindings::kvm_sregs) -> Result<()> {
+    fn set_sregs(&self, sregs: &kvm_bindings::kvm_sregs) -> Result<(), VcpuError> {
         self.vcpu_fd.set_sregs(sregs)?;
 
         Ok(())
     }
 }
 
-impl Vcpu<X86_64> for KvmVcpu {
-    fn run(&mut self, _device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<VmExitReason> {
+impl Vcpu for KvmVcpu {
+    fn vm_exit_handler(&self) -> Arc<dyn DeviceVmExitHandler> {
         todo!()
-        /*
-            loop {
-                let r = self.vcpu_fd.run();
+    }
 
-                match r? {
-                    VcpuExit::IoOut(port, data) => pio.io_out(port, data)?,
-                    VcpuExit::IoIn(port, data) => pio.io_in(port, data)?,
-                    VcpuExit::MmioRead(_, _) => {
-                        // Ignore
-                    }
-                    VcpuExit::MmioWrite(_, _) => {
-                        // Ignore
-                    }
-                    VcpuExit::Unknown => todo!(),
-                    VcpuExit::Exception => todo!(),
-                    VcpuExit::Hypercall(_) => todo!(),
-                    VcpuExit::Debug(_) => {}
-                    VcpuExit::Hlt => {
-                        // warn!("hlt");
-                        // todo!()
-                    }
-                    VcpuExit::IrqWindowOpen => todo!(),
-                    VcpuExit::Shutdown => todo!(),
-                    VcpuExit::FailEntry(_, _) => todo!(),
-                    VcpuExit::Intr => todo!(),
-                    VcpuExit::SetTpr => todo!(),
-                    VcpuExit::TprAccess => todo!(),
-                    VcpuExit::S390Sieic => todo!(),
-                    VcpuExit::S390Reset => todo!(),
-                    VcpuExit::Dcr => todo!(),
-                    VcpuExit::Nmi => todo!(),
-                    VcpuExit::InternalError => {
-                        let kvm_run = self.vcpu_fd.get_kvm_run();
-                        unsafe {
-                            error!(?kvm_run.__bindgen_anon_1.internal, "InternalError");
-                        }
-                        panic!();
-                    }
-                    VcpuExit::Osi => todo!(),
-                    VcpuExit::PaprHcall => todo!(),
-                    VcpuExit::S390Ucontrol => todo!(),
-                    VcpuExit::Watchdog => todo!(),
-                    VcpuExit::S390Tsch => todo!(),
-                    VcpuExit::Epr => todo!(),
-                    VcpuExit::SystemEvent(_, _) => todo!(),
-                    VcpuExit::S390Stsi => todo!(),
-                    VcpuExit::IoapicEoi(_) => todo!(),
-                    VcpuExit::Hyperv => todo!(),
-                    VcpuExit::X86Rdmsr(_) => todo!(),
-                    VcpuExit::X86Wrmsr(_) => todo!(),
-                    VcpuExit::MemoryFault { .. } => todo!(),
-                    VcpuExit::Unsupported(_) => todo!(),
-                }
-            }
-        */
+    fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
+        todo!()
+    }
+
+    fn run(&mut self) -> Result<VmExitReason, VcpuError> {
+        todo!()
     }
 }

@@ -1,7 +1,17 @@
 use vm_core::utils::address_space::AddressSpaceError;
+use vm_core::vcpu::error::VcpuError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Vm already exists")]
+    VmAlreadyExists,
+
+    #[error("Vm not exists")]
+    VmNotExists,
+
+    #[error("Vcpu error: {0}")]
+    VcpuError(#[from] VcpuError),
+
     #[error("Platform error: {0}")]
     Platform(#[from] vm_core::error::Error),
 

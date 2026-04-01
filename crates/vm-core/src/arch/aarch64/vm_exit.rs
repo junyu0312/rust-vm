@@ -1,12 +1,11 @@
 use tracing::trace;
 
-use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::firmware::psci::error::PsciError;
-use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::device_manager::vm_exit::DeviceError;
-use crate::device_manager::vm_exit::DeviceVmExitHandler;
+use crate::vcpu::error::VcpuError;
+use crate::vcpu::vcpu::Vcpu;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -51,11 +50,11 @@ pub enum HandleVmExitResult {
 }
 
 pub fn handle_vm_exit(
-    vcpu: &dyn AArch64Vcpu,
+    vcpu: &mut dyn Vcpu,
     exit_reason: VmExitReason,
-    psci: &dyn Psci,
-    device_vm_exit_handler: &dyn DeviceVmExitHandler,
-) -> Result<HandleVmExitResult, Error> {
+) -> Result<HandleVmExitResult, VcpuError> {
+    let device_vm_exit_handler = vcpu.vm_exit_handler();
+
     trace!(?exit_reason);
 
     match exit_reason {
@@ -64,8 +63,7 @@ pub fn handle_vm_exit(
         VmExitReason::MMIORead { gpa, srt, len } => {
             let mut buf = [0; 8];
             device_vm_exit_handler.mmio_read(gpa, len, &mut buf[0..len])?;
-            vcpu.set_core_reg(srt, u64::from_le_bytes(buf))
-                .map_err(|err| Error::VcpuError(err.to_string()))?;
+            vcpu.set_core_reg(srt, u64::from_le_bytes(buf))?;
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMIOWrite { gpa, buf, len } => {
@@ -82,6 +80,8 @@ pub fn handle_vm_exit(
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::Smc => {
+            let psci = vcpu.get_psci_handler();
+
             // We only support psci for smc now
             psci.call(vcpu)?;
 

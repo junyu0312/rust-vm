@@ -1,8 +1,12 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
+#[cfg(target_arch = "aarch64")]
+use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::irq::InterruptController;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
-use crate::error::Result;
+use crate::error::Error;
+use crate::vcpu::vcpu::Vcpu;
 
 #[cfg(feature = "kvm")]
 pub mod kvm;
@@ -14,22 +18,25 @@ pub enum SetUserMemoryRegionFlags {
     ReadWriteExec,
 }
 
-pub trait Virt: Sized {
-    fn new(num_vcpus: usize) -> Result<Self>;
+pub trait Vm {
+    fn create_vcpu(
+        &self,
+        vcpu_id: usize,
+        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
+        #[cfg(target_arch = "aarch64")] psci: Arc<dyn Psci>,
+    ) -> Result<Arc<Mutex<dyn Vcpu>>, Error>;
 
-    fn create_irq_chip(&mut self) -> Result<Arc<dyn InterruptController>>;
+    fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, Error>;
 
     fn set_user_memory_region(
-        &mut self,
+        &self,
         userspace_addr: u64,
         guest_phys_addr: u64,
         memory_size: usize,
         flags: SetUserMemoryRegionFlags,
-    ) -> Result<()>;
+    ) -> Result<(), Error>;
+}
 
-    fn run(
-        &mut self,
-        start_pc: u64,
-        device_vm_exit_handler: &dyn DeviceVmExitHandler,
-    ) -> Result<()>;
+pub trait Virt {
+    fn create_vm(&self) -> Result<Arc<dyn Vm>, Error>;
 }

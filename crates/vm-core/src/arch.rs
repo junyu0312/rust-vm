@@ -8,7 +8,6 @@ pub mod x86_64;
 
 pub mod irq;
 pub mod layout;
-pub mod vcpu;
 
 pub trait Arch {
     type VmExitReason;
