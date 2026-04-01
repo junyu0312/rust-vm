@@ -26,7 +26,7 @@ impl<V> Vm<V>
 where
     V: Virt,
 {
-    pub fn run(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
+    pub fn run(&mut self, boot_loader: &dyn BootLoader) -> Result<()> {
         let start_pc = boot_loader.load(
             self.ram_size,
             self.vcpus,

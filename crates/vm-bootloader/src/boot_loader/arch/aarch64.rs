@@ -6,7 +6,6 @@ use vm_core::arch::aarch64::layout::INITRD_START;
 use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::virt::Virt;
 use vm_fdt::FdtWriter;
 use vm_mm::manager::MemoryAddressSpace;
 
@@ -213,10 +212,7 @@ impl AArch64BootLoader {
     }
 }
 
-impl<V> BootLoaderBuilder<V> for AArch64BootLoader
-where
-    V: Virt,
-{
+impl BootLoaderBuilder for AArch64BootLoader {
     fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self {
         AArch64BootLoader {
             kernel,
@@ -226,10 +222,7 @@ where
     }
 }
 
-impl<V> BootLoader<V> for AArch64BootLoader
-where
-    V: Virt,
-{
+impl BootLoader for AArch64BootLoader {
     fn load(
         &self,
         ram_size: u64,

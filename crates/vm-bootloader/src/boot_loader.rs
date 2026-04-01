@@ -4,7 +4,6 @@ use std::slice::Iter;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::layout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::virt::Virt;
 use vm_mm::manager::MemoryAddressSpace;
 
 pub mod arch;
@@ -29,18 +28,14 @@ pub enum Error {
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub trait BootLoaderBuilder<V>
+pub trait BootLoaderBuilder
 where
-    V: Virt,
-    Self: BootLoader<V>,
+    Self: BootLoader,
 {
     fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self;
 }
 
-pub trait BootLoader<V>
-where
-    V: Virt,
-{
+pub trait BootLoader {
     fn load(
         &self,
         ram_size: u64,
