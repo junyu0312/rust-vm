@@ -12,6 +12,8 @@ use crate::error::Error;
 use crate::error::Result;
 
 pub struct Vm<V: Virt> {
+    pub(crate) ram_size: u64,
+    pub(crate) vcpus: usize,
     pub(crate) memory_address_space: Arc<MemoryAddressSpace>,
     pub(crate) virt: V,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
@@ -25,8 +27,9 @@ where
     V: Virt,
 {
     pub fn run(&mut self, boot_loader: &dyn BootLoader<V>) -> Result<()> {
-        boot_loader.load(
-            &mut self.virt,
+        let start_pc = boot_loader.load(
+            self.ram_size,
+            self.vcpus,
             &self.memory_address_space,
             self.irq_chip.as_ref(),
             self.device_manager.mmio_devices(),
@@ -40,7 +43,7 @@ where
                 .map_err(|err| Error::GdbStub(err.to_string()))?;
         }
 
-        self.virt.run(&self.device_manager)?;
+        self.virt.run(start_pc, &self.device_manager)?;
 
         Ok(())
     }

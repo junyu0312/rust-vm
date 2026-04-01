@@ -43,9 +43,10 @@ where
 {
     fn load(
         &self,
-        virt: &mut V,
+        ram_size: u64,
+        vcpus: usize,
         memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
-    ) -> Result<()>;
+    ) -> Result<u64>;
 }

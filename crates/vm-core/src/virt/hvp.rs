@@ -22,10 +22,12 @@ use applevisor_sys::hv_vm_config_set_el2_enabled;
 use applevisor_sys::hv_vm_create;
 use applevisor_sys::hv_vm_map;
 
-use crate::arch::Arch;
-use crate::arch::aarch64::AArch64;
 use crate::arch::aarch64::firmware::psci::psci_0_2::Psci02;
-use crate::arch::aarch64::layout::AArch64Layout;
+use crate::arch::aarch64::layout::DTB_START;
+use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
+use crate::arch::aarch64::layout::GIC_MSI;
+use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
+use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
@@ -34,7 +36,6 @@ use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
 use crate::arch::aarch64::vm_exit::HandleVmExitResult;
 use crate::arch::aarch64::vm_exit::handle_vm_exit;
 use crate::arch::irq::InterruptController;
-use crate::arch::layout::MemoryLayout;
 use crate::arch::vcpu::Vcpu;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
@@ -150,15 +151,12 @@ where
 }
 
 pub struct Hvp {
-    arch: AArch64,
     num_vcpus: usize,
     psci: Arc<Psci02>,
     cpu_on_receiver: Option<Vec<Receiver<(u64, u64)>>>,
 }
 
 impl Virt for Hvp {
-    type Arch = AArch64;
-
     fn new(num_vcpus: usize) -> Result<Self> {
         let vm_config = unsafe { hv_vm_config_create() };
         hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;
@@ -173,9 +171,6 @@ impl Virt for Hvp {
         }
 
         Ok(Hvp {
-            arch: AArch64 {
-                layout: AArch64Layout::default(),
-            },
             num_vcpus,
             psci: Arc::new(Psci02 { cpu_on_barrier }),
             cpu_on_receiver: Some(cpu_on_receiver),
@@ -183,13 +178,12 @@ impl Virt for Hvp {
     }
 
     fn create_irq_chip(&mut self) -> Result<Arc<dyn InterruptController>> {
-        let layout = self.get_layout_mut();
+        let distributor_base = GIC_DISTRIBUTOR;
+        let redistributor_base = GIC_REDISTRIBUTOR;
+        let msi_base = GIC_MSI;
+        let ram_base = RAM_BASE;
 
         let gic_config: hv_gic_config_t = unsafe { hv_gic_config_create() };
-
-        let distributor_base = layout.get_distributor_start();
-        let redistributor_base = layout.get_redistributor_start();
-        let msi_base = layout.get_msi_start();
 
         let distributor_base_alignment = GicConfig::get_distributor_base_alignment()
             .map_err(|err| Error::InterruptControllerFailed(err.to_string()))?;
@@ -204,7 +198,6 @@ impl Virt for Hvp {
                 err
             ))
         })?;
-        layout.set_distributor_len(gic_distributor_size).unwrap();
 
         let gic_redistributor_region_size =
             GicConfig::get_redistributor_region_size().map_err(|err| {
@@ -213,9 +206,6 @@ impl Virt for Hvp {
                     err
                 ))
             })?;
-        layout
-            .set_redistributor_region_len(gic_redistributor_region_size)
-            .unwrap();
 
         let gic_msi_region_size = GicConfig::get_msi_region_size().map_err(|err| {
             Error::InterruptControllerFailed(format!(
@@ -223,7 +213,6 @@ impl Virt for Hvp {
                 err
             ))
         })?;
-        layout.set_msi_region_len(gic_msi_region_size).unwrap();
 
         {
             // Setup distributor
@@ -272,7 +261,7 @@ impl Virt for Hvp {
             hv_unsafe_call!(hv_gic_config_set_msi_interrupt_range(gic_config, 256, 256))?;
         }
 
-        if msi_base + gic_msi_region_size as u64 > layout.get_ram_base() {
+        if msi_base + gic_msi_region_size as u64 > ram_base {
             return Err(Error::InterruptControllerFailed(
                 "msi region too large".to_string(),
             ));
@@ -304,26 +293,16 @@ impl Virt for Hvp {
         Ok(())
     }
 
-    fn get_layout(&self) -> &AArch64Layout {
-        self.arch.get_layout()
-    }
-
-    fn get_layout_mut(&mut self) -> &mut AArch64Layout {
-        self.arch.get_layout_mut()
-    }
-
-    fn get_vcpu_number(&self) -> usize {
-        self.num_vcpus
-    }
-
-    fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()> {
+    fn run(
+        &mut self,
+        start_pc: u64,
+        device_vm_exit_handler: &dyn DeviceVmExitHandler,
+    ) -> Result<()> {
         thread::scope(|s| {
             let cpu_on_receiver = self.cpu_on_receiver.take().unwrap();
 
             for (vcpu_id, rx) in (0..self.num_vcpus).zip(cpu_on_receiver.into_iter()) {
                 let psci = self.psci.clone();
-
-                let layout = self.get_layout().clone();
 
                 s.spawn(move || -> anyhow::Result<()> {
                     let mut vcpu = 0;
@@ -332,12 +311,7 @@ impl Virt for Hvp {
 
                     let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu, exit);
 
-                    setup_cpu(
-                        layout.get_dtb_start(),
-                        layout.get_start_pc().unwrap(),
-                        vcpu_id,
-                        &mut vcpu,
-                    )?;
+                    setup_cpu(DTB_START, start_pc, vcpu_id, &mut vcpu)?;
 
                     if vcpu_id != 0 {
                         let (pc, context_id) = rx.recv().unwrap();

@@ -1,6 +1,17 @@
 use std::sync::Arc;
 
-use vm_core::arch::layout::MemoryLayout;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::layout::MMIO_LEN;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::layout::MMIO_START;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::layout::RAM_BASE;
+#[cfg(target_arch = "x86_64")]
+use vm_core::arch::x86_64::layout::MMIO_LEN;
+#[cfg(target_arch = "x86_64")]
+use vm_core::arch::x86_64::layout::MMIO_START;
+#[cfg(target_arch = "x86_64")]
+use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::manager::DeviceManager;
@@ -55,25 +66,20 @@ impl VmBuilder {
         {
             let memory_region = StdAllocator.alloc(self.memory_size, Some(PAGE_SIZE))?;
 
-            let ram_base = virt.get_layout().get_ram_base();
             virt.set_user_memory_region(
                 memory_region.hva() as _,
-                ram_base,
+                RAM_BASE,
                 self.memory_size,
                 SetUserMemoryRegionFlags::ReadWriteExec,
             )?;
             memory_address_space
-                .try_insert(MemoryRegion::new(ram_base, Box::new(memory_region)))
+                .try_insert(MemoryRegion::new(RAM_BASE, Box::new(memory_region)))
                 .map_err(|_| Error::FailedInitialize("Failed to initialize memory".to_string()))?;
-
-            virt.get_layout_mut()
-                .set_ram_size(self.memory_size as u64)?;
         }
 
         let memory_address_space = Arc::new(memory_address_space);
 
-        let layout = virt.get_layout();
-        let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
+        let mmio_layout = MmioLayout::new(MMIO_START, MMIO_LEN);
 
         let irq_chip = if !self.devices.iter().any(Device::is_irq_chip) {
             virt.create_irq_chip()?
@@ -90,6 +96,8 @@ impl VmBuilder {
         )?;
 
         let vm = Vm {
+            ram_size: self.memory_size as u64,
+            vcpus: self.vcpus,
             memory_address_space,
             virt,
             irq_chip,

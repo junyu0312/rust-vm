@@ -30,8 +30,6 @@ where
     A: Arch,
     KvmVcpu: Vcpu<A>,
 {
-    type Arch = A;
-
     fn new(_cpu_number: usize) -> Result<Self> {
         let kvm = Kvm::new()
             .map_err(|_| Error::FailedInitialize("kvm: Failed to open /dev/kvm".to_string()))?;
@@ -63,19 +61,11 @@ where
         todo!()
     }
 
-    fn get_layout(&self) -> &<Self::Arch as Arch>::Layout {
-        todo!()
-    }
-
-    fn get_layout_mut(&mut self) -> &mut <Self::Arch as Arch>::Layout {
-        todo!()
-    }
-
-    fn get_vcpu_number(&self) -> usize {
-        todo!()
-    }
-
-    fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<()> {
+    fn run(
+        &mut self,
+        _start_pc: u64,
+        device_vm_exit_handler: &dyn DeviceVmExitHandler,
+    ) -> Result<()> {
         let vcpus = self
             .vcpus
             .get_mut()

@@ -27,11 +27,12 @@ where
 {
     fn load(
         &self,
-        _virt: &mut V,
+        _ram_size: u64,
+        _vcpus: usize,
         _memory: &MemoryAddressSpace,
         _irq_chip: &dyn InterruptController,
         _devices: Iter<'_, Box<dyn MmioDevice>>,
-    ) -> Result<()> {
+    ) -> Result<u64> {
         todo!()
     }
 }
