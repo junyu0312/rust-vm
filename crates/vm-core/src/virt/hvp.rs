@@ -182,7 +182,7 @@ impl Virt for Hvp {
         })
     }
 
-    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>> {
+    fn create_irq_chip(&mut self) -> Result<Arc<dyn InterruptController>> {
         let layout = self.get_layout_mut();
 
         let gic_config: hv_gic_config_t = unsafe { hv_gic_config_create() };

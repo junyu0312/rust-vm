@@ -20,7 +20,8 @@ pub trait Virt: Sized {
 
     fn new(num_vcpus: usize) -> Result<Self>;
 
-    fn init_irq(&mut self) -> Result<Arc<dyn InterruptController>>;
+    fn create_irq_chip(&mut self) -> Result<Arc<dyn InterruptController>>;
+
     fn set_user_memory_region(
         &mut self,
         userspace_addr: u64,

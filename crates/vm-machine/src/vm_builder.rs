@@ -76,7 +76,7 @@ impl VmBuilder {
         let mmio_layout = MmioLayout::new(layout.get_mmio_start(), layout.get_mmio_len());
 
         let irq_chip = if !self.devices.iter().any(Device::is_irq_chip) {
-            virt.init_irq()?
+            virt.create_irq_chip()?
         } else {
             todo!()
         };
