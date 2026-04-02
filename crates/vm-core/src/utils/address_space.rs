@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::collections::btree_map::Iter;
 use std::fmt::Debug;
 
-#[derive(Debug, thiserror::Error)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum AddressSpaceError {
     #[error("invalid length of range")]
     InvalidLen,

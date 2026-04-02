@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::virtualization::vm::HypervisorVm;
 
-#[derive(Debug, Error)]
+#[derive(Error, Debug)]
 pub enum HypervisorError {
     #[error("Failed to create vm: {0}")]
     CreateVm(String),

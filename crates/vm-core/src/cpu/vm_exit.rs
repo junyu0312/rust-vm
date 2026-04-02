@@ -1,4 +1,6 @@
-#[derive(Debug, thiserror::Error)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum VmExitHandlerError {
     #[error("no device found for port 0x{0:#x}")]
     NoDeviceForPort(u16),

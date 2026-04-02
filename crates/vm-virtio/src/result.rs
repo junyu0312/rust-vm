@@ -1,4 +1,6 @@
-#[derive(Debug, thiserror::Error)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum VirtioError {
     #[error("invalid length of flag")]
     InvalidFlagLen,

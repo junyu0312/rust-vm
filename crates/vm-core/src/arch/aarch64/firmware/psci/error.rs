@@ -1,2 +1,4 @@
-#[derive(Debug, thiserror::Error)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum PsciError {}

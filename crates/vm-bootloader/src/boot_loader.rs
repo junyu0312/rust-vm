@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
+use thiserror::Error;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::layout;
 use vm_core::device::mmio::mmio_device::MmioDevice;
@@ -8,7 +9,7 @@ use vm_mm::manager::MemoryAddressSpace;
 
 pub mod arch;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("Load dtb failed, reason: {0}")]
     LoadDtbFailed(String),

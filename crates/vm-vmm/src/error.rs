@@ -1,10 +1,11 @@
+use thiserror::Error;
 use vm_core::cpu::error::VcpuError;
 use vm_core::monitor::MonitorError;
 use vm_core::utils::address_space::AddressSpaceError;
 use vm_core::virtualization::hypervisor::HypervisorError;
 use vm_core::virtualization::vm::VmError;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("Vm already exists")]
     VmAlreadyExists,

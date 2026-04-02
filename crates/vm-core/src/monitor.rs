@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use thiserror::Error;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Error, Debug)]
 pub enum MonitorError {
     #[error("{0}")]
     Stream(#[from] std::io::Error),

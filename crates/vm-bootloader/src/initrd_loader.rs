@@ -1,9 +1,10 @@
 use std::fs;
 use std::path::Path;
 
+use thiserror::Error;
 use vm_mm::manager::MemoryAddressSpace;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("Read failed")]
     ReadFailed,

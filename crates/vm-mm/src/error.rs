@@ -1,4 +1,6 @@
-#[derive(Debug, thiserror::Error)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("failed to allocate anonymous memory, len: {len}")]
     AllocAnonymousMemoryFailed { len: usize },

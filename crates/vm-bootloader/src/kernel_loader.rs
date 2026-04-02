@@ -1,8 +1,9 @@
+use thiserror::Error;
 use vm_mm::manager::MemoryAddressSpace;
 
 pub mod linux;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("Read failed")]
     ReadFailed,

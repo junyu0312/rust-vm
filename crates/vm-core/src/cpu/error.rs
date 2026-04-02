@@ -1,6 +1,8 @@
+use thiserror::Error;
+
 use crate::cpu::vm_exit::VmExitHandlerError;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Error, Debug)]
 pub enum VcpuError {
     #[error("vcpu {0} not created")]
     VcpuNotCreated(usize),

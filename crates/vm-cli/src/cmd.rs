@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use clap::ValueEnum;
+use thiserror::Error;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("invalid memory format({0})")]
     InvalidMemoryFmt(String),

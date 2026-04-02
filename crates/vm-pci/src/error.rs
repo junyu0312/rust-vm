@@ -1,4 +1,6 @@
-#[derive(Debug, thiserror::Error)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("no space to allocate capability")]
     CapNoSpace,
