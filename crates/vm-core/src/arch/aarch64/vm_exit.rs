@@ -2,9 +2,9 @@ use tracing::trace;
 
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::vcpu::error::VcpuError;
-use crate::vcpu::vcpu::Vcpu;
-use crate::vcpu::vm_exit::VmExit;
+use crate::cpu::error::VcpuError;
+use crate::cpu::vcpu::Vcpu;
+use crate::cpu::vm_exit::VmExit;
 
 #[derive(Debug)]
 pub enum VmExitReason {

@@ -1,5 +1,5 @@
+use vm_core::cpu::error::VcpuError;
 use vm_core::utils::address_space::AddressSpaceError;
-use vm_core::vcpu::error::VcpuError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

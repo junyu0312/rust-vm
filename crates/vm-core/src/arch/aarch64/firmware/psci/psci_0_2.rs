@@ -10,7 +10,7 @@ use crate::arch::aarch64::firmware::psci::function::psci_0_2_fn64;
 use crate::arch::aarch64::firmware::psci::return_value::PsciRet;
 use crate::arch::aarch64::firmware::psci::version::psci_version;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
-use crate::vcpu::vcpu_manager::VcpuManager;
+use crate::cpu::vcpu_manager::VcpuManager;
 
 #[derive(FromRepr)]
 #[repr(u32)]

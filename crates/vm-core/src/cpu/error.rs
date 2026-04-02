@@ -1,4 +1,4 @@
-use crate::vcpu::vm_exit::VmExitHandlerError;
+use crate::cpu::vm_exit::VmExitHandlerError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VcpuError {
@@ -8,10 +8,6 @@ pub enum VcpuError {
     #[cfg(feature = "hvp")]
     #[error("{0}")]
     ApplevisorError(#[from] applevisor::error::HypervisorError),
-
-    #[cfg(feature = "kvm")]
-    #[error("{0}")]
-    KvmError(#[from] kvm_ioctls::Error),
 
     #[error("{0}")]
     GuestError(String),

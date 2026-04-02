@@ -1,7 +1,7 @@
 use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
 use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
 use crate::arch::aarch64::vcpu::reg::*;
-use crate::vcpu::error::VcpuError;
+use crate::cpu::error::VcpuError;
 
 pub mod reg;
 

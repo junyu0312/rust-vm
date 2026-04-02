@@ -5,10 +5,10 @@ use vm_bootloader::boot_loader::BootLoader;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::DTB_START;
 use vm_core::arch::irq::InterruptController;
+use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device_manager::DeviceManager;
 use vm_core::monitor::MonitorServer;
-use vm_core::vcpu::vcpu_manager::VcpuManager;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::error::Error;

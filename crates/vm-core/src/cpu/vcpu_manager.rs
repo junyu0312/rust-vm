@@ -5,10 +5,10 @@ use std::thread::JoinHandle;
 
 #[cfg(target_arch = "aarch64")]
 use crate::arch::aarch64::vcpu::setup_cpu;
+use crate::cpu::error::VcpuError;
+use crate::cpu::vcpu::Vcpu;
+use crate::cpu::vm_exit::VmExit;
 use crate::error::Error as VmError;
-use crate::vcpu::error::VcpuError;
-use crate::vcpu::vcpu::Vcpu;
-use crate::vcpu::vm_exit::VmExit;
 use crate::virt::vm::Vm;
 
 pub struct VcpuManager {
@@ -71,7 +71,7 @@ impl VcpuManager {
                     use crate::arch::aarch64::vm_exit::HandleVmExitResult;
 
                     match crate::arch::aarch64::vm_exit::handle_vm_exit(
-                        &mut *vcpu,
+                        &mut vcpu,
                         vm_exit_reason,
                         vm_exit_handler.as_ref(),
                     )? {

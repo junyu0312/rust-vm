@@ -6,7 +6,7 @@ use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::arch::x86_64::vcpu::X86_64Vcpu as ArchVcpu;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::x86_64::vm_exit::VmExitReason;
-use crate::vcpu::error::VcpuError;
+use crate::cpu::error::VcpuError;
 
 pub trait Vcpu: ArchVcpu + Send {
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError>;

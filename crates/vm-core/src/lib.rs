@@ -1,11 +1,11 @@
-// #![deny(warnings)]
+#![deny(warnings)]
 
 pub mod arch;
+pub mod cpu;
 pub mod debug;
 pub mod device;
 pub mod device_manager;
 pub mod error;
 pub mod monitor;
 pub mod utils;
-pub mod vcpu;
 pub mod virt;

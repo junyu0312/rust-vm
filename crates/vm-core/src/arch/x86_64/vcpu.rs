@@ -1,7 +1,7 @@
 use kvm_bindings::kvm_regs;
 use kvm_bindings::kvm_sregs;
 
-use crate::vcpu::error::VcpuError;
+use crate::cpu::error::VcpuError;
 
 pub trait X86_64Vcpu {
     fn get_regs(&self) -> Result<kvm_regs, VcpuError>;

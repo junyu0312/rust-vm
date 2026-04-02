@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::vcpu::vm_exit::VmExit;
+use crate::cpu::vm_exit::VmExit;
 
 pub struct Vcpu {
     pub vcpu_instance: Box<dyn crate::virt::vcpu::Vcpu>,
