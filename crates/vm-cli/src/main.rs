@@ -4,7 +4,7 @@ use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 use vm_bootloader::boot_loader::BootLoaderBuilder;
-use vm_core::virt::Virt;
+use vm_core::hypervisor::Hypervisor;
 use vm_vmm::vm::config::VmConfig;
 use vm_vmm::vmm::Vmm;
 
@@ -16,11 +16,11 @@ use crate::term::term_init;
 mod cmd;
 mod term;
 
-fn build_and_run_vm<Loader>(virt: Box<dyn Virt>, args: Command) -> anyhow::Result<()>
+fn build_and_run_vm<Loader>(hypervisor: Box<dyn Hypervisor>, args: Command) -> anyhow::Result<()>
 where
     Loader: BootLoaderBuilder,
 {
-    let mut vmm = Vmm::new(virt);
+    let mut vmm = Vmm::new(hypervisor);
 
     vmm.create_vm_from_config(VmConfig {
         memory_size: parse_memory(&args.memory)?,
@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
             #[cfg(target_arch = "aarch64")]
             {
                 use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
-                use vm_core::virt::hvp::AppleHypervisor;
+                use vm_core::hypervisor::hvp::AppleHypervisor;
 
                 build_and_run_vm::<AArch64BootLoader>(Box::new(AppleHypervisor), args)?;
             }

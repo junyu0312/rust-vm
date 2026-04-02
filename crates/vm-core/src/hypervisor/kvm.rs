@@ -6,9 +6,9 @@ use kvm_ioctls::*;
 
 use crate::arch::Arch;
 use crate::error::Error;
-use crate::virt::HypervisorVm;
-use crate::virt::Virt;
-use crate::virt::kvm::vcpu::KvmVcpu;
+use crate::hypervisor::Hypervisor;
+use crate::hypervisor::HypervisorVm;
+use crate::hypervisor::kvm::vcpu::KvmVcpu;
 
 mod irq_chip;
 mod vcpu;
@@ -20,7 +20,7 @@ pub struct KvmVirt<A: Arch> {
     _mark: PhantomData<A>,
 }
 
-impl<A> Virt for KvmVirt<A>
+impl<A> Hypervisor for KvmVirt<A>
 where
     A: Arch,
 {

@@ -23,8 +23,8 @@ use crate::arch::aarch64::vcpu::reg::esr_el2;
 use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::cpu::error::VcpuError;
-use crate::virt::hvp::hv_unsafe_call;
-use crate::virt::vcpu::HypervisorVcpu;
+use crate::hypervisor::hvp::hv_unsafe_call;
+use crate::hypervisor::vcpu::HypervisorVcpu;
 
 enum HvpReg {
     CoreReg(hv_reg_t),

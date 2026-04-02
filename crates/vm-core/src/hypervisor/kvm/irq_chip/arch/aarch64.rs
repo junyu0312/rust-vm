@@ -1,5 +1,5 @@
 use crate::arch::aarch64::irq::AArch64IrqChip;
-use crate::virt::kvm::irq_chip::KvmIRQ;
+use crate::hypervisor::kvm::irq_chip::KvmIRQ;
 
 impl AArch64IrqChip for KvmIRQ {
     fn get_distributor_base(&self) -> u64 {

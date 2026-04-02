@@ -34,6 +34,6 @@ pub trait VmExit: Send + Sync {
     #[cfg(target_arch = "aarch64")]
     fn call_smc(
         &self,
-        vcpu: &mut dyn crate::virt::vcpu::HypervisorVcpu,
+        vcpu: &mut dyn crate::hypervisor::vcpu::HypervisorVcpu,
     ) -> Result<(), VmExitHandlerError>;
 }

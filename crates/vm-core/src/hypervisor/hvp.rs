@@ -7,9 +7,9 @@ use applevisor_sys::hv_vm_config_set_el2_enabled;
 use applevisor_sys::hv_vm_create;
 
 use crate::error::Result;
-use crate::virt::HypervisorVm;
-use crate::virt::Virt;
-use crate::virt::hvp::vm::AppleHypervisorVm;
+use crate::hypervisor::Hypervisor;
+use crate::hypervisor::HypervisorVm;
+use crate::hypervisor::hvp::vm::AppleHypervisorVm;
 
 mod irq_chip;
 mod vcpu;
@@ -30,7 +30,7 @@ use hv_unsafe_call;
 #[derive(Default)]
 pub struct AppleHypervisor;
 
-impl Virt for AppleHypervisor {
+impl Hypervisor for AppleHypervisor {
     fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>> {
         let vm_config = unsafe { hv_vm_config_create() };
         hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;

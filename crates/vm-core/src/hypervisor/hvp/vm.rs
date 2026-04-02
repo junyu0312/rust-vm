@@ -20,12 +20,12 @@ use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
 use crate::error::Error;
 use crate::error::Result;
-use crate::virt::HypervisorVm;
-use crate::virt::hvp::hv_unsafe_call;
-use crate::virt::hvp::irq_chip::HvpGicV3;
-use crate::virt::hvp::vcpu::HvpVcpu;
-use crate::virt::vcpu::HypervisorVcpu;
-use crate::virt::vm::SetUserMemoryRegionFlags;
+use crate::hypervisor::HypervisorVm;
+use crate::hypervisor::hvp::hv_unsafe_call;
+use crate::hypervisor::hvp::irq_chip::HvpGicV3;
+use crate::hypervisor::hvp::vcpu::HvpVcpu;
+use crate::hypervisor::vcpu::HypervisorVcpu;
+use crate::hypervisor::vm::SetUserMemoryRegionFlags;
 
 impl From<SetUserMemoryRegionFlags> for MemPerms {
     fn from(flags: SetUserMemoryRegionFlags) -> Self {

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::cpu::vm_exit::VmExit;
-use crate::virt::vcpu::HypervisorVcpu;
+use crate::hypervisor::vcpu::HypervisorVcpu;
 
 pub struct Vcpu {
     pub vcpu_instance: Box<dyn HypervisorVcpu>,

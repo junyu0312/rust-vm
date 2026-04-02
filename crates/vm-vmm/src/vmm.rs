@@ -20,8 +20,8 @@ use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
-use vm_core::virt::Virt;
-use vm_core::virt::vm::SetUserMemoryRegionFlags;
+use vm_core::hypervisor::Hypervisor;
+use vm_core::hypervisor::vm::SetUserMemoryRegionFlags;
 use vm_device::device::Device;
 use vm_mm::allocator::Allocator;
 use vm_mm::allocator::std_allocator::StdAllocator;
@@ -40,12 +40,12 @@ use crate::vm::vm_exit_handler::VmExitHandler;
 const PAGE_SIZE: usize = 4 << 10;
 
 pub struct Vmm {
-    hypervisor: Box<dyn Virt>,
+    hypervisor: Box<dyn Hypervisor>,
     vm: Option<Vm>,
 }
 
 impl Vmm {
-    pub fn new(hypervisor: Box<dyn Virt>) -> Self {
+    pub fn new(hypervisor: Box<dyn Hypervisor>) -> Self {
         Vmm {
             hypervisor,
             vm: None,

@@ -5,8 +5,8 @@ use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::cpu::error::VcpuError;
-use crate::virt::kvm::vcpu::KvmVcpu;
-use crate::virt::vcpu::HypervisorVcpu;
+use crate::hypervisor::kvm::vcpu::KvmVcpu;
+use crate::hypervisor::vcpu::HypervisorVcpu;
 
 mod encode;
 

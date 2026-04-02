@@ -9,7 +9,7 @@ use crate::cpu::error::VcpuError;
 use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
 use crate::error::Error as VmError;
-use crate::virt::vm::HypervisorVm;
+use crate::hypervisor::vm::HypervisorVm;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn HypervisorVm>,

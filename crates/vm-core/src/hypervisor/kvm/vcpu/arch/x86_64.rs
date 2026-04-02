@@ -4,8 +4,8 @@ use kvm_ioctls::Kvm;
 use crate::arch::x86_64::vcpu::X86_64Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
 use crate::cpu::error::VcpuError;
-use crate::virt::kvm::vcpu::KvmVcpu;
-use crate::virt::vcpu::HypervisorVcpu;
+use crate::hypervisor::kvm::vcpu::KvmVcpu;
+use crate::hypervisor::vcpu::HypervisorVcpu;
 
 impl KvmVcpu {
     pub fn set_cpuid2(&self, cpuid: &CpuId) -> Result<(), VcpuError> {
