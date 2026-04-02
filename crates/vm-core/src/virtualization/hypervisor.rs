@@ -6,9 +6,8 @@ use crate::virtualization::vm::HypervisorVm;
 
 #[derive(Debug, Error)]
 pub enum HypervisorError {
-    #[cfg(feature = "hvp")]
-    #[error("{0}")]
-    ApplevisorError(#[from] applevisor::error::HypervisorError),
+    #[error("Failed to create vm: {0}")]
+    CreateVm(String),
 }
 
 pub trait Hypervisor {

@@ -11,11 +11,14 @@ pub enum SetUserMemoryRegionFlags {
 
 #[derive(Error, Debug)]
 pub enum VmError {
-    #[error("failed to create irq_chip: {0}")]
+    #[error("Failed to create irq_chip: {0}")]
     CreateIrqChipError(String),
 
+    #[error("Failed to set_user_memory_region: {0}")]
+    SetUserMemoryRegionError(String),
+
     #[cfg(feature = "hvp")]
-    #[error("{0}")]
+    #[error("Applevisor error: {0}")]
     ApplevisorError(#[from] applevisor::error::HypervisorError),
 }
 

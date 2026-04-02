@@ -132,7 +132,8 @@ impl HypervisorVm for AppleHypervisorVm {
             guest_phys_addr,
             memory_size,
             MemPerms::from(flags) as u64,
-        ))?;
+        ))
+        .map_err(|err| VmError::SetUserMemoryRegionError(err.to_string()))?;
 
         Ok(())
     }

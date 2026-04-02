@@ -32,8 +32,10 @@ pub struct AppleHypervisor;
 impl Hypervisor for AppleHypervisor {
     fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>, HypervisorError> {
         let vm_config = unsafe { hv_vm_config_create() };
-        hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;
-        hv_unsafe_call!(hv_vm_create(vm_config))?;
+        hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))
+            .map_err(|err| HypervisorError::CreateVm(err.to_string()))?;
+        hv_unsafe_call!(hv_vm_create(vm_config))
+            .map_err(|err| HypervisorError::CreateVm(err.to_string()))?;
 
         Ok(Arc::new(AppleHypervisorVm))
     }
