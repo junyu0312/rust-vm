@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
+use std::thread::JoinHandle;
 
 #[cfg(target_arch = "aarch64")]
 use crate::arch::aarch64::firmware::psci::Psci;
@@ -15,6 +16,7 @@ use crate::virt::vm::Vm;
 pub struct VcpuManager {
     vm_instance: Arc<dyn Vm>,
     vcpus: Vec<Arc<Mutex<Vcpu>>>,
+    handlers: Vec<JoinHandle<Result<(), VcpuError>>>,
 }
 
 impl VcpuManager {
@@ -22,6 +24,7 @@ impl VcpuManager {
         VcpuManager {
             vm_instance,
             vcpus: Default::default(),
+            handlers: Default::default(),
         }
     }
 
@@ -45,14 +48,14 @@ impl VcpuManager {
         Ok(())
     }
 
-    pub fn start_vcpu(&self, vcpu_id: usize, start_pc: u64, x0: u64) -> Result<(), VcpuError> {
+    pub fn start_vcpu(&mut self, vcpu_id: usize, start_pc: u64, x0: u64) -> Result<(), VcpuError> {
         let vcpu = self
             .vcpus
             .get(vcpu_id)
             .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?
             .clone();
 
-        thread::spawn(move || -> Result<(), VcpuError> {
+        let handle = thread::spawn(move || -> Result<(), VcpuError> {
             let mut vcpu = vcpu.lock().unwrap();
 
             vcpu.vcpu_instance.post_init_within_thread()?;
@@ -81,6 +84,8 @@ impl VcpuManager {
                 }
             }
         });
+
+        self.handlers.push(handle);
 
         Ok(())
     }
