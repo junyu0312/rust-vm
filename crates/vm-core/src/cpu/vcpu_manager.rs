@@ -9,16 +9,16 @@ use crate::cpu::error::VcpuError;
 use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
 use crate::error::Error as VmError;
-use crate::virt::vm::Vm;
+use crate::virt::vm::HypervisorVm;
 
 pub struct VcpuManager {
-    vm_instance: Arc<dyn Vm>,
+    vm_instance: Arc<dyn HypervisorVm>,
     vcpus: Vec<Arc<Mutex<Vcpu>>>,
     handlers: Vec<JoinHandle<Result<(), VcpuError>>>,
 }
 
 impl VcpuManager {
-    pub fn new(vm_instance: Arc<dyn Vm>) -> Self {
+    pub fn new(vm_instance: Arc<dyn HypervisorVm>) -> Self {
         VcpuManager {
             vm_instance,
             vcpus: Default::default(),

@@ -24,7 +24,7 @@ use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::cpu::error::VcpuError;
 use crate::virt::hvp::hv_unsafe_call;
-use crate::virt::vcpu::Vcpu;
+use crate::virt::vcpu::HypervisorVcpu;
 
 enum HvpReg {
     CoreReg(hv_reg_t),
@@ -163,7 +163,7 @@ impl AArch64Vcpu for HvpVcpu {
     }
 }
 
-impl Vcpu for HvpVcpu {
+impl HypervisorVcpu for HvpVcpu {
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
         let mut vcpu = 0;
         let mut exit = null_mut() as *const hv_vcpu_exit_t;

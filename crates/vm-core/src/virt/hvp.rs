@@ -23,11 +23,11 @@ use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
 use crate::error::Error;
 use crate::error::Result;
+use crate::virt::HypervisorVm;
 use crate::virt::Virt;
-use crate::virt::Vm;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::vcpu::HvpVcpu;
-use crate::virt::vcpu::Vcpu;
+use crate::virt::vcpu::HypervisorVcpu;
 use crate::virt::vm::SetUserMemoryRegionFlags;
 
 pub(crate) mod vcpu;
@@ -56,8 +56,8 @@ impl From<SetUserMemoryRegionFlags> for MemPerms {
 
 pub struct AppleHypervisorVm {}
 
-impl Vm for AppleHypervisorVm {
-    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn Vcpu>> {
+impl HypervisorVm for AppleHypervisorVm {
+    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn HypervisorVcpu>> {
         let vcpu = HvpVcpu::new(vcpu_id);
 
         Ok(Box::new(vcpu))
@@ -184,7 +184,7 @@ impl Vm for AppleHypervisorVm {
 pub struct AppleHypervisor;
 
 impl Virt for AppleHypervisor {
-    fn create_vm(&self) -> Result<Arc<dyn Vm>> {
+    fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>> {
         let vm_config = unsafe { hv_vm_config_create() };
         hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;
         hv_unsafe_call!(hv_vm_create(vm_config))?;

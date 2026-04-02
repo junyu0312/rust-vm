@@ -1,4 +1,4 @@
-use crate::virt::vcpu::Vcpu;
+use crate::virt::vcpu::HypervisorVcpu;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VmExitHandlerError {
@@ -34,5 +34,5 @@ pub trait VmExit: Send + Sync {
     fn in_mmio_region(&self, addr: u64) -> bool;
 
     #[cfg(target_arch = "aarch64")]
-    fn call_smc(&self, vcpu: &mut dyn Vcpu) -> Result<(), VmExitHandlerError>;
+    fn call_smc(&self, vcpu: &mut dyn HypervisorVcpu) -> Result<(), VmExitHandlerError>;
 }

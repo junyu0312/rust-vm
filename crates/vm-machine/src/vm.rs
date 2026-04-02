@@ -9,6 +9,7 @@ use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device_manager::DeviceManager;
 use vm_core::monitor::MonitorServer;
+use vm_core::virt::vm::HypervisorVm;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::error::Error;
@@ -20,7 +21,7 @@ pub mod config;
 pub(crate) mod vm_exit_handler;
 
 pub struct Vm {
-    pub(crate) _vm_instance: Arc<dyn vm_core::virt::vm::Vm>,
+    pub(crate) _vm_instance: Arc<dyn HypervisorVm>,
     pub(crate) vcpu_manager: Arc<Mutex<VcpuManager>>,
     pub(crate) memory_address_space: Arc<MemoryAddressSpace>,
     pub(crate) irq_chip: Arc<dyn InterruptController>,

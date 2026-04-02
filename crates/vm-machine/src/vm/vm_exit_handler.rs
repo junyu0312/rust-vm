@@ -8,7 +8,7 @@ use vm_core::cpu::vm_exit::VmExit;
 use vm_core::cpu::vm_exit::VmExitHandlerError;
 use vm_core::device_manager::DeviceManager;
 #[cfg(target_arch = "aarch64")]
-use vm_core::virt::vcpu::Vcpu;
+use vm_core::virt::vcpu::HypervisorVcpu;
 
 pub struct VmExitHandler {
     pub device_manager: Arc<DeviceManager>,
@@ -97,7 +97,7 @@ impl VmExit for VmExitHandler {
     }
 
     #[cfg(target_arch = "aarch64")]
-    fn call_smc(&self, vcpu: &mut dyn Vcpu) -> Result<(), VmExitHandlerError> {
+    fn call_smc(&self, vcpu: &mut dyn HypervisorVcpu) -> Result<(), VmExitHandlerError> {
         self.psci.call(vcpu)?;
 
         Ok(())

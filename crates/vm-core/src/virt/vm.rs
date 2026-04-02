@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use crate::arch::irq::InterruptController;
 use crate::error::Error;
-use crate::virt::vcpu::Vcpu;
+use crate::virt::vcpu::HypervisorVcpu;
 
 pub enum SetUserMemoryRegionFlags {
     ReadWriteExec,
 }
 
-pub trait Vm: Send + Sync {
-    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn Vcpu>, Error>;
+pub trait HypervisorVm: Send + Sync {
+    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn HypervisorVcpu>, Error>;
 
     fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, Error>;
 

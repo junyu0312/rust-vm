@@ -8,7 +8,7 @@ use crate::arch::x86_64::vcpu::X86_64Vcpu as ArchVcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
 use crate::cpu::error::VcpuError;
 
-pub trait Vcpu: ArchVcpu + Send {
+pub trait HypervisorVcpu: ArchVcpu + Send {
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError>;
 
     fn run(&mut self) -> Result<VmExitReason, VcpuError>;

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::error::Error;
-use crate::virt::vm::Vm;
+use crate::virt::vm::HypervisorVm;
 
 #[cfg(feature = "kvm")]
 pub mod kvm;
@@ -13,5 +13,5 @@ pub mod vcpu;
 pub mod vm;
 
 pub trait Virt {
-    fn create_vm(&self) -> Result<Arc<dyn Vm>, Error>;
+    fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>, Error>;
 }
