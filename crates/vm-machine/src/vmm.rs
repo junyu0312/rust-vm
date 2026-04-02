@@ -18,7 +18,7 @@ use vm_core::arch::x86_64::layout::MMIO_START;
 use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::mmio::layout::MmioLayout;
-use vm_core::device_manager::manager::DeviceManager;
+use vm_core::device_manager::DeviceManager;
 use vm_core::monitor::MonitorServerBuilder;
 use vm_core::vcpu::vcpu_manager::VcpuManager;
 use vm_core::virt::Virt;

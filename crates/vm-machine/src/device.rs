@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::mmio::layout::MmioRange;
-use vm_core::device_manager::manager::DeviceManager;
+use vm_core::device_manager::DeviceManager;
 use vm_core::monitor::MonitorServerBuilder;
 use vm_device::device::Device;
 use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;

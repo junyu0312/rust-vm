@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vm_core::arch::aarch64::firmware::psci::Psci;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
-use vm_core::device_manager::manager::DeviceManager;
+use vm_core::device_manager::DeviceManager;
 use vm_core::vcpu::vm_exit::VmExit;
 use vm_core::vcpu::vm_exit::VmExitHandlerError;
 #[cfg(target_arch = "aarch64")]
