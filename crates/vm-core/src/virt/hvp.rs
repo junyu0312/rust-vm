@@ -1,8 +1,5 @@
-use std::ptr::null_mut;
 use std::sync::Arc;
-use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::thread;
+use std::sync::Mutex;
 
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
@@ -15,33 +12,24 @@ use applevisor_sys::hv_gic_config_set_msi_region_base;
 use applevisor_sys::hv_gic_config_set_redistributor_base;
 use applevisor_sys::hv_gic_config_t;
 use applevisor_sys::hv_gic_create;
-use applevisor_sys::hv_vcpu_create;
-use applevisor_sys::hv_vcpu_exit_t;
 use applevisor_sys::hv_vm_config_create;
 use applevisor_sys::hv_vm_config_set_el2_enabled;
 use applevisor_sys::hv_vm_create;
 use applevisor_sys::hv_vm_map;
 
-use crate::arch::aarch64::firmware::psci::psci_0_2::Psci02;
-use crate::arch::aarch64::layout::DTB_START;
+use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
 use crate::arch::aarch64::layout::GIC_MSI;
 use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
 use crate::arch::aarch64::layout::RAM_BASE;
-use crate::arch::aarch64::vcpu::AArch64Vcpu;
-use crate::arch::aarch64::vcpu::reg::CoreRegister;
-use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
-use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
-use crate::arch::aarch64::vm_exit::HandleVmExitResult;
-use crate::arch::aarch64::vm_exit::handle_vm_exit;
 use crate::arch::irq::InterruptController;
-use crate::arch::vcpu::Vcpu;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
+use crate::vcpu::vcpu::Vcpu;
 use crate::virt::SetUserMemoryRegionFlags;
 use crate::virt::Virt;
+use crate::virt::Vm;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::vcpu::HvpVcpu;
 
@@ -54,9 +42,7 @@ macro_rules! hv_unsafe_call {
         let ret = unsafe { $x };
         match ret {
             x if x == hv_error_t::HV_SUCCESS as i32 => Ok(()),
-            code => Err(crate::error::Error::ApplevisorError(HypervisorError::from(
-                code,
-            ))),
+            code => Err(HypervisorError::from(code)),
         }
     }};
 }
@@ -71,113 +57,21 @@ impl From<SetUserMemoryRegionFlags> for MemPerms {
     }
 }
 
-fn setup_cpu<C>(dtb_start: u64, start_pc: u64, cpu_id: usize, vcpu: &mut C) -> anyhow::Result<()>
-where
-    C: AArch64Vcpu,
-{
-    vcpu.set_sys_reg(SysRegister::MpidrEl1, cpu_id as u64)?;
+pub struct AppleHypervisorVm {}
 
-    if cpu_id == 0 {
-        // Setup general-purpose register
-        vcpu.set_core_reg(CoreRegister::X0, dtb_start)?;
-        vcpu.set_core_reg(CoreRegister::X1, 0)?;
-        vcpu.set_core_reg(CoreRegister::X2, 0)?;
-        vcpu.set_core_reg(CoreRegister::X3, 0)?;
-        vcpu.set_core_reg(CoreRegister::PC, start_pc)?;
-    } else {
-        vcpu.set_core_reg(CoreRegister::X0, 0)?;
-        vcpu.set_core_reg(CoreRegister::X1, 0)?;
-        vcpu.set_core_reg(CoreRegister::X2, 0)?;
-        vcpu.set_core_reg(CoreRegister::X3, 0)?;
-        vcpu.set_core_reg(CoreRegister::PC, 0)?;
+impl Vm for AppleHypervisorVm {
+    fn create_vcpu(
+        &self,
+        vcpu_id: usize,
+        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
+        psci: Arc<dyn Psci>,
+    ) -> Result<Arc<Mutex<dyn Vcpu>>> {
+        let vcpu = HvpVcpu::new(vcpu_id, device_vm_exit_handler, psci);
+
+        Ok(Arc::new(Mutex::new(vcpu)))
     }
 
-    {
-        // CPU mode
-
-        let mut pstate = vcpu.get_core_reg(CoreRegister::PState)?;
-        pstate |= 0x03C0; // DAIF
-        pstate &= !0xf; // Clear low 4 bits
-        pstate |= 0x0005; // El1h
-        vcpu.set_core_reg(CoreRegister::PState, pstate)?;
-
-        // more, non secure el1
-        if false {
-            todo!()
-        }
-    }
-
-    {
-        // Caches, MMUs
-
-        let mut sctlr_el1 = vcpu.get_sctlr_el1()?;
-        sctlr_el1.remove(SctlrEl1::M); // Disable MMU
-        sctlr_el1.remove(SctlrEl1::I); // Disable I-cache
-        vcpu.set_sctlr_el1(sctlr_el1)?;
-    }
-
-    {
-        // Architected timers
-
-        if false {
-            todo!(
-                "CNTFRQ must be programmed with the timer frequency and CNTVOFF must be programmed with a consistent value on all CPUs."
-            );
-        }
-
-        if false {
-            // MacOS get panic, should we enable this in Linux?
-            let mut cnthctl_el2 = vcpu.get_cnthctl_el2()?;
-            cnthctl_el2.insert(CnthctlEl2::EL1PCTEN); // TODO: or bit0?(https://www.kernel.org/doc/html/v5.3/arm64/booting.html)
-            vcpu.set_cnthctl_el2(cnthctl_el2)?;
-        }
-    }
-
-    {
-        // Coherency
-
-        // Do nothing
-    }
-
-    {
-        // System registers
-
-        if false {
-            todo!()
-        }
-    }
-
-    anyhow::Ok(())
-}
-
-pub struct Hvp {
-    num_vcpus: usize,
-    psci: Arc<Psci02>,
-    cpu_on_receiver: Option<Vec<Receiver<(u64, u64)>>>,
-}
-
-impl Virt for Hvp {
-    fn new(num_vcpus: usize) -> Result<Self> {
-        let vm_config = unsafe { hv_vm_config_create() };
-        hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;
-        hv_unsafe_call!(hv_vm_create(vm_config))?;
-
-        let mut cpu_on_receiver = vec![];
-        let mut cpu_on_barrier = vec![];
-        for _ in 0..num_vcpus {
-            let (tx, rx) = mpsc::channel();
-            cpu_on_receiver.push(rx);
-            cpu_on_barrier.push(tx);
-        }
-
-        Ok(Hvp {
-            num_vcpus,
-            psci: Arc::new(Psci02 { cpu_on_barrier }),
-            cpu_on_receiver: Some(cpu_on_receiver),
-        })
-    }
-
-    fn create_irq_chip(&mut self) -> Result<Arc<dyn InterruptController>> {
+    fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>> {
         let distributor_base = GIC_DISTRIBUTOR;
         let redistributor_base = GIC_REDISTRIBUTOR;
         let msi_base = GIC_MSI;
@@ -277,7 +171,7 @@ impl Virt for Hvp {
     }
 
     fn set_user_memory_region(
-        &mut self,
+        &self,
         userspace_addr: u64,
         guest_phys_addr: u64,
         memory_size: usize,
@@ -292,53 +186,17 @@ impl Virt for Hvp {
 
         Ok(())
     }
+}
 
-    fn run(
-        &mut self,
-        start_pc: u64,
-        device_vm_exit_handler: &dyn DeviceVmExitHandler,
-    ) -> Result<()> {
-        thread::scope(|s| {
-            let cpu_on_receiver = self.cpu_on_receiver.take().unwrap();
+#[derive(Default)]
+pub struct AppleHypervisor;
 
-            for (vcpu_id, rx) in (0..self.num_vcpus).zip(cpu_on_receiver.into_iter()) {
-                let psci = self.psci.clone();
+impl Virt for AppleHypervisor {
+    fn create_vm(&self) -> Result<Arc<dyn Vm>> {
+        let vm_config = unsafe { hv_vm_config_create() };
+        hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;
+        hv_unsafe_call!(hv_vm_create(vm_config))?;
 
-                s.spawn(move || -> anyhow::Result<()> {
-                    let mut vcpu = 0;
-                    let mut exit = null_mut() as *const hv_vcpu_exit_t;
-                    hv_unsafe_call!(hv_vcpu_create(&mut vcpu, &mut exit, null_mut()))?;
-
-                    let mut vcpu = HvpVcpu::new(vcpu_id as u64, vcpu, exit);
-
-                    setup_cpu(DTB_START, start_pc, vcpu_id, &mut vcpu)?;
-
-                    if vcpu_id != 0 {
-                        let (pc, context_id) = rx.recv().unwrap();
-                        vcpu.set_core_reg(CoreRegister::PC, pc)?;
-                        vcpu.set_core_reg(CoreRegister::X0, context_id)?;
-                    }
-
-                    loop {
-                        let vm_exit_info = vcpu.run(device_vm_exit_handler)?;
-
-                        match handle_vm_exit(
-                            &vcpu,
-                            vm_exit_info,
-                            psci.as_ref(),
-                            device_vm_exit_handler,
-                        )? {
-                            HandleVmExitResult::Continue => (),
-                            HandleVmExitResult::NextInstruction => {
-                                let pc = vcpu.get_core_reg(CoreRegister::PC)?;
-                                vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
-                            }
-                        }
-                    }
-                });
-            }
-        });
-
-        Ok(())
+        Ok(Arc::new(AppleHypervisorVm {}))
     }
 }

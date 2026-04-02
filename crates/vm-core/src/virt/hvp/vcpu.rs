@@ -1,8 +1,12 @@
+use std::ptr::null_mut;
+use std::sync::Arc;
+
 use applevisor::prelude::HypervisorError;
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_exit_reason_t;
 use applevisor_sys::hv_reg_t;
 use applevisor_sys::hv_sys_reg_t;
+use applevisor_sys::hv_vcpu_create;
 use applevisor_sys::hv_vcpu_exit_t;
 use applevisor_sys::hv_vcpu_get_reg;
 use applevisor_sys::hv_vcpu_get_sys_reg;
@@ -14,16 +18,16 @@ use tracing::error;
 use tracing::trace;
 use tracing::warn;
 
-use crate::arch::aarch64::AArch64;
+use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vcpu::reg::esr_el2;
 use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vm_exit::VmExitReason;
-use crate::arch::vcpu::Vcpu;
 use crate::device_manager::vm_exit::DeviceVmExitHandler;
-use crate::error::Result;
+use crate::vcpu::error::VcpuError;
+use crate::vcpu::vcpu::Vcpu;
 use crate::virt::hvp::hv_unsafe_call;
 
 enum HvpReg {
@@ -86,66 +90,117 @@ impl SysRegister {
 }
 
 pub struct HvpVcpu {
-    vcpu_id: u64,
-    handler: u64,
-    exit: *const hv_vcpu_exit_t,
+    vcpu_id: usize,
+    device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
+    psci_handler: Arc<dyn Psci>,
+    handler: Option<u64>,
+    exit: Option<*const hv_vcpu_exit_t>,
 }
 
+unsafe impl Send for HvpVcpu {}
+
 impl HvpVcpu {
-    pub fn new(vcpu_id: u64, handler: u64, exit: *const hv_vcpu_exit_t) -> Self {
+    pub fn new(
+        vcpu_id: usize,
+        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
+        psci_handler: Arc<dyn Psci>,
+    ) -> Self {
         HvpVcpu {
             vcpu_id,
-            handler,
-            exit,
+            device_vm_exit_handler,
+            psci_handler,
+            handler: None,
+            exit: None,
         }
+    }
+
+    fn try_get_handler(&self) -> Result<u64, VcpuError> {
+        self.handler
+            .as_ref()
+            .ok_or(VcpuError::VcpuNotCreated(self.vcpu_id))
+            .copied()
+    }
+
+    fn try_get_exit_info(&self) -> Result<hv_vcpu_exit_t, VcpuError> {
+        Ok(unsafe {
+            **self
+                .exit
+                .as_ref()
+                .ok_or(VcpuError::VcpuNotCreated(self.vcpu_id))?
+        })
     }
 }
 
 impl AArch64Vcpu for HvpVcpu {
-    fn get_core_reg(&self, reg: CoreRegister) -> Result<u64> {
+    fn get_psci_handler(&self) -> Arc<dyn Psci> {
+        self.psci_handler.clone()
+    }
+
+    fn get_core_reg(&mut self, reg: CoreRegister) -> Result<u64, VcpuError> {
+        let handler = self.try_get_handler()?;
+
         let mut value = 0;
+
+        match reg.to_hvp_reg() {
+            HvpReg::CoreReg(reg) => hv_unsafe_call!(hv_vcpu_get_reg(handler, reg, &mut value))?,
+            HvpReg::SysReg(reg) => hv_unsafe_call!(hv_vcpu_get_sys_reg(handler, reg, &mut value))?,
+        }
+
+        Ok(value)
+    }
+
+    fn set_core_reg(&mut self, reg: CoreRegister, value: u64) -> Result<(), VcpuError> {
+        let handler = self.try_get_handler()?;
 
         match reg.to_hvp_reg() {
             HvpReg::CoreReg(reg) => {
-                hv_unsafe_call!(hv_vcpu_get_reg(self.handler, reg, &mut value))?
+                hv_unsafe_call!(hv_vcpu_set_reg(handler, reg, value)).map_err(Into::into)
             }
             HvpReg::SysReg(reg) => {
-                hv_unsafe_call!(hv_vcpu_get_sys_reg(self.handler, reg, &mut value))?
+                hv_unsafe_call!(hv_vcpu_set_sys_reg(handler, reg, value)).map_err(Into::into)
             }
         }
-
-        Ok(value)
     }
 
-    fn set_core_reg(&self, reg: CoreRegister, value: u64) -> Result<()> {
-        match reg.to_hvp_reg() {
-            HvpReg::CoreReg(reg) => hv_unsafe_call!(hv_vcpu_set_reg(self.handler, reg, value)),
-            HvpReg::SysReg(reg) => hv_unsafe_call!(hv_vcpu_set_sys_reg(self.handler, reg, value)),
-        }
-    }
+    fn get_sys_reg(&mut self, reg: SysRegister) -> Result<u64, VcpuError> {
+        let handler = self.try_get_handler()?;
 
-    fn get_sys_reg(&self, reg: SysRegister) -> Result<u64> {
         let mut value = 0;
 
-        hv_unsafe_call!(hv_vcpu_get_sys_reg(
-            self.handler,
-            reg.to_hvp_reg(),
-            &mut value
-        ))?;
+        hv_unsafe_call!(hv_vcpu_get_sys_reg(handler, reg.to_hvp_reg(), &mut value))?;
 
         Ok(value)
     }
 
-    fn set_sys_reg(&self, reg: SysRegister, value: u64) -> Result<()> {
-        hv_unsafe_call!(hv_vcpu_set_sys_reg(self.handler, reg.to_hvp_reg(), value))
+    fn set_sys_reg(&mut self, reg: SysRegister, value: u64) -> Result<(), VcpuError> {
+        let handler = self.try_get_handler()?;
+
+        hv_unsafe_call!(hv_vcpu_set_sys_reg(handler, reg.to_hvp_reg(), value)).map_err(Into::into)
     }
 }
 
-impl Vcpu<AArch64> for HvpVcpu {
-    fn run(&mut self, device_vm_exit_handler: &dyn DeviceVmExitHandler) -> Result<VmExitReason> {
-        hv_unsafe_call!(hv_vcpu_run(self.handler))?;
+impl Vcpu for HvpVcpu {
+    fn vm_exit_handler(&self) -> Arc<dyn DeviceVmExitHandler> {
+        self.device_vm_exit_handler.clone()
+    }
 
-        let exit_info = unsafe { *self.exit };
+    fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
+        let mut vcpu = 0;
+        let mut exit = null_mut() as *const hv_vcpu_exit_t;
+        hv_unsafe_call!(hv_vcpu_create(&mut vcpu, &mut exit, null_mut()))?;
+
+        self.handler = Some(vcpu);
+        self.exit = Some(exit);
+
+        Ok(())
+    }
+
+    fn run(&mut self) -> Result<VmExitReason, VcpuError> {
+        let handler = self.try_get_handler()?;
+
+        hv_unsafe_call!(hv_vcpu_run(handler))?;
+
+        let exit_info = self.try_get_exit_info()?;
         let pc = self.get_core_reg(CoreRegister::PC)?;
         trace!(pc, self.vcpu_id, ?exit_info, "vm exit");
 
@@ -192,7 +247,7 @@ impl Vcpu<AArch64> for HvpVcpu {
                     esr_el2::Ec::DA => {
                         let far_el2 = exit_info.exception.physical_address;
 
-                        if device_vm_exit_handler.in_mmio_region(far_el2) {
+                        if self.device_vm_exit_handler.in_mmio_region(far_el2) {
                             let is_write = (iss >> 6) & 0x1 != 0;
                             let len = match (iss >> 22) & 0x3 {
                                 0 => 1,

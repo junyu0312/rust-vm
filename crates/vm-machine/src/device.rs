@@ -27,7 +27,7 @@ pub trait InitDevice {
         &mut self,
         monitor_server_builder: &mut MonitorServerBuilder,
         mm: Arc<MemoryAddressSpace>,
-        devices: Vec<Device>,
+        devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), Error>;
 }
@@ -37,7 +37,7 @@ impl InitDevice for DeviceManager {
         &mut self,
         monitor_server_builder: &mut MonitorServerBuilder,
         mm: Arc<MemoryAddressSpace>,
-        devices: Vec<Device>,
+        devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), Error> {
         let mut irq_allocation = IrqAllocation::new(0);

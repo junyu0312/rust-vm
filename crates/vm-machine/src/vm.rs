@@ -1,35 +1,38 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use vm_bootloader::boot_loader::BootLoader;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::layout::DTB_START;
 use vm_core::arch::irq::InterruptController;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device_manager::manager::DeviceManager;
 use vm_core::monitor::MonitorServer;
-use vm_core::virt::Virt;
+use vm_core::vcpu::vcpu_manager::VcpuManager;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::error::Error;
 use crate::error::Result;
+use crate::vm::config::VmConfig;
 
-pub struct Vm<V: Virt> {
-    pub(crate) ram_size: u64,
-    pub(crate) vcpus: usize,
+pub mod config;
+
+pub struct Vm {
+    pub(crate) vm_instance: Arc<dyn vm_core::virt::Vm>,
+    pub(crate) vcpu_manager: Arc<Mutex<VcpuManager>>,
     pub(crate) memory_address_space: Arc<MemoryAddressSpace>,
-    pub(crate) virt: V,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
-    pub(crate) device_manager: DeviceManager,
+    pub(crate) device_manager: Arc<DeviceManager>,
     pub(crate) gdb_stub: Option<GdbStub>,
     pub(crate) monitor: MonitorServer,
+    pub(crate) vm_config: VmConfig,
 }
 
-impl<V> Vm<V>
-where
-    V: Virt,
-{
-    pub fn run(&mut self, boot_loader: &dyn BootLoader) -> Result<()> {
+impl Vm {
+    pub fn boot(&mut self, boot_loader: &dyn BootLoader) -> Result<()> {
         let start_pc = boot_loader.load(
-            self.ram_size,
-            self.vcpus,
+            self.vm_config.memory_size as u64,
+            self.vm_config.vcpus,
             &self.memory_address_space,
             self.irq_chip.as_ref(),
             self.device_manager.mmio_devices(),
@@ -43,7 +46,14 @@ where
                 .map_err(|err| Error::GdbStub(err.to_string()))?;
         }
 
-        self.virt.run(start_pc, &self.device_manager)?;
+        #[cfg(target_arch = "aarch64")]
+        self.vcpu_manager
+            .lock()
+            .unwrap()
+            .start_vcpu(0, start_pc, DTB_START)?;
+
+        #[cfg(not(target_arch = "aarch64"))]
+        todo!();
 
         Ok(())
     }

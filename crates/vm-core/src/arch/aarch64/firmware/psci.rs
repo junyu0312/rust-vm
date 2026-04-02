@@ -14,5 +14,5 @@ pub mod version;
 pub trait Psci {
     fn version(&self) -> u32;
 
-    fn call(&self, vcpu: &dyn AArch64Vcpu) -> Result<(), PsciError>;
+    fn call(&self, vcpu: &mut dyn AArch64Vcpu) -> Result<(), PsciError>;
 }

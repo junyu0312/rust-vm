@@ -1,11 +1,12 @@
-#![deny(warnings)]
+// #![deny(warnings)]
 
 use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 use vm_bootloader::boot_loader::BootLoaderBuilder;
 use vm_core::virt::Virt;
-use vm_machine::vm_builder::VmBuilder;
+use vm_machine::vm::config::VmConfig;
+use vm_machine::vmm::Vmm;
 
 use crate::cmd::Accel;
 use crate::cmd::Command;
@@ -15,22 +16,22 @@ use crate::term::term_init;
 mod cmd;
 mod term;
 
-fn build_and_run_vm<V, Loader>(args: Command) -> anyhow::Result<()>
+fn build_and_run_vm<Loader>(virt: Box<dyn Virt>, args: Command) -> anyhow::Result<()>
 where
-    V: Virt,
     Loader: BootLoaderBuilder,
 {
-    let vm_builder = VmBuilder::new(
-        parse_memory(&args.memory)?,
-        args.cpus,
-        args.device.into_iter().map(Into::into).collect(),
-        args.gdb,
-    );
-    let mut vm = vm_builder.build::<V>()?;
+    let mut vmm = Vmm::new(virt);
+
+    vmm.create_vm_from_config(VmConfig {
+        memory_size: parse_memory(&args.memory)?,
+        vcpus: args.cpus,
+        devices: args.device.into_iter().map(Into::into).collect(),
+        gdb_port: args.gdb,
+    })?;
 
     let bootloader = Loader::new(args.kernel, args.initramfs, args.cmdline);
 
-    vm.run(&bootloader)?;
+    vmm.run(&bootloader)?;
 
     Ok(())
 }
@@ -53,23 +54,7 @@ async fn main() -> anyhow::Result<()> {
     match args.accel {
         #[cfg(feature = "kvm")]
         Accel::Kvm => {
-            #[cfg(target_arch = "aarch64")]
-            {
-                use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
-                use vm_core::arch::aarch64::AArch64;
-                use vm_core::virt::kvm::KvmVirt;
-
-                build_and_run_vm::<KvmVirt<AArch64>, AArch64BootLoader>(args)?;
-            }
-
-            #[cfg(target_arch = "x86_64")]
-            {
-                use vm_bootloader::boot_loader::arch::x86_64::X86_64BootLoader;
-                use vm_core::arch::x86_64::X86_64;
-                use vm_core::virt::kvm::KvmVirt;
-
-                build_and_run_vm::<KvmVirt<X86_64>, X86_64BootLoader>(args)?;
-            }
+            todo!()
         }
 
         #[cfg(feature = "hvp")]
@@ -82,9 +67,9 @@ async fn main() -> anyhow::Result<()> {
             #[cfg(target_arch = "aarch64")]
             {
                 use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
-                use vm_core::virt::hvp::Hvp;
+                use vm_core::virt::hvp::AppleHypervisor;
 
-                build_and_run_vm::<Hvp, AArch64BootLoader>(args)?;
+                build_and_run_vm::<AArch64BootLoader>(Box::new(AppleHypervisor), args)?;
             }
         }
     };

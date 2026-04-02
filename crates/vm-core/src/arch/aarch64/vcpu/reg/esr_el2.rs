@@ -1,7 +1,6 @@
 use strum_macros::FromRepr;
 
-use crate::error::Error;
-use crate::error::Result;
+use crate::vcpu::error::VcpuError;
 
 #[derive(Debug)]
 pub struct EsrEl2(u64);
@@ -36,9 +35,11 @@ impl EsrEl2 {
         ((self.0 >> 26) & 0x3f) as u8
     }
 
-    pub fn ec(&self) -> Result<Ec> {
-        Ec::from_repr(self.ec_raw())
-            .ok_or(Error::Unknown(format!("unknown ec: 0x{:x}", self.ec_raw())))
+    pub fn ec(&self) -> Result<Ec, VcpuError> {
+        Ec::from_repr(self.ec_raw()).ok_or(VcpuError::GuestError(format!(
+            "unknown ec: 0x{:x}",
+            self.ec_raw()
+        )))
     }
 
     pub fn iss2(&self) -> u64 {

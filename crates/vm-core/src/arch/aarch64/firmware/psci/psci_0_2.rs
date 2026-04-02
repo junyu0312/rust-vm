@@ -1,4 +1,5 @@
-use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use strum_macros::FromRepr;
 
@@ -9,6 +10,7 @@ use crate::arch::aarch64::firmware::psci::function::psci_0_2_fn64;
 use crate::arch::aarch64::firmware::psci::return_value::PsciRet;
 use crate::arch::aarch64::firmware::psci::version::psci_version;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
+use crate::vcpu::vcpu_manager::VcpuManager;
 
 #[derive(FromRepr)]
 #[repr(u32)]
@@ -22,7 +24,7 @@ enum Psci02FunctionId {
 }
 
 pub struct Psci02 {
-    pub cpu_on_barrier: Vec<mpsc::Sender<(u64, u64)>>,
+    pub vcpu_manager: Arc<Mutex<VcpuManager>>,
 }
 
 impl Psci for Psci02 {
@@ -30,7 +32,7 @@ impl Psci for Psci02 {
         psci_version(0, 2)
     }
 
-    fn call(&self, vcpu: &dyn AArch64Vcpu) -> Result<(), PsciError> {
+    fn call(&self, vcpu: &mut dyn AArch64Vcpu) -> Result<(), PsciError> {
         let function_id = vcpu.get_smc_function_id().unwrap();
 
         let val = match Psci02FunctionId::from_repr(function_id) {
@@ -48,9 +50,13 @@ impl Psci for Psci02 {
                     let entry_point_address = vcpu.get_smc_arg2().unwrap();
                     let context_id = vcpu.get_smc_arg3().unwrap();
 
-                    self.cpu_on_barrier[target_cpu as usize]
-                        .send((entry_point_address, context_id))
+                    println!("try lock vcpu_manager");
+                    self.vcpu_manager
+                        .lock()
+                        .unwrap()
+                        .start_vcpu(target_cpu as usize, entry_point_address, context_id)
                         .unwrap();
+                    println!("try lock vcpu_manager ok");
 
                     PsciRet::SUCCESS as u32
                 }
