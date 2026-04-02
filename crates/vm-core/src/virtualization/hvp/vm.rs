@@ -17,13 +17,13 @@ use crate::arch::aarch64::layout::GIC_MSI;
 use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
 use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
-use crate::hypervisor::HypervisorVm;
-use crate::hypervisor::hvp::hv_unsafe_call;
-use crate::hypervisor::hvp::irq_chip::HvpGicV3;
-use crate::hypervisor::hvp::vcpu::HvpVcpu;
-use crate::hypervisor::vcpu::HypervisorVcpu;
-use crate::hypervisor::vm::SetUserMemoryRegionFlags;
-use crate::hypervisor::vm::VmError;
+use crate::virtualization::hvp::hv_unsafe_call;
+use crate::virtualization::hvp::irq_chip::HvpGicV3;
+use crate::virtualization::hvp::vcpu::HvpVcpu;
+use crate::virtualization::vcpu::HypervisorVcpu;
+use crate::virtualization::vm::HypervisorVm;
+use crate::virtualization::vm::SetUserMemoryRegionFlags;
+use crate::virtualization::vm::VmError;
 
 impl From<SetUserMemoryRegionFlags> for MemPerms {
     fn from(flags: SetUserMemoryRegionFlags) -> Self {

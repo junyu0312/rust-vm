@@ -1,18 +1,10 @@
 use std::sync::Arc;
 
-use crate::hypervisor::vm::HypervisorVm;
+use thiserror::Error;
 
-#[cfg(feature = "kvm")]
-#[allow(dead_code)]
-pub mod kvm;
+use crate::virtualization::vm::HypervisorVm;
 
-#[cfg(feature = "hvp")]
-pub mod hvp;
-
-pub mod vcpu;
-pub mod vm;
-
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum HypervisorError {
     #[cfg(feature = "hvp")]
     #[error("{0}")]

@@ -8,7 +8,7 @@ use vm_core::cpu::vm_exit::VmExit;
 use vm_core::cpu::vm_exit::VmExitHandlerError;
 use vm_core::device_manager::DeviceManager;
 #[cfg(target_arch = "aarch64")]
-use vm_core::hypervisor::vcpu::HypervisorVcpu;
+use vm_core::virtualization::vcpu::HypervisorVcpu;
 
 pub struct VmExitHandler {
     pub device_manager: Arc<DeviceManager>,

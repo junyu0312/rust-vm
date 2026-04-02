@@ -7,7 +7,7 @@ use tracing::warn;
 use crate::arch::aarch64::irq::AArch64IrqChip;
 use crate::arch::irq::InterruptController;
 use crate::arch::irq::Phandle;
-use crate::hypervisor::hvp::hv_unsafe_call;
+use crate::virtualization::hvp::hv_unsafe_call;
 
 pub struct HvpGicV3 {
     distributor_base: u64,

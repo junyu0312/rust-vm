@@ -8,7 +8,7 @@ use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device_manager::DeviceManager;
-use vm_core::hypervisor::vm::HypervisorVm;
+use vm_core::virtualization::vm::HypervisorVm;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::error::Error;

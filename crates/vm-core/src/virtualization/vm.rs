@@ -3,7 +3,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::arch::irq::InterruptController;
-use crate::hypervisor::vcpu::HypervisorVcpu;
+use crate::virtualization::vcpu::HypervisorVcpu;
 
 pub enum SetUserMemoryRegionFlags {
     ReadWriteExec,

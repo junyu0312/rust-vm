@@ -4,7 +4,7 @@ use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 use vm_bootloader::boot_loader::BootLoaderBuilder;
-use vm_core::hypervisor::Hypervisor;
+use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_vmm::vm::config::VmConfig;
 use vm_vmm::vmm::Vmm;
 
@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
             #[cfg(target_arch = "aarch64")]
             {
                 use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
-                use vm_core::hypervisor::hvp::AppleHypervisor;
+                use vm_core::virtualization::hvp::AppleHypervisor;
 
                 build_and_run_vm::<AArch64BootLoader>(Box::new(AppleHypervisor), args)?;
             }

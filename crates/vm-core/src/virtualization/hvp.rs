@@ -5,10 +5,10 @@ use applevisor_sys::hv_vm_config_create;
 use applevisor_sys::hv_vm_config_set_el2_enabled;
 use applevisor_sys::hv_vm_create;
 
-use crate::hypervisor::Hypervisor;
-use crate::hypervisor::HypervisorError;
-use crate::hypervisor::HypervisorVm;
-use crate::hypervisor::hvp::vm::AppleHypervisorVm;
+use crate::virtualization::hvp::vm::AppleHypervisorVm;
+use crate::virtualization::hypervisor::Hypervisor;
+use crate::virtualization::hypervisor::HypervisorError;
+use crate::virtualization::vm::HypervisorVm;
 
 mod irq_chip;
 mod vcpu;

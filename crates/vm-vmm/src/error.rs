@@ -1,8 +1,8 @@
 use vm_core::cpu::error::VcpuError;
-use vm_core::hypervisor::HypervisorError;
-use vm_core::hypervisor::vm::VmError;
 use vm_core::monitor::MonitorError;
 use vm_core::utils::address_space::AddressSpaceError;
+use vm_core::virtualization::hypervisor::HypervisorError;
+use vm_core::virtualization::vm::VmError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
