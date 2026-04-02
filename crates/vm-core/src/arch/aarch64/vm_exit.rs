@@ -23,12 +23,12 @@ pub enum Error {
 pub enum VmExitReason {
     Unknown,
     Wf,
-    MMIORead {
+    MMRead {
         gpa: u64,
         srt: CoreRegister,
         len: usize,
     },
-    MMIOWrite {
+    MMWrite {
         gpa: u64,
         buf: Vec<u8>,
         len: usize,
@@ -50,26 +50,29 @@ pub enum HandleVmExitResult {
 }
 
 pub fn handle_vm_exit(
-    vcpu: &mut dyn Vcpu,
+    vcpu: &mut Vcpu,
     exit_reason: VmExitReason,
 ) -> Result<HandleVmExitResult, VcpuError> {
-    let device_vm_exit_handler = vcpu.vm_exit_handler();
+    let device_vm_exit_handler = vcpu.device_vm_exit_handler.clone();
 
     trace!(?exit_reason);
 
     match exit_reason {
         VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
         VmExitReason::Wf => Ok(HandleVmExitResult::NextInstruction),
-        VmExitReason::MMIORead { gpa, srt, len } => {
+        VmExitReason::MMRead { gpa, srt, len } if device_vm_exit_handler.in_mmio_region(gpa) => {
             let mut buf = [0; 8];
             device_vm_exit_handler.mmio_read(gpa, len, &mut buf[0..len])?;
-            vcpu.set_core_reg(srt, u64::from_le_bytes(buf))?;
+            vcpu.vcpu_instance
+                .set_core_reg(srt, u64::from_le_bytes(buf))?;
             Ok(HandleVmExitResult::NextInstruction)
         }
-        VmExitReason::MMIOWrite { gpa, buf, len } => {
+        VmExitReason::MMRead { .. } => todo!(),
+        VmExitReason::MMWrite { gpa, buf, len } if device_vm_exit_handler.in_mmio_region(gpa) => {
             device_vm_exit_handler.mmio_write(gpa, len, &buf)?;
             Ok(HandleVmExitResult::NextInstruction)
         }
+        VmExitReason::MMWrite { .. } => todo!(),
         VmExitReason::TrappedRead { .. } => todo!(),
         VmExitReason::TrappedWrite { reg, .. } => {
             match reg {
@@ -80,10 +83,10 @@ pub fn handle_vm_exit(
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::Smc => {
-            let psci = vcpu.get_psci_handler();
+            let psci = vcpu.psci.clone();
 
             // We only support psci for smc now
-            psci.call(vcpu)?;
+            psci.call(vcpu.vcpu_instance.as_mut())?;
 
             Ok(HandleVmExitResult::NextInstruction)
         }

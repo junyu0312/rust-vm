@@ -11,7 +11,7 @@ pub mod psci_0_2;
 pub mod return_value;
 pub mod version;
 
-pub trait Psci {
+pub trait Psci: Send + Sync {
     fn version(&self) -> u32;
 
     fn call(&self, vcpu: &mut dyn AArch64Vcpu) -> Result<(), PsciError>;

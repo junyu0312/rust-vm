@@ -1,13 +1,9 @@
-use std::sync::Arc;
-
 use kvm_bindings::*;
 use kvm_ioctls::Kvm;
 
-use crate::arch::x86_64::X86_64;
 use crate::arch::x86_64::vcpu::X86_64Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
 use crate::vcpu::error::VcpuError;
-use crate::virt::DeviceVmExitHandler;
 use crate::virt::Vcpu;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
@@ -73,10 +69,6 @@ impl X86_64Vcpu for KvmVcpu {
 }
 
 impl Vcpu for KvmVcpu {
-    fn vm_exit_handler(&self) -> Arc<dyn DeviceVmExitHandler> {
-        todo!()
-    }
-
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
         todo!()
     }

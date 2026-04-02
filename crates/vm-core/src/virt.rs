@@ -1,12 +1,8 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
-#[cfg(target_arch = "aarch64")]
-use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::irq::InterruptController;
-use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
-use crate::vcpu::vcpu::Vcpu;
+use crate::virt::vcpu::Vcpu;
 
 #[cfg(feature = "kvm")]
 pub mod kvm;
@@ -14,17 +10,14 @@ pub mod kvm;
 #[cfg(feature = "hvp")]
 pub mod hvp;
 
+pub mod vcpu;
+
 pub enum SetUserMemoryRegionFlags {
     ReadWriteExec,
 }
 
-pub trait Vm {
-    fn create_vcpu(
-        &self,
-        vcpu_id: usize,
-        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
-        #[cfg(target_arch = "aarch64")] psci: Arc<dyn Psci>,
-    ) -> Result<Arc<Mutex<dyn Vcpu>>, Error>;
+pub trait Vm: Send + Sync {
+    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn Vcpu>, Error>;
 
     fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, Error>;
 

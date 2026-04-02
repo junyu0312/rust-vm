@@ -1,5 +1,4 @@
 use std::ptr::null_mut;
-use std::sync::Arc;
 
 use applevisor::prelude::HypervisorError;
 use applevisor_sys::hv_error_t;
@@ -14,21 +13,18 @@ use applevisor_sys::hv_vcpu_run;
 use applevisor_sys::hv_vcpu_set_reg;
 use applevisor_sys::hv_vcpu_set_sys_reg;
 use tracing::debug;
-use tracing::error;
 use tracing::trace;
 use tracing::warn;
 
-use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vcpu::reg::esr_el2;
 use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vm_exit::VmExitReason;
-use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::vcpu::error::VcpuError;
-use crate::vcpu::vcpu::Vcpu;
 use crate::virt::hvp::hv_unsafe_call;
+use crate::virt::vcpu::Vcpu;
 
 enum HvpReg {
     CoreReg(hv_reg_t),
@@ -91,8 +87,6 @@ impl SysRegister {
 
 pub struct HvpVcpu {
     vcpu_id: usize,
-    device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
-    psci_handler: Arc<dyn Psci>,
     handler: Option<u64>,
     exit: Option<*const hv_vcpu_exit_t>,
 }
@@ -100,15 +94,9 @@ pub struct HvpVcpu {
 unsafe impl Send for HvpVcpu {}
 
 impl HvpVcpu {
-    pub fn new(
-        vcpu_id: usize,
-        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
-        psci_handler: Arc<dyn Psci>,
-    ) -> Self {
+    pub fn new(vcpu_id: usize) -> Self {
         HvpVcpu {
             vcpu_id,
-            device_vm_exit_handler,
-            psci_handler,
             handler: None,
             exit: None,
         }
@@ -132,10 +120,6 @@ impl HvpVcpu {
 }
 
 impl AArch64Vcpu for HvpVcpu {
-    fn get_psci_handler(&self) -> Arc<dyn Psci> {
-        self.psci_handler.clone()
-    }
-
     fn get_core_reg(&mut self, reg: CoreRegister) -> Result<u64, VcpuError> {
         let handler = self.try_get_handler()?;
 
@@ -180,10 +164,6 @@ impl AArch64Vcpu for HvpVcpu {
 }
 
 impl Vcpu for HvpVcpu {
-    fn vm_exit_handler(&self) -> Arc<dyn DeviceVmExitHandler> {
-        self.device_vm_exit_handler.clone()
-    }
-
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
         let mut vcpu = 0;
         let mut exit = null_mut() as *const hv_vcpu_exit_t;
@@ -247,52 +227,47 @@ impl Vcpu for HvpVcpu {
                     esr_el2::Ec::DA => {
                         let far_el2 = exit_info.exception.physical_address;
 
-                        if self.device_vm_exit_handler.in_mmio_region(far_el2) {
-                            let is_write = (iss >> 6) & 0x1 != 0;
-                            let len = match (iss >> 22) & 0x3 {
-                                0 => 1,
-                                1 => 2,
-                                2 => 4,
-                                3 => 8,
-                                _ => unreachable!(),
-                            };
-                            let isv = (esr_el2.iss() >> 24) & 0x1 != 0;
-                            let srt = if isv {
-                                (esr_el2.iss() >> 16) & 0x1f
-                            } else {
-                                todo!()
-                            };
-                            let data = match srt {
-                                0 => self.get_core_reg(CoreRegister::X0),
-                                1 => self.get_core_reg(CoreRegister::X1),
-                                2 => self.get_core_reg(CoreRegister::X2),
-                                3 => self.get_core_reg(CoreRegister::X3),
-                                4 => self.get_core_reg(CoreRegister::X4),
-                                5 => self.get_core_reg(CoreRegister::X5),
-                                6 => self.get_core_reg(CoreRegister::X6),
-                                19 => self.get_core_reg(CoreRegister::X19),
-                                21 => self.get_core_reg(CoreRegister::X21),
-                                22 => self.get_core_reg(CoreRegister::X22),
-                                31 => Ok(0), // xzr
-                                _ => unimplemented!("{srt}"),
-                            }?;
-
-                            if is_write {
-                                Ok(VmExitReason::MMIOWrite {
-                                    gpa: far_el2,
-                                    buf: (data.to_le_bytes()[0..len]).to_vec(),
-                                    len,
-                                })
-                            } else {
-                                Ok(VmExitReason::MMIORead {
-                                    gpa: far_el2,
-                                    srt: CoreRegister::from_srt(srt),
-                                    len,
-                                })
-                            }
+                        let is_write = (iss >> 6) & 0x1 != 0;
+                        let len = match (iss >> 22) & 0x3 {
+                            0 => 1,
+                            1 => 2,
+                            2 => 4,
+                            3 => 8,
+                            _ => unreachable!(),
+                        };
+                        let isv = (esr_el2.iss() >> 24) & 0x1 != 0;
+                        let srt = if isv {
+                            (esr_el2.iss() >> 16) & 0x1f
                         } else {
-                            error!(?far_el2, "gpa not catched");
-                            todo!();
+                            todo!()
+                        };
+                        let data = match srt {
+                            0 => self.get_core_reg(CoreRegister::X0),
+                            1 => self.get_core_reg(CoreRegister::X1),
+                            2 => self.get_core_reg(CoreRegister::X2),
+                            3 => self.get_core_reg(CoreRegister::X3),
+                            4 => self.get_core_reg(CoreRegister::X4),
+                            5 => self.get_core_reg(CoreRegister::X5),
+                            6 => self.get_core_reg(CoreRegister::X6),
+                            19 => self.get_core_reg(CoreRegister::X19),
+                            21 => self.get_core_reg(CoreRegister::X21),
+                            22 => self.get_core_reg(CoreRegister::X22),
+                            31 => Ok(0), // xzr
+                            _ => unimplemented!("{srt}"),
+                        }?;
+
+                        if is_write {
+                            Ok(VmExitReason::MMWrite {
+                                gpa: far_el2,
+                                buf: (data.to_le_bytes()[0..len]).to_vec(),
+                                len,
+                            })
+                        } else {
+                            Ok(VmExitReason::MMRead {
+                                gpa: far_el2,
+                                srt: CoreRegister::from_srt(srt),
+                                len,
+                            })
                         }
                     }
                 }

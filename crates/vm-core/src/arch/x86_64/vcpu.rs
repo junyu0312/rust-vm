@@ -1,7 +1,6 @@
 use kvm_bindings::kvm_regs;
 use kvm_bindings::kvm_sregs;
 
-use crate::arch::x86_64::X86_64;
 use crate::vcpu::error::VcpuError;
 
 pub trait X86_64Vcpu {

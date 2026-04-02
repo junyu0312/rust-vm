@@ -14,7 +14,7 @@ use crate::virt::Vm;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn Vm>,
-    vcpus: Vec<Arc<Mutex<dyn Vcpu>>>,
+    vcpus: Vec<Arc<Mutex<Vcpu>>>,
 }
 
 impl VcpuManager {
@@ -31,13 +31,16 @@ impl VcpuManager {
         device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
         #[cfg(target_arch = "aarch64")] psci: Arc<dyn Psci>,
     ) -> Result<(), VmError> {
-        let vcpu = self.vm_instance.create_vcpu(
-            vcpu_id,
+        let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id)?;
+
+        let vcpu = Vcpu {
+            vcpu_instance,
             device_vm_exit_handler,
             #[cfg(target_arch = "aarch64")]
             psci,
-        )?;
-        self.vcpus.push(vcpu);
+        };
+
+        self.vcpus.push(Arc::new(Mutex::new(vcpu)));
 
         Ok(())
     }
@@ -52,15 +55,15 @@ impl VcpuManager {
         thread::spawn(move || -> Result<(), VcpuError> {
             let mut vcpu = vcpu.lock().unwrap();
 
-            vcpu.post_init_within_thread()?;
+            vcpu.vcpu_instance.post_init_within_thread()?;
 
             #[cfg(target_arch = "aarch64")]
             {
-                setup_cpu(x0, start_pc, vcpu_id, &mut *vcpu)?;
+                setup_cpu(x0, start_pc, vcpu_id, &mut *vcpu.vcpu_instance)?;
             }
 
             loop {
-                let vm_exit_reason = vcpu.run()?;
+                let vm_exit_reason = vcpu.vcpu_instance.run()?;
 
                 #[cfg(target_arch = "aarch64")]
                 {
@@ -71,8 +74,8 @@ impl VcpuManager {
                     {
                         HandleVmExitResult::Continue => (),
                         HandleVmExitResult::NextInstruction => {
-                            let pc = vcpu.get_core_reg(CoreRegister::PC)?;
-                            vcpu.set_core_reg(CoreRegister::PC, pc + 4)?;
+                            let pc = vcpu.vcpu_instance.get_core_reg(CoreRegister::PC)?;
+                            vcpu.vcpu_instance.set_core_reg(CoreRegister::PC, pc + 4)?;
                         }
                     }
                 }

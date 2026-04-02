@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
 use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
 use crate::arch::aarch64::vcpu::reg::*;
@@ -81,8 +78,6 @@ pub fn setup_cpu(
 }
 
 pub trait AArch64Vcpu {
-    fn get_psci_handler(&self) -> Arc<dyn Psci>;
-
     fn get_core_reg(&mut self, reg: CoreRegister) -> Result<u64, VcpuError>;
 
     fn set_core_reg(&mut self, reg: CoreRegister, value: u64) -> Result<(), VcpuError>;

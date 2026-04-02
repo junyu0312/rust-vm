@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
@@ -17,21 +16,19 @@ use applevisor_sys::hv_vm_config_set_el2_enabled;
 use applevisor_sys::hv_vm_create;
 use applevisor_sys::hv_vm_map;
 
-use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
 use crate::arch::aarch64::layout::GIC_MSI;
 use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
 use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
-use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error;
 use crate::error::Result;
-use crate::vcpu::vcpu::Vcpu;
 use crate::virt::SetUserMemoryRegionFlags;
 use crate::virt::Virt;
 use crate::virt::Vm;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::vcpu::HvpVcpu;
+use crate::virt::vcpu::Vcpu;
 
 pub(crate) mod vcpu;
 
@@ -60,15 +57,10 @@ impl From<SetUserMemoryRegionFlags> for MemPerms {
 pub struct AppleHypervisorVm {}
 
 impl Vm for AppleHypervisorVm {
-    fn create_vcpu(
-        &self,
-        vcpu_id: usize,
-        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
-        psci: Arc<dyn Psci>,
-    ) -> Result<Arc<Mutex<dyn Vcpu>>> {
-        let vcpu = HvpVcpu::new(vcpu_id, device_vm_exit_handler, psci);
+    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn Vcpu>> {
+        let vcpu = HvpVcpu::new(vcpu_id);
 
-        Ok(Arc::new(Mutex::new(vcpu)))
+        Ok(Box::new(vcpu))
     }
 
     fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>> {
