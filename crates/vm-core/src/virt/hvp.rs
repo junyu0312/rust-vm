@@ -30,9 +30,8 @@ use crate::virt::hvp::vcpu::HvpVcpu;
 use crate::virt::vcpu::HypervisorVcpu;
 use crate::virt::vm::SetUserMemoryRegionFlags;
 
-pub(crate) mod vcpu;
-
 mod irq_chip;
+mod vcpu;
 
 macro_rules! hv_unsafe_call {
     ($x:expr) => {{
@@ -44,7 +43,7 @@ macro_rules! hv_unsafe_call {
     }};
 }
 
-pub(crate) use hv_unsafe_call;
+use hv_unsafe_call;
 
 impl From<SetUserMemoryRegionFlags> for MemPerms {
     fn from(flags: SetUserMemoryRegionFlags) -> Self {
@@ -54,7 +53,7 @@ impl From<SetUserMemoryRegionFlags> for MemPerms {
     }
 }
 
-pub struct AppleHypervisorVm {}
+pub struct AppleHypervisorVm;
 
 impl HypervisorVm for AppleHypervisorVm {
     fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn HypervisorVcpu>> {
@@ -189,6 +188,6 @@ impl Virt for AppleHypervisor {
         hv_unsafe_call!(hv_vm_config_set_el2_enabled(vm_config, true))?;
         hv_unsafe_call!(hv_vm_create(vm_config))?;
 
-        Ok(Arc::new(AppleHypervisorVm {}))
+        Ok(Arc::new(AppleHypervisorVm))
     }
 }

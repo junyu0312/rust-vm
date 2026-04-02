@@ -6,7 +6,7 @@ use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vm_exit::VmExitReason;
 use crate::cpu::error::VcpuError;
 use crate::virt::kvm::vcpu::KvmVcpu;
-use crate::virt::vcpu::Vcpu;
+use crate::virt::vcpu::HypervisorVcpu;
 
 mod encode;
 
@@ -44,7 +44,7 @@ impl AArch64Vcpu for KvmVcpu {
     }
 }
 
-impl Vcpu for KvmVcpu {
+impl HypervisorVcpu for KvmVcpu {
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
         todo!()
     }

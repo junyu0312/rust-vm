@@ -57,24 +57,18 @@ impl VcpuManager {
 
             #[cfg(target_arch = "aarch64")]
             {
+                use crate::arch::aarch64::vcpu::reg::CoreRegister;
+                use crate::arch::aarch64::vm_exit::HandleVmExitResult;
+                use crate::arch::aarch64::vm_exit::handle_vm_exit;
+
                 setup_cpu(x0, start_pc, vcpu_id, &mut *vcpu.vcpu_instance)?;
-            }
 
-            let vm_exit_handler = vcpu.vm_exit_handler.clone();
+                let vm_exit_handler = vcpu.vm_exit_handler.clone();
 
-            loop {
-                let vm_exit_reason = vcpu.vcpu_instance.run()?;
+                loop {
+                    let vm_exit_reason = vcpu.vcpu_instance.run()?;
 
-                #[cfg(target_arch = "aarch64")]
-                {
-                    use crate::arch::aarch64::vcpu::reg::CoreRegister;
-                    use crate::arch::aarch64::vm_exit::HandleVmExitResult;
-
-                    match crate::arch::aarch64::vm_exit::handle_vm_exit(
-                        &mut vcpu,
-                        vm_exit_reason,
-                        vm_exit_handler.as_ref(),
-                    )? {
+                    match handle_vm_exit(&mut vcpu, vm_exit_reason, vm_exit_handler.as_ref())? {
                         HandleVmExitResult::Continue => (),
                         HandleVmExitResult::NextInstruction => {
                             let pc = vcpu.vcpu_instance.get_core_reg(CoreRegister::PC)?;
@@ -82,6 +76,14 @@ impl VcpuManager {
                         }
                     }
                 }
+            }
+
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                use std::hint::black_box;
+
+                black_box((start_pc, x0));
+                todo!()
             }
         });
 

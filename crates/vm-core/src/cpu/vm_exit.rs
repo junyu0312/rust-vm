@@ -1,5 +1,3 @@
-use crate::virt::vcpu::HypervisorVcpu;
-
 #[derive(Debug, thiserror::Error)]
 pub enum VmExitHandlerError {
     #[error("no device found for port 0x{0:#x}")]
@@ -34,5 +32,8 @@ pub trait VmExit: Send + Sync {
     fn in_mmio_region(&self, addr: u64) -> bool;
 
     #[cfg(target_arch = "aarch64")]
-    fn call_smc(&self, vcpu: &mut dyn HypervisorVcpu) -> Result<(), VmExitHandlerError>;
+    fn call_smc(
+        &self,
+        vcpu: &mut dyn crate::virt::vcpu::HypervisorVcpu,
+    ) -> Result<(), VmExitHandlerError>;
 }

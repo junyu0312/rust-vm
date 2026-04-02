@@ -4,6 +4,7 @@ use crate::error::Error;
 use crate::virt::vm::HypervisorVm;
 
 #[cfg(feature = "kvm")]
+#[allow(dead_code)]
 pub mod kvm;
 
 #[cfg(feature = "hvp")]

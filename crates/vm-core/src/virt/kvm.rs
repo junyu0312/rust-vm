@@ -6,14 +6,13 @@ use kvm_ioctls::*;
 
 use crate::arch::Arch;
 use crate::error::Error;
+use crate::virt::HypervisorVm;
 use crate::virt::Virt;
-use crate::virt::Vm;
 use crate::virt::kvm::vcpu::KvmVcpu;
 
 mod irq_chip;
 mod vcpu;
 
-#[allow(unused)]
 pub struct KvmVirt<A: Arch> {
     kvm: Kvm,
     vm_fd: Arc<VmFd>,
@@ -25,7 +24,7 @@ impl<A> Virt for KvmVirt<A>
 where
     A: Arch,
 {
-    fn create_vm(&self) -> Result<Arc<dyn Vm>, Error> {
+    fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>, Error> {
         todo!()
     }
 }

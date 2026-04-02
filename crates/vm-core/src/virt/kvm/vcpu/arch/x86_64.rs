@@ -5,7 +5,7 @@ use crate::arch::x86_64::vcpu::X86_64Vcpu;
 use crate::arch::x86_64::vm_exit::VmExitReason;
 use crate::cpu::error::VcpuError;
 use crate::virt::kvm::vcpu::KvmVcpu;
-use crate::virt::vcpu::Vcpu;
+use crate::virt::vcpu::HypervisorVcpu;
 
 impl KvmVcpu {
     pub fn set_cpuid2(&self, cpuid: &CpuId) -> Result<(), VcpuError> {
@@ -68,7 +68,7 @@ impl X86_64Vcpu for KvmVcpu {
     }
 }
 
-impl Vcpu for KvmVcpu {
+impl HypervisorVcpu for KvmVcpu {
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
         todo!()
     }
