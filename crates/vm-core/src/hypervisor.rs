@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::error::Error;
 use crate::hypervisor::vm::HypervisorVm;
 
 #[cfg(feature = "kvm")]
@@ -13,6 +12,13 @@ pub mod hvp;
 pub mod vcpu;
 pub mod vm;
 
+#[derive(Debug, thiserror::Error)]
+pub enum HypervisorError {
+    #[cfg(feature = "hvp")]
+    #[error("{0}")]
+    ApplevisorError(#[from] applevisor::error::HypervisorError),
+}
+
 pub trait Hypervisor {
-    fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>, Error>;
+    fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>, HypervisorError>;
 }

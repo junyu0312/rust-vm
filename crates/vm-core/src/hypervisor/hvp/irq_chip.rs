@@ -1,5 +1,4 @@
 use applevisor::gic::GicConfig;
-use applevisor::prelude::HypervisorError;
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_gic_send_msi;
 use applevisor_sys::hv_gic_set_spi;

@@ -1,17 +1,28 @@
 use std::sync::Arc;
 
+use thiserror::Error;
+
 use crate::arch::irq::InterruptController;
-use crate::error::Error;
 use crate::hypervisor::vcpu::HypervisorVcpu;
 
 pub enum SetUserMemoryRegionFlags {
     ReadWriteExec,
 }
 
-pub trait HypervisorVm: Send + Sync {
-    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn HypervisorVcpu>, Error>;
+#[derive(Error, Debug)]
+pub enum VmError {
+    #[error("failed to create irq_chip: {0}")]
+    CreateIrqChipError(String),
 
-    fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, Error>;
+    #[cfg(feature = "hvp")]
+    #[error("{0}")]
+    ApplevisorError(#[from] applevisor::error::HypervisorError),
+}
+
+pub trait HypervisorVm: Send + Sync {
+    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn HypervisorVcpu>, VmError>;
+
+    fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, VmError>;
 
     fn set_user_memory_region(
         &self,
@@ -19,5 +30,5 @@ pub trait HypervisorVm: Send + Sync {
         guest_phys_addr: u64,
         memory_size: usize,
         flags: SetUserMemoryRegionFlags,
-    ) -> Result<(), Error>;
+    ) -> Result<(), VmError>;
 }

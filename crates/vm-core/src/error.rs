@@ -7,9 +7,7 @@ pub enum Error {
     #[cfg(feature = "kvm")]
     #[error("{0}")]
     KvmError(#[from] kvm_ioctls::Error),
-    #[cfg(feature = "hvp")]
-    #[error("{0}")]
-    ApplevisorError(#[from] applevisor::error::HypervisorError),
+
     #[error("{0}")]
     MemoryError(#[from] vm_mm::error::Error),
     #[error("{0}")]

@@ -1,4 +1,6 @@
 use vm_core::cpu::error::VcpuError;
+use vm_core::hypervisor::HypervisorError;
+use vm_core::hypervisor::vm::VmError;
 use vm_core::monitor::MonitorError;
 use vm_core::utils::address_space::AddressSpaceError;
 
@@ -10,14 +12,14 @@ pub enum Error {
     #[error("Vm not exists")]
     VmNotExists,
 
+    #[error("Hypervisor error: {0}")]
+    HypervisorError(#[from] HypervisorError),
+
+    #[error("Vm error: {0}")]
+    VmError(#[from] VmError),
+
     #[error("Vcpu error: {0}")]
     VcpuError(#[from] VcpuError),
-
-    #[error("Platform error: {0}")]
-    Platform(#[from] vm_core::error::Error),
-
-    #[error("No irq_chip is specified")]
-    NoIrqChipSpecified,
 
     #[error("Device address space error: {0}")]
     DeviceAddressSpace(#[from] AddressSpaceError),
@@ -28,14 +30,8 @@ pub enum Error {
     #[error("{0}")]
     Memory(#[from] vm_mm::error::Error),
 
-    #[error("{0}")]
-    LayoutError(#[from] vm_core::arch::layout::Error),
-
     #[error("Failed to init memory, error: {0}")]
     InitMemory(String),
-
-    #[error("Failed to init irqchip, error: {0}")]
-    InitIrqchip(String),
 
     #[error("Failed to setup with bootloader, error: {0}")]
     Bootloader(#[from] vm_bootloader::boot_loader::Error),

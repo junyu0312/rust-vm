@@ -8,8 +8,8 @@ use crate::arch::aarch64::vcpu::setup_cpu;
 use crate::cpu::error::VcpuError;
 use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
-use crate::error::Error as VmError;
 use crate::hypervisor::vm::HypervisorVm;
+use crate::hypervisor::vm::VmError;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn HypervisorVm>,

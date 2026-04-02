@@ -1,6 +1,5 @@
 use std::ptr::null_mut;
 
-use applevisor::prelude::HypervisorError;
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_exit_reason_t;
 use applevisor_sys::hv_reg_t;
