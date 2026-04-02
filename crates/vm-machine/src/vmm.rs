@@ -21,8 +21,8 @@ use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::manager::DeviceManager;
 use vm_core::monitor::MonitorServerBuilder;
 use vm_core::vcpu::vcpu_manager::VcpuManager;
-use vm_core::virt::SetUserMemoryRegionFlags;
 use vm_core::virt::Virt;
+use vm_core::virt::vm::SetUserMemoryRegionFlags;
 use vm_device::device::Device;
 use vm_mm::allocator::Allocator;
 use vm_mm::allocator::std_allocator::StdAllocator;
@@ -35,6 +35,7 @@ use crate::error::Error;
 use crate::error::Result;
 use crate::vm::Vm;
 use crate::vm::config::VmConfig;
+use crate::vm::vm_exit_handler::VmExitHandler;
 
 const PAGE_SIZE: usize = 4 << 10;
 
@@ -95,21 +96,25 @@ impl Vmm {
         let vcpu_manager = Arc::new(Mutex::new(VcpuManager::new(vm_instance.clone())));
 
         #[cfg(target_arch = "aarch64")]
-        let psci = Arc::new(Psci02 {
+        let psci = Psci02 {
             vcpu_manager: vcpu_manager.clone(),
+        };
+
+        let vm_exit_handler = Arc::new(VmExitHandler {
+            device_manager: device_manager.clone(),
+            #[cfg(target_arch = "aarch64")]
+            psci,
         });
 
         for vcpu_id in 0..vm_config.vcpus {
-            vcpu_manager.lock().unwrap().create_vcpu(
-                vcpu_id,
-                device_manager.clone(),
-                #[cfg(target_arch = "aarch64")]
-                psci.clone(),
-            )?;
+            vcpu_manager
+                .lock()
+                .unwrap()
+                .create_vcpu(vcpu_id, vm_exit_handler.clone())?;
         }
 
         let vm = Vm {
-            vm_instance,
+            _vm_instance: vm_instance,
             vcpu_manager,
             memory_address_space,
             irq_chip,

@@ -223,11 +223,11 @@ impl PioDevice for I8042 {
         ]
     }
 
-    fn io_in(&mut self, port: u16, data: &mut [u8]) {
+    fn io_in(&self, port: u16, data: &mut [u8]) {
         self.0.lock().unwrap().io_in(port, data);
     }
 
-    fn io_out(&mut self, port: u16, data: &[u8]) {
+    fn io_out(&self, port: u16, data: &[u8]) {
         self.0.lock().unwrap().io_out(port, data);
     }
 }

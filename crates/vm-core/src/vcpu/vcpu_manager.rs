@@ -1,20 +1,20 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
+use std::thread::JoinHandle;
 
 #[cfg(target_arch = "aarch64")]
-use crate::arch::aarch64::firmware::psci::Psci;
-#[cfg(target_arch = "aarch64")]
 use crate::arch::aarch64::vcpu::setup_cpu;
-use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error as VmError;
 use crate::vcpu::error::VcpuError;
 use crate::vcpu::vcpu::Vcpu;
-use crate::virt::Vm;
+use crate::vcpu::vm_exit::VmExit;
+use crate::virt::vm::Vm;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn Vm>,
     vcpus: Vec<Arc<Mutex<Vcpu>>>,
+    handlers: Vec<JoinHandle<Result<(), VcpuError>>>,
 }
 
 impl VcpuManager {
@@ -22,22 +22,20 @@ impl VcpuManager {
         VcpuManager {
             vm_instance,
             vcpus: Default::default(),
+            handlers: Default::default(),
         }
     }
 
     pub fn create_vcpu(
         &mut self,
         vcpu_id: usize,
-        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
-        #[cfg(target_arch = "aarch64")] psci: Arc<dyn Psci>,
+        vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<(), VmError> {
         let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id)?;
 
         let vcpu = Vcpu {
             vcpu_instance,
-            device_vm_exit_handler,
-            #[cfg(target_arch = "aarch64")]
-            psci,
+            vm_exit_handler,
         };
 
         self.vcpus.push(Arc::new(Mutex::new(vcpu)));
@@ -45,14 +43,14 @@ impl VcpuManager {
         Ok(())
     }
 
-    pub fn start_vcpu(&self, vcpu_id: usize, start_pc: u64, x0: u64) -> Result<(), VcpuError> {
+    pub fn start_vcpu(&mut self, vcpu_id: usize, start_pc: u64, x0: u64) -> Result<(), VcpuError> {
         let vcpu = self
             .vcpus
             .get(vcpu_id)
             .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?
             .clone();
 
-        thread::spawn(move || -> Result<(), VcpuError> {
+        let handle = thread::spawn(move || -> Result<(), VcpuError> {
             let mut vcpu = vcpu.lock().unwrap();
 
             vcpu.vcpu_instance.post_init_within_thread()?;
@@ -62,6 +60,8 @@ impl VcpuManager {
                 setup_cpu(x0, start_pc, vcpu_id, &mut *vcpu.vcpu_instance)?;
             }
 
+            let vm_exit_handler = vcpu.vm_exit_handler.clone();
+
             loop {
                 let vm_exit_reason = vcpu.vcpu_instance.run()?;
 
@@ -70,8 +70,11 @@ impl VcpuManager {
                     use crate::arch::aarch64::vcpu::reg::CoreRegister;
                     use crate::arch::aarch64::vm_exit::HandleVmExitResult;
 
-                    match crate::arch::aarch64::vm_exit::handle_vm_exit(&mut *vcpu, vm_exit_reason)?
-                    {
+                    match crate::arch::aarch64::vm_exit::handle_vm_exit(
+                        &mut *vcpu,
+                        vm_exit_reason,
+                        vm_exit_handler.as_ref(),
+                    )? {
                         HandleVmExitResult::Continue => (),
                         HandleVmExitResult::NextInstruction => {
                             let pc = vcpu.vcpu_instance.get_core_reg(CoreRegister::PC)?;
@@ -81,6 +84,8 @@ impl VcpuManager {
                 }
             }
         });
+
+        self.handlers.push(handle);
 
         Ok(())
     }

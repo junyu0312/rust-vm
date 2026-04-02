@@ -1,6 +1,4 @@
-#[cfg(target_arch = "aarch64")]
-use crate::arch::aarch64::firmware::psci::error::PsciError;
-use crate::device_manager::vm_exit::DeviceError;
+use crate::vcpu::vm_exit::VmExitHandlerError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VcpuError {
@@ -15,13 +13,9 @@ pub enum VcpuError {
     #[error("{0}")]
     KvmError(#[from] kvm_ioctls::Error),
 
-    #[cfg(target_arch = "aarch64")]
-    #[error("{0}")]
-    PsciError(#[from] PsciError),
-
-    #[error("{0}")]
-    DeviceError(#[from] DeviceError),
-
     #[error("{0}")]
     GuestError(String),
+
+    #[error("{0}")]
+    VmExitHandlerErr(#[from] VmExitHandlerError),
 }

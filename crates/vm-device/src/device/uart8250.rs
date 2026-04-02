@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::io::{self};
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
@@ -163,7 +164,7 @@ mod msr {
     }
 }
 
-pub struct Uart8250<const IRQ: u32> {
+struct Uart8250Internal<const IRQ: u32> {
     port_base: Option<u16>,
 
     txr: u8,
@@ -181,27 +182,7 @@ pub struct Uart8250<const IRQ: u32> {
     irq_state: bool,
 }
 
-impl<const IRQ: u32> Uart8250<IRQ> {
-    pub fn new(port_base: Option<u16>, irq_controller: Arc<dyn InterruptController>) -> Self {
-        Uart8250 {
-            port_base,
-            txr: Default::default(),
-            rbr: Default::default(),
-            dll: Default::default(),
-            dlh: Default::default(),
-            ier: Default::default(),
-            iir: Default::default(),
-            lcr: Default::default(),
-            mcr: Default::default(),
-            lsr: Default::default(),
-            msr: Default::default(),
-            irq_controller,
-            irq_state: false,
-        }
-    }
-}
-
-impl<const IRQ: u32> Uart8250<IRQ> {
+impl<const IRQ: u32> Uart8250Internal<IRQ> {
     // Transmitter holding register
     fn out_thr(&mut self, data: &[u8]) {
         assert_eq!(data.len(), 1);
@@ -349,6 +330,30 @@ impl<const IRQ: u32> Uart8250<IRQ> {
     }
 }
 
+pub struct Uart8250<const IRQ: u32>(Mutex<Uart8250Internal<IRQ>>);
+
+impl<const IRQ: u32> Uart8250<IRQ> {
+    pub fn new(port_base: Option<u16>, irq_controller: Arc<dyn InterruptController>) -> Self {
+        let internal = Uart8250Internal {
+            port_base,
+            txr: Default::default(),
+            rbr: Default::default(),
+            dll: Default::default(),
+            dlh: Default::default(),
+            ier: Default::default(),
+            iir: Default::default(),
+            lcr: Default::default(),
+            mcr: Default::default(),
+            lsr: Default::default(),
+            msr: Default::default(),
+            irq_controller,
+            irq_state: false,
+        };
+
+        Uart8250(Mutex::new(internal))
+    }
+}
+
 impl<const IRQ: u32> Device for Uart8250<IRQ> {
     fn name(&self) -> String {
         "uart8250".to_string()
@@ -357,7 +362,9 @@ impl<const IRQ: u32> Device for Uart8250<IRQ> {
 
 impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
     fn ports(&self) -> Vec<PortRange> {
-        let base = *self.port_base.as_ref().unwrap();
+        let internal = self.0.lock().unwrap();
+
+        let base = *internal.port_base.as_ref().unwrap();
 
         vec![
             PortRange {
@@ -395,44 +402,48 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
         ]
     }
 
-    fn io_in(&mut self, port: u16, data: &mut [u8]) {
-        let base = self.port_base.as_ref().unwrap();
+    fn io_in(&self, port: u16, data: &mut [u8]) {
+        let mut internal = self.0.lock().unwrap();
+
+        let base = internal.port_base.as_ref().unwrap();
 
         match port - base {
-            RBR if !self.lcr.is_dlab_set() => self.in_rbr(data),
-            DLL if self.lcr.is_dlab_set() => self.in_dll(data),
-            IER if !self.lcr.is_dlab_set() => self.in_ier(data),
-            DLH if self.lcr.is_dlab_set() => self.in_dlh(data),
-            IIR => self.in_iir(data),
-            LCR => self.in_lcr(data),
-            MCR => self.in_mcr(data),
-            LSR => self.in_lsr(data),
-            MSR => self.in_msr(data),
-            SR => self.in_sr(data),
+            RBR if !internal.lcr.is_dlab_set() => internal.in_rbr(data),
+            DLL if internal.lcr.is_dlab_set() => internal.in_dll(data),
+            IER if !internal.lcr.is_dlab_set() => internal.in_ier(data),
+            DLH if internal.lcr.is_dlab_set() => internal.in_dlh(data),
+            IIR => internal.in_iir(data),
+            LCR => internal.in_lcr(data),
+            MCR => internal.in_mcr(data),
+            LSR => internal.in_lsr(data),
+            MSR => internal.in_msr(data),
+            SR => internal.in_sr(data),
             _ => unreachable!(),
         }
 
-        self.update_irq();
+        internal.update_irq();
     }
 
-    fn io_out(&mut self, port: u16, data: &[u8]) {
-        let base = self.port_base.as_ref().unwrap();
+    fn io_out(&self, port: u16, data: &[u8]) {
+        let mut internal = self.0.lock().unwrap();
+
+        let base = internal.port_base.as_ref().unwrap();
 
         match port - base {
-            THR if !self.lcr.is_dlab_set() => self.out_thr(data),
-            DLL if self.lcr.is_dlab_set() => self.out_dll(data),
-            IER if !self.lcr.is_dlab_set() => self.out_ier(data),
-            DLH if self.lcr.is_dlab_set() => self.out_dlh(data),
-            // FCR => self.out_fcr(data),
+            THR if !internal.lcr.is_dlab_set() => internal.out_thr(data),
+            DLL if internal.lcr.is_dlab_set() => internal.out_dll(data),
+            IER if !internal.lcr.is_dlab_set() => internal.out_ier(data),
+            DLH if internal.lcr.is_dlab_set() => internal.out_dlh(data),
+            // FCR => internal.out_fcr(data),
             FCR => (), // no fifo,
-            LCR => self.out_lcr(data),
-            MCR => self.out_mcr(data),
+            LCR => internal.out_lcr(data),
+            MCR => internal.out_mcr(data),
             LSR => (), // Ignore
             MSR => (), // Ignore
             SR => (),  // 8250 does not have sr
             _ => unreachable!(),
         }
 
-        self.update_irq();
+        internal.update_irq();
     }
 }

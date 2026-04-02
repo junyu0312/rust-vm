@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use vm_core::device::Device;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
@@ -12,54 +14,58 @@ const CONFIG_DATA: u16 = 0xcfc;
 
 #[derive(Default)]
 pub struct PciRootComplexPio {
-    config_address: ConfigAddress,
-    internal: PciRootComplex,
+    config_address: Mutex<ConfigAddress>,
+    internal: Mutex<PciRootComplex>,
 }
 
 impl PciRootComplexPio {
-    fn handle_out_config_address(&mut self, offset: u8, data: &[u8]) {
-        self.config_address.write(offset, data);
+    fn handle_out_config_address(&self, offset: u8, data: &[u8]) {
+        self.config_address.lock().unwrap().write(offset, data);
     }
 
     fn handle_in_config_address(&self, offset: u8, data: &mut [u8]) {
-        self.config_address.read(offset, data);
+        self.config_address.lock().unwrap().read(offset, data);
     }
 
-    fn handle_out_config_data(&mut self, offset: u8, data: &[u8]) {
+    fn handle_out_config_data(&self, offset: u8, data: &[u8]) {
+        let config_address = self.config_address.lock().unwrap();
+
         assert_eq!(data.len(), 4);
 
-        if !self.config_address.enable() {
+        if !config_address.enable() {
             return;
         }
 
-        let register = self.config_address.register();
+        let register = config_address.register();
         // let offset = self.config_address.offset();
         let start = register * 4 + offset;
 
-        self.internal.handle_ecam_write(
-            self.config_address.bus(),
-            self.config_address.device(),
-            self.config_address.function(),
+        self.internal.lock().unwrap().handle_ecam_write(
+            config_address.bus(),
+            config_address.device(),
+            config_address.function(),
             start as u16,
             data,
         );
     }
 
     fn handle_in_config_data(&self, offset: u8, data: &mut [u8]) {
-        if !self.config_address.enable() {
+        let config_address = self.config_address.lock().unwrap();
+
+        if !config_address.enable() {
             data.fill(0xff);
 
             return;
         }
 
-        let register = self.config_address.register();
+        let register = config_address.register();
         // let offset = self.config_address.offset(); // ignore offset?
         let start = register * 4 + offset;
 
-        self.internal.handle_ecam_read(
-            self.config_address.bus(),
-            self.config_address.device(),
-            self.config_address.function(),
+        self.internal.lock().unwrap().handle_ecam_read(
+            config_address.bus(),
+            config_address.device(),
+            config_address.function(),
             start as u16,
             data,
         );
@@ -86,7 +92,7 @@ impl PioDevice for PciRootComplexPio {
         ]
     }
 
-    fn io_in(&mut self, port: u16, data: &mut [u8]) {
+    fn io_in(&self, port: u16, data: &mut [u8]) {
         if (CONFIG_ADDRESS..CONFIG_ADDRESS + 4).contains(&port) {
             let offset = port - CONFIG_ADDRESS;
             self.handle_in_config_address(offset as u8, data);
@@ -98,7 +104,7 @@ impl PioDevice for PciRootComplexPio {
         }
     }
 
-    fn io_out(&mut self, port: u16, data: &[u8]) {
+    fn io_out(&self, port: u16, data: &[u8]) {
         if (CONFIG_ADDRESS..CONFIG_ADDRESS + 4).contains(&port) {
             let offset = port - CONFIG_ADDRESS;
             self.handle_out_config_address(offset as u8, data);

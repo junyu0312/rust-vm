@@ -30,9 +30,9 @@ impl PioAddressSpaceManager {
         Ok(())
     }
 
-    pub fn get_device_by_port(&mut self, port: u16) -> Option<&mut dyn PioDevice> {
+    pub fn get_device_by_port(&self, port: u16) -> Option<&dyn PioDevice> {
         let (_, &idx) = self.address_space.try_get_value_by_key(port)?;
 
-        Some(self.device[idx].as_mut())
+        Some(self.device[idx].as_ref())
     }
 }

@@ -1,23 +1,10 @@
 use tracing::trace;
 
-use crate::arch::aarch64::firmware::psci::error::PsciError;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::device_manager::vm_exit::DeviceError;
 use crate::vcpu::error::VcpuError;
 use crate::vcpu::vcpu::Vcpu;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Failed to handle mmio, err: {0}")]
-    DeviceError(#[from] DeviceError),
-
-    #[error("Failed to rw vcpu, err: {0}")]
-    VcpuError(String),
-
-    #[error("Failed to handle smc, err: {0}")]
-    PsciError(#[from] PsciError),
-}
+use crate::vcpu::vm_exit::VmExit;
 
 #[derive(Debug)]
 pub enum VmExitReason {
@@ -52,24 +39,23 @@ pub enum HandleVmExitResult {
 pub fn handle_vm_exit(
     vcpu: &mut Vcpu,
     exit_reason: VmExitReason,
+    vm_exit_handler: &dyn VmExit,
 ) -> Result<HandleVmExitResult, VcpuError> {
-    let device_vm_exit_handler = vcpu.device_vm_exit_handler.clone();
-
     trace!(?exit_reason);
 
     match exit_reason {
         VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
         VmExitReason::Wf => Ok(HandleVmExitResult::NextInstruction),
-        VmExitReason::MMRead { gpa, srt, len } if device_vm_exit_handler.in_mmio_region(gpa) => {
+        VmExitReason::MMRead { gpa, srt, len } if vm_exit_handler.in_mmio_region(gpa) => {
             let mut buf = [0; 8];
-            device_vm_exit_handler.mmio_read(gpa, len, &mut buf[0..len])?;
+            vm_exit_handler.mmio_read(gpa, len, &mut buf[0..len])?;
             vcpu.vcpu_instance
                 .set_core_reg(srt, u64::from_le_bytes(buf))?;
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMRead { .. } => todo!(),
-        VmExitReason::MMWrite { gpa, buf, len } if device_vm_exit_handler.in_mmio_region(gpa) => {
-            device_vm_exit_handler.mmio_write(gpa, len, &buf)?;
+        VmExitReason::MMWrite { gpa, buf, len } if vm_exit_handler.in_mmio_region(gpa) => {
+            vm_exit_handler.mmio_write(gpa, len, &buf)?;
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMWrite { .. } => todo!(),
@@ -83,10 +69,8 @@ pub fn handle_vm_exit(
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::Smc => {
-            let psci = vcpu.psci.clone();
-
             // We only support psci for smc now
-            psci.call(vcpu.vcpu_instance.as_mut())?;
+            vm_exit_handler.call_smc(vcpu.vcpu_instance.as_mut())?;
 
             Ok(HandleVmExitResult::NextInstruction)
         }
