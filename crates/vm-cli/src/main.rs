@@ -5,8 +5,8 @@ use tracing::debug;
 use tracing_subscriber::EnvFilter;
 use vm_bootloader::boot_loader::BootLoaderBuilder;
 use vm_core::virt::Virt;
-use vm_machine::vm::config::VmConfig;
-use vm_machine::vmm::Vmm;
+use vm_vmm::vm::config::VmConfig;
+use vm_vmm::vmm::Vmm;
 
 use crate::cmd::Accel;
 use crate::cmd::Command;

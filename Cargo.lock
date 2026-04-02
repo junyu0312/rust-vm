@@ -970,7 +970,7 @@ dependencies = [
  "vm-bootloader",
  "vm-core",
  "vm-device",
- "vm-machine",
+ "vm-vmm",
 ]
 
 [[package]]
@@ -1027,26 +1027,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e21282841a059bb62627ce8441c491f09603622cd5a21c43bfedc85a2952f23"
 
 [[package]]
-name = "vm-machine"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "kvm-bindings",
- "kvm-ioctls",
- "lazy_static",
- "maplit",
- "thiserror",
- "tokio",
- "tracing",
- "vm-bootloader",
- "vm-core",
- "vm-device",
- "vm-mm",
- "vm-pci",
- "vm-virtio",
-]
-
-[[package]]
 name = "vm-mm"
 version = "0.1.0"
 dependencies = [
@@ -1090,6 +1070,26 @@ dependencies = [
  "vm-mm",
  "vm-pci",
  "zerocopy",
+]
+
+[[package]]
+name = "vm-vmm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "kvm-bindings",
+ "kvm-ioctls",
+ "lazy_static",
+ "maplit",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "vm-bootloader",
+ "vm-core",
+ "vm-device",
+ "vm-mm",
+ "vm-pci",
+ "vm-virtio",
 ]
 
 [[package]]

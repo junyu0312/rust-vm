@@ -14,7 +14,7 @@ tracing-subscriber.workspace = true
 vm-bootloader.workspace = true
 vm-core.workspace = true
 vm-device.workspace = true
-vm-machine.workspace = true
+vm-vmm.workspace = true
 
 [features]
 default = ["kvm"]
