@@ -90,8 +90,7 @@ impl AArch64IrqChip for HvpGicV3 {
     }
 
     fn get_distributor_size(&self) -> anyhow::Result<usize> {
-        let size = GicConfig::get_distributor_size()?;
-        Ok(size)
+        Ok(GicConfig::get_distributor_size()?)
     }
 
     fn get_redistributor_base(&self) -> u64 {
@@ -99,8 +98,7 @@ impl AArch64IrqChip for HvpGicV3 {
     }
 
     fn get_redistributor_region_size(&self) -> anyhow::Result<usize> {
-        let size = GicConfig::get_redistributor_region_size()?;
-        Ok(size)
+        Ok(GicConfig::get_redistributor_region_size()?)
     }
 
     fn get_msi_region_base(&self) -> u64 {
