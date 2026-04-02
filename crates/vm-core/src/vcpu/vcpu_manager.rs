@@ -10,7 +10,7 @@ use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error as VmError;
 use crate::vcpu::error::VcpuError;
 use crate::vcpu::vcpu::Vcpu;
-use crate::virt::Vm;
+use crate::virt::vm::Vm;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn Vm>,

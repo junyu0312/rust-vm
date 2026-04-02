@@ -21,8 +21,8 @@ use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::manager::DeviceManager;
 use vm_core::monitor::MonitorServerBuilder;
 use vm_core::vcpu::vcpu_manager::VcpuManager;
-use vm_core::virt::SetUserMemoryRegionFlags;
 use vm_core::virt::Virt;
+use vm_core::virt::vm::SetUserMemoryRegionFlags;
 use vm_device::device::Device;
 use vm_mm::allocator::Allocator;
 use vm_mm::allocator::std_allocator::StdAllocator;
@@ -109,7 +109,7 @@ impl Vmm {
         }
 
         let vm = Vm {
-            vm_instance,
+            _vm_instance: vm_instance,
             vcpu_manager,
             memory_address_space,
             irq_chip,

@@ -23,12 +23,12 @@ use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
 use crate::error::Error;
 use crate::error::Result;
-use crate::virt::SetUserMemoryRegionFlags;
 use crate::virt::Virt;
 use crate::virt::Vm;
 use crate::virt::hvp::irq_chip::HvpGicV3;
 use crate::virt::hvp::vcpu::HvpVcpu;
 use crate::virt::vcpu::Vcpu;
+use crate::virt::vm::SetUserMemoryRegionFlags;
 
 pub(crate) mod vcpu;
 
