@@ -1,4 +1,5 @@
 use vm_core::cpu::error::VcpuError;
+use vm_core::monitor::MonitorError;
 use vm_core::utils::address_space::AddressSpaceError;
 
 #[derive(Debug, thiserror::Error)]
@@ -43,7 +44,7 @@ pub enum Error {
     GdbStub(String),
 
     #[error("monitor error: {0}")]
-    Monitor(#[from] vm_core::monitor::Error),
+    Monitor(#[from] MonitorError),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

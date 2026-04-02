@@ -8,12 +8,12 @@ use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device_manager::DeviceManager;
-use vm_core::monitor::MonitorServer;
 use vm_core::virt::vm::HypervisorVm;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::error::Error;
 use crate::error::Result;
+use crate::service::monitor::MonitorServer;
 use crate::vm::config::VmConfig;
 
 pub mod config;

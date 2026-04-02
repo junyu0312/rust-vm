@@ -3,8 +3,8 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use serde::Serialize;
-use vm_core::monitor::Error;
 use vm_core::monitor::MonitorCommand;
+use vm_core::monitor::MonitorError;
 use vm_virtio::transport::VirtioDev;
 
 use crate::device::virtio::virtio_balloon_traditional::device::VirtioBalloonApi;
@@ -28,7 +28,7 @@ impl VirtioBalloonMonitor {
 
 #[async_trait]
 impl MonitorCommand for VirtioBalloonMonitor {
-    async fn handle_command(&self, subcommands: &[&str]) -> Result<String, Error> {
+    async fn handle_command(&self, subcommands: &[&str]) -> Result<String, MonitorError> {
         match *subcommands {
             ["info"] => {
                 let dev = self.device.lock().unwrap();
@@ -39,7 +39,7 @@ impl MonitorCommand for VirtioBalloonMonitor {
             }
             ["update_num_pages", num_pages] => {
                 let num_pages = num_pages.parse().map_err(|_err| {
-                    Error::Error(format!("failed to parse num_pages: {num_pages}"))
+                    MonitorError::Error(format!("failed to parse num_pages: {num_pages}"))
                 })?;
 
                 let mut dev = self.device.lock().unwrap();
@@ -47,7 +47,7 @@ impl MonitorCommand for VirtioBalloonMonitor {
 
                 Ok(num_pages.to_string())
             }
-            _ => Err(Error::UnknownSubcommand(
+            _ => Err(MonitorError::UnknownSubcommand(
                 subcommands.iter().map(|s| s.to_string()).collect(),
             )),
         }
