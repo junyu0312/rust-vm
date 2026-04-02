@@ -4,13 +4,11 @@ use std::thread;
 use std::thread::JoinHandle;
 
 #[cfg(target_arch = "aarch64")]
-use crate::arch::aarch64::firmware::psci::Psci;
-#[cfg(target_arch = "aarch64")]
 use crate::arch::aarch64::vcpu::setup_cpu;
-use crate::device_manager::vm_exit::DeviceVmExitHandler;
 use crate::error::Error as VmError;
 use crate::vcpu::error::VcpuError;
 use crate::vcpu::vcpu::Vcpu;
+use crate::vcpu::vm_exit::VmExit;
 use crate::virt::vm::Vm;
 
 pub struct VcpuManager {
@@ -31,16 +29,13 @@ impl VcpuManager {
     pub fn create_vcpu(
         &mut self,
         vcpu_id: usize,
-        device_vm_exit_handler: Arc<dyn DeviceVmExitHandler>,
-        #[cfg(target_arch = "aarch64")] psci: Arc<dyn Psci>,
+        vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<(), VmError> {
         let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id)?;
 
         let vcpu = Vcpu {
             vcpu_instance,
-            device_vm_exit_handler,
-            #[cfg(target_arch = "aarch64")]
-            psci,
+            vm_exit_handler,
         };
 
         self.vcpus.push(Arc::new(Mutex::new(vcpu)));
@@ -65,6 +60,8 @@ impl VcpuManager {
                 setup_cpu(x0, start_pc, vcpu_id, &mut *vcpu.vcpu_instance)?;
             }
 
+            let vm_exit_handler = vcpu.vm_exit_handler.clone();
+
             loop {
                 let vm_exit_reason = vcpu.vcpu_instance.run()?;
 
@@ -73,8 +70,11 @@ impl VcpuManager {
                     use crate::arch::aarch64::vcpu::reg::CoreRegister;
                     use crate::arch::aarch64::vm_exit::HandleVmExitResult;
 
-                    match crate::arch::aarch64::vm_exit::handle_vm_exit(&mut *vcpu, vm_exit_reason)?
-                    {
+                    match crate::arch::aarch64::vm_exit::handle_vm_exit(
+                        &mut *vcpu,
+                        vm_exit_reason,
+                        vm_exit_handler.as_ref(),
+                    )? {
                         HandleVmExitResult::Continue => (),
                         HandleVmExitResult::NextInstruction => {
                             let pc = vcpu.vcpu_instance.get_core_reg(CoreRegister::PC)?;

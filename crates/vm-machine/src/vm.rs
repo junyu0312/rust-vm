@@ -17,6 +17,8 @@ use crate::vm::config::VmConfig;
 
 pub mod config;
 
+pub(crate) mod vm_exit_handler;
+
 pub struct Vm {
     pub(crate) _vm_instance: Arc<dyn vm_core::virt::vm::Vm>,
     pub(crate) vcpu_manager: Arc<Mutex<VcpuManager>>,

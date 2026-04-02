@@ -25,11 +25,11 @@ impl PioDevice for Cmos {
         ]
     }
 
-    fn io_in(&mut self, _port: u16, _data: &mut [u8]) {
+    fn io_in(&self, _port: u16, _data: &mut [u8]) {
         // TODO
     }
 
-    fn io_out(&mut self, _port: u16, _data: &[u8]) {
+    fn io_out(&self, _port: u16, _data: &[u8]) {
         // TODO
     }
 }
