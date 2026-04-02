@@ -23,9 +23,9 @@ pub enum VmExitHandlerError {
 }
 
 pub trait VmExit: Send + Sync {
-    fn io_in(&mut self, port: u16, data: &mut [u8]) -> Result<(), VmExitHandlerError>;
+    fn io_in(&self, port: u16, data: &mut [u8]) -> Result<(), VmExitHandlerError>;
 
-    fn io_out(&mut self, port: u16, data: &[u8]) -> Result<(), VmExitHandlerError>;
+    fn io_out(&self, port: u16, data: &[u8]) -> Result<(), VmExitHandlerError>;
 
     fn mmio_read(&self, addr: u64, len: usize, data: &mut [u8]) -> Result<(), VmExitHandlerError>;
 

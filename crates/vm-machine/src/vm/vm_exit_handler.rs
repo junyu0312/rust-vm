@@ -7,6 +7,8 @@ use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
 use vm_core::device_manager::manager::DeviceManager;
 use vm_core::vcpu::vm_exit::VmExit;
 use vm_core::vcpu::vm_exit::VmExitHandlerError;
+#[cfg(target_arch = "aarch64")]
+use vm_core::virt::vcpu::Vcpu;
 
 pub struct VmExitHandler {
     pub device_manager: Arc<DeviceManager>,
@@ -15,7 +17,7 @@ pub struct VmExitHandler {
 }
 
 impl VmExit for VmExitHandler {
-    fn io_in(&mut self, port: u16, data: &mut [u8]) -> Result<(), VmExitHandlerError> {
+    fn io_in(&self, port: u16, data: &mut [u8]) -> Result<(), VmExitHandlerError> {
         let device = self
             .device_manager
             .pio_manager
@@ -27,7 +29,7 @@ impl VmExit for VmExitHandler {
         Ok(())
     }
 
-    fn io_out(&mut self, port: u16, data: &[u8]) -> Result<(), VmExitHandlerError> {
+    fn io_out(&self, port: u16, data: &[u8]) -> Result<(), VmExitHandlerError> {
         let device = self
             .device_manager
             .pio_manager
@@ -95,7 +97,7 @@ impl VmExit for VmExitHandler {
     }
 
     #[cfg(target_arch = "aarch64")]
-    fn call_smc(&self, vcpu: &mut dyn vm_core::virt::vcpu::Vcpu) -> Result<(), VmExitHandlerError> {
+    fn call_smc(&self, vcpu: &mut dyn Vcpu) -> Result<(), VmExitHandlerError> {
         self.psci.call(vcpu)?;
 
         Ok(())
