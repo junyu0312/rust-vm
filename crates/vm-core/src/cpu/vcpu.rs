@@ -4,6 +4,7 @@ use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vcpu::HypervisorVcpu;
 
 pub struct Vcpu {
+    pub vcpu_id: usize,
     pub vcpu_instance: Box<dyn HypervisorVcpu>,
     pub vm_exit_handler: Arc<dyn VmExit>,
 }

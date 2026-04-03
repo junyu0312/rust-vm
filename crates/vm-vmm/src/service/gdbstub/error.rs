@@ -4,4 +4,7 @@ use thiserror::Error;
 pub enum VmGdbStubError {
     #[error("io error: {0}")]
     IO(#[from] std::io::Error),
+
+    #[error("invalid thread ID")]
+    InvalidTid,
 }
