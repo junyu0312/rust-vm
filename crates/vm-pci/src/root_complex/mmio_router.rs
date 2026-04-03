@@ -1,4 +1,5 @@
 use tracing::debug;
+use tracing::warn;
 use vm_core::device::mmio::layout::MmioRange;
 use vm_core::utils::address_space::AddressSpace;
 
@@ -50,7 +51,7 @@ impl MmioRouter {
             )
             .is_err()
         {
-            println!("remap range: {:?} ignored", pci_address_range);
+            warn!("remap range: {:?} ignored", pci_address_range);
         }
     }
 

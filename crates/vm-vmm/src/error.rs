@@ -5,6 +5,8 @@ use vm_core::utils::address_space::AddressSpaceError;
 use vm_core::virtualization::hypervisor::HypervisorError;
 use vm_core::virtualization::vm::VmError;
 
+use crate::service::gdbstub::error::VmGdbStubError;
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Vm already exists")]
@@ -21,6 +23,9 @@ pub enum Error {
 
     #[error("Vcpu error: {0}")]
     VcpuError(#[from] VcpuError),
+
+    #[error("Gdb error: {0}")]
+    GdbError(#[from] VmGdbStubError),
 
     #[error("Device address space error: {0}")]
     DeviceAddressSpace(#[from] AddressSpaceError),
