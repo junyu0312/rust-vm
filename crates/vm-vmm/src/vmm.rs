@@ -17,7 +17,6 @@ use vm_core::arch::x86_64::layout::MMIO_START;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
-use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
 use vm_core::virtualization::hypervisor::Hypervisor;
@@ -32,6 +31,7 @@ use vm_mm::region::MemoryRegion;
 use crate::device::InitDevice;
 use crate::error::Error;
 use crate::error::Result;
+use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::MonitorServerBuilder;
 use crate::vm::Vm;
 use crate::vm::config::VmConfig;
@@ -119,7 +119,7 @@ impl Vmm {
             memory_address_space,
             irq_chip,
             device_manager,
-            gdb_stub: vm_config.gdb_port.map(GdbStub::new),
+            gdb_stub: vm_config.gdb_port.map(VmGdbStubConnector::new),
             monitor: monitor_server_builder.build(),
             vm_config,
         };

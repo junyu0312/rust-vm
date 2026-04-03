@@ -6,13 +6,12 @@ use vm_bootloader::boot_loader::BootLoader;
 use vm_core::arch::aarch64::layout::DTB_START;
 use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::vcpu_manager::VcpuManager;
-use vm_core::debug::gdbstub::GdbStub;
 use vm_core::device_manager::DeviceManager;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_mm::manager::MemoryAddressSpace;
 
-use crate::error::Error;
 use crate::error::Result;
+use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::MonitorServer;
 use crate::vm::config::VmConfig;
 
@@ -26,7 +25,7 @@ pub struct Vm {
     pub(crate) memory_address_space: Arc<MemoryAddressSpace>,
     pub(crate) irq_chip: Arc<dyn InterruptController>,
     pub(crate) device_manager: Arc<DeviceManager>,
-    pub(crate) gdb_stub: Option<GdbStub>,
+    pub(crate) gdb_stub: Option<VmGdbStubConnector>,
     pub(crate) monitor: MonitorServer,
     pub(crate) vm_config: VmConfig,
 }
@@ -44,9 +43,7 @@ impl Vm {
         self.monitor.start();
 
         if let Some(gdb_stub) = &self.gdb_stub {
-            gdb_stub
-                .wait_for_connection()
-                .map_err(|err| Error::GdbStub(err.to_string()))?;
+            gdb_stub.wait_for_connection()?;
         }
 
         #[cfg(target_arch = "aarch64")]
