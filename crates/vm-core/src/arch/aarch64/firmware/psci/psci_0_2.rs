@@ -50,13 +50,11 @@ impl Psci for Psci02 {
                     let entry_point_address = vcpu.get_smc_arg2().unwrap();
                     let context_id = vcpu.get_smc_arg3().unwrap();
 
-                    println!("try lock vcpu_manager");
                     self.vcpu_manager
                         .lock()
                         .unwrap()
                         .start_vcpu(target_cpu as usize, entry_point_address, context_id)
                         .unwrap();
-                    println!("try lock vcpu_manager ok");
 
                     PsciRet::SUCCESS as u32
                 }
