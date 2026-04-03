@@ -11,17 +11,14 @@ async-trait = { workspace = true }
 bitflags = { workspace = true }
 kvm-bindings = { workspace = true, optional = true }
 kvm-ioctls = { workspace = true, optional = true }
-memmap2 = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
 vm-fdt = { workspace = true }
-vm-mm = { workspace = true }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 static_assertions = { workspace = true }
 strum_macros = { workspace = true }
+tracing = { workspace = true }
 
 [features]
 kvm = ["dep:kvm-bindings", "dep:kvm-ioctls"]

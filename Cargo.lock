@@ -994,15 +994,12 @@ dependencies = [
  "bitflags 2.10.0",
  "kvm-bindings",
  "kvm-ioctls",
- "memmap2",
  "serde_json",
  "static_assertions",
  "strum_macros",
  "thiserror",
- "tokio",
  "tracing",
  "vm-fdt",
- "vm-mm",
 ]
 
 [[package]]
