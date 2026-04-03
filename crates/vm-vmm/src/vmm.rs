@@ -115,11 +115,13 @@ impl Vmm {
 
         let vm = Vm {
             _vm_instance: vm_instance,
-            vcpu_manager,
+            vcpu_manager: vcpu_manager.clone(),
             memory_address_space,
             irq_chip,
             device_manager,
-            gdb_stub: vm_config.gdb_port.map(VmGdbStubConnector::new),
+            gdb_stub: vm_config
+                .gdb_port
+                .map(|port| VmGdbStubConnector::new(vcpu_manager, port)),
             monitor: monitor_server_builder.build(),
             vm_config,
         };

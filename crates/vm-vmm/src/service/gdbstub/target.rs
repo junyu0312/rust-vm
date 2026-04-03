@@ -1,14 +1,34 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use gdbstub::arch::Arch;
 use gdbstub::common::Tid;
 use gdbstub::target::Target;
 use gdbstub::target::TargetResult;
 use gdbstub::target::ext::base::BaseOps;
 use gdbstub::target::ext::base::multithread::MultiThreadBase;
+use vm_core::cpu::vcpu_manager::VcpuManager;
 
 use crate::service::gdbstub::GdbStubArch;
 use crate::service::gdbstub::error::VmGdbStubError;
 
-pub struct VmGdbStubTarget {}
+fn vcpu_id_to_tid(vcpu_id: usize) -> Result<Tid, VmGdbStubError> {
+    Tid::new(vcpu_id + 1).ok_or(VmGdbStubError::InvalidTid)
+}
+
+fn tid_to_vcpu_id(tid: Tid) -> usize {
+    tid.get() as usize - 1
+}
+
+pub struct VmGdbStubTarget {
+    vcpu_manager: Arc<Mutex<VcpuManager>>,
+}
+
+impl VmGdbStubTarget {
+    pub fn new(vcpu_manager: Arc<Mutex<VcpuManager>>) -> VmGdbStubTarget {
+        VmGdbStubTarget { vcpu_manager }
+    }
+}
 
 impl MultiThreadBase for VmGdbStubTarget {
     fn read_registers(
@@ -47,9 +67,16 @@ impl MultiThreadBase for VmGdbStubTarget {
 
     fn list_active_threads(
         &mut self,
-        _thread_is_active: &mut dyn FnMut(Tid),
+        thread_is_active: &mut dyn FnMut(Tid),
     ) -> Result<(), VmGdbStubError> {
-        todo!()
+        let vcpu_manager = self.vcpu_manager.lock().unwrap();
+
+        for vcpu_id in 0..vcpu_manager.get_active_vcpus() {
+            let tid = vcpu_id_to_tid(vcpu_id)?;
+            thread_is_active(tid);
+        }
+
+        Ok(())
     }
 }
 

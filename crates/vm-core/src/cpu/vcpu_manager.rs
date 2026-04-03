@@ -26,6 +26,10 @@ impl VcpuManager {
         }
     }
 
+    pub fn get_active_vcpus(&self) -> usize {
+        self.vcpus.len()
+    }
+
     pub fn create_vcpu(
         &mut self,
         vcpu_id: usize,
@@ -34,6 +38,7 @@ impl VcpuManager {
         let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id)?;
 
         let vcpu = Vcpu {
+            vcpu_id,
             vcpu_instance,
             vm_exit_handler,
         };
