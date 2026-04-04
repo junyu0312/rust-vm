@@ -30,6 +30,10 @@ impl VcpuManager {
         self.vcpus.len()
     }
 
+    pub fn get_vcpu(&self, vcpu_id: usize) -> Option<Arc<Mutex<Vcpu>>> {
+        self.vcpus.get(vcpu_id).cloned()
+    }
+
     pub fn create_vcpu(
         &mut self,
         vcpu_id: usize,
