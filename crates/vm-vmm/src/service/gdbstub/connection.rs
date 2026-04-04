@@ -1,24 +1,24 @@
 use std::net::TcpListener;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use gdbstub::stub::DisconnectReason;
 use gdbstub::stub::GdbStub;
+use tokio::sync::mpsc;
 use tracing::error;
-use vm_core::cpu::vcpu_manager::VcpuManager;
 
 use crate::service::gdbstub::error::VmGdbStubError;
 use crate::service::gdbstub::event_loop::VmEventLoop;
 use crate::service::gdbstub::target::VmGdbStubTarget;
+use crate::vmm::command::VmmCommand;
 
 pub struct VmGdbStubConnector {
-    vcpu_manager: Arc<Mutex<VcpuManager>>,
+    tx: Arc<mpsc::Sender<VmmCommand>>,
     port: u16,
 }
 
 impl VmGdbStubConnector {
-    pub fn new(vcpu_manager: Arc<Mutex<VcpuManager>>, port: u16) -> VmGdbStubConnector {
-        VmGdbStubConnector { vcpu_manager, port }
+    pub fn new(tx: Arc<mpsc::Sender<VmmCommand>>, port: u16) -> VmGdbStubConnector {
+        VmGdbStubConnector { tx, port }
     }
 }
 
@@ -33,12 +33,12 @@ impl VmGdbStubConnector {
 
         eprintln!("{} connected", addr);
 
-        let vcpu_manager = self.vcpu_manager.clone();
+        let tx = self.tx.clone();
 
         std::thread::spawn(move || {
             let connection = Box::new(stream) as _;
             let gdbstub = GdbStub::new(connection);
-            let mut target = VmGdbStubTarget::new(vcpu_manager);
+            let mut target = VmGdbStubTarget::new(tx);
 
             match gdbstub.run_blocking::<VmEventLoop>(&mut target) {
                 Ok(disconnect_reason) => match disconnect_reason {

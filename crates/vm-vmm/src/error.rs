@@ -6,6 +6,7 @@ use vm_core::virtualization::hypervisor::HypervisorError;
 use vm_core::virtualization::vm::VmError;
 
 use crate::service::gdbstub::error::VmGdbStubError;
+use crate::vmm::command::CommandError;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -47,6 +48,9 @@ pub enum Error {
 
     #[error("monitor error: {0}")]
     Monitor(#[from] MonitorError),
+
+    #[error("Failed to handle command: {0}")]
+    VmmCommand(#[from] CommandError),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
