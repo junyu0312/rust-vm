@@ -14,4 +14,8 @@ impl Vcpu {
     pub fn get_registers(&self) -> Result<(), VcpuError> {
         todo!()
     }
+
+    pub fn write_registers(&self) -> Result<(), VcpuError> {
+        todo!()
+    }
 }

@@ -51,6 +51,21 @@ impl Vmm {
 
                 Ok(GdbStubCommandResponse::ReadRegisters {})
             }
+            GdbStubCommand::WriteRegisters { vcpu_id } => {
+                let vm = self.try_get_vm()?;
+                let vcpu = vm
+                    .vcpu_manager
+                    .lock()
+                    .unwrap()
+                    .get_vcpu(vcpu_id)
+                    .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
+
+                vcpu.lock().unwrap().write_registers()?;
+
+                Ok(GdbStubCommandResponse::WriteRegisters)
+            }
+            GdbStubCommand::ReadAddrs { .. } => todo!(),
+            GdbStubCommand::WriteAddrs { .. } => todo!(),
             GdbStubCommand::ListActiveThreads => {
                 let vm = self.try_get_vm()?;
                 let vcpu = vm.vcpu_manager.lock().unwrap().get_active_vcpus();

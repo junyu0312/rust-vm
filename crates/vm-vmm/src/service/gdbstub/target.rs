@@ -42,10 +42,9 @@ impl MultiThreadBase for VmGdbStubTarget {
     ) -> TargetResult<(), Self> {
         let vcpu_id = tid_to_vcpu_id(tid);
 
-        let Ok(response) = (GdbStubCommand::ReadRegisters { vcpu_id }).send_and_then_wait(&self.tx)
-        else {
-            return Err(TargetError::NonFatal);
-        };
+        let response = GdbStubCommand::ReadRegisters { vcpu_id }
+            .send_and_then_wait(&self.tx)
+            .map_err(|_| TargetError::NonFatal)?;
 
         match response {
             Ok(GdbStubCommandResponse::ReadRegisters) => {
@@ -65,33 +64,86 @@ impl MultiThreadBase for VmGdbStubTarget {
     fn write_registers(
         &mut self,
         _regs: &<GdbStubArch as Arch>::Registers,
-        _tid: Tid,
+        tid: Tid,
     ) -> TargetResult<(), Self> {
-        todo!()
+        let vcpu_id = tid_to_vcpu_id(tid);
+
+        let response = GdbStubCommand::WriteRegisters { vcpu_id }
+            .send_and_then_wait(&self.tx)
+            .map_err(|_| TargetError::NonFatal)?;
+
+        match response {
+            Ok(GdbStubCommandResponse::WriteRegisters) => Ok(()),
+            Ok(_) => {
+                error!("Unexpected response to WriteRegisters command");
+                Err(TargetError::NonFatal)
+            }
+            Err(err) => {
+                error!(?err, "Failed to write registers");
+                Err(TargetError::NonFatal)
+            }
+        }
     }
 
     fn read_addrs(
         &mut self,
-        _start_addr: <GdbStubArch as Arch>::Usize,
-        _data: &mut [u8],
-        _tid: Tid,
+        start_addr: <GdbStubArch as Arch>::Usize,
+        data: &mut [u8],
+        tid: Tid,
     ) -> TargetResult<usize, Self> {
-        eprintln!(
-            "read_addrs: start_addr={:#x}, len={}, tid={}",
-            _start_addr,
-            _data.len(),
-            _tid.get()
-        );
-        Err(TargetError::NonFatal)
+        let vcpu_id = tid_to_vcpu_id(tid);
+
+        let response = GdbStubCommand::ReadAddrs {
+            gva: start_addr,
+            len: data.len(),
+            vcpu_id,
+        }
+        .send_and_then_wait(&self.tx)
+        .map_err(|_| TargetError::NonFatal)?;
+
+        match response {
+            Ok(GdbStubCommandResponse::ReadAddrs { buf }) => {
+                data[..buf.len()].copy_from_slice(&buf);
+                Ok(data.len())
+            }
+            Ok(_) => {
+                error!("Unexpected response to ReadAddrs command");
+                Err(TargetError::NonFatal)
+            }
+            Err(err) => {
+                error!(?err, "Failed to read addresses");
+                Err(TargetError::NonFatal)
+            }
+        }
     }
 
     fn write_addrs(
         &mut self,
-        _start_addr: <GdbStubArch as Arch>::Usize,
-        _data: &[u8],
-        _tid: Tid,
+        start_addr: <GdbStubArch as Arch>::Usize,
+        data: &[u8],
+        tid: Tid,
     ) -> TargetResult<(), Self> {
-        todo!()
+        let vcpu_id = tid_to_vcpu_id(tid);
+
+        let response = GdbStubCommand::WriteAddrs {
+            gva: start_addr,
+            data: data.to_vec(),
+            vcpu_id,
+        }
+        .send_and_then_wait(&self.tx)
+        .map_err(|_| TargetError::NonFatal)?;
+
+        match response {
+            Ok(GdbStubCommandResponse::WriteAddrs) => Ok(()),
+            Ok(_) => {
+                error!("Unexpected response to WriteAddrs command");
+                Err(TargetError::NonFatal)
+            }
+            Err(err) => {
+                error!(?err, "Failed to write addresses");
+                Err(TargetError::NonFatal)
+            }
+        }
     }
 
     fn list_active_threads(
