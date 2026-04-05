@@ -6,13 +6,37 @@ use crate::service::gdbstub::error::VmGdbStubError;
 use crate::vmm::command::VmmCommand;
 
 pub enum GdbStubCommand {
-    ReadRegisters { vcpu_id: usize },
+    ReadRegisters {
+        vcpu_id: usize,
+    },
+
+    WriteRegisters {
+        vcpu_id: usize,
+    },
+
+    ReadAddrs {
+        gva: u64,
+        len: usize,
+        vcpu_id: usize,
+    },
+
+    WriteAddrs {
+        gva: u64,
+        data: Vec<u8>,
+        vcpu_id: usize,
+    },
 
     ListActiveThreads,
 }
 
 pub enum GdbStubCommandResponse {
     ReadRegisters,
+
+    WriteRegisters,
+
+    ReadAddrs { buf: Vec<u8> },
+
+    WriteAddrs,
 
     ListActiveThreads(usize),
 }
