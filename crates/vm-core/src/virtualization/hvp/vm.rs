@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use applevisor::gic::GicConfig;
 use applevisor::memory::MemPerms;
@@ -10,6 +11,8 @@ use applevisor_sys::hv_gic_config_set_msi_region_base;
 use applevisor_sys::hv_gic_config_set_redistributor_base;
 use applevisor_sys::hv_gic_config_t;
 use applevisor_sys::hv_gic_create;
+use applevisor_sys::hv_vcpu_t;
+use applevisor_sys::hv_vcpus_exit;
 use applevisor_sys::hv_vm_map;
 
 use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
@@ -17,6 +20,7 @@ use crate::arch::aarch64::layout::GIC_MSI;
 use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
 use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
+use crate::cpu::vcpu::Vcpu;
 use crate::virtualization::hvp::hv_unsafe_call;
 use crate::virtualization::hvp::irq_chip::HvpGicV3;
 use crate::virtualization::hvp::vcpu::HvpVcpu;
@@ -134,6 +138,31 @@ impl HypervisorVm for AppleHypervisorVm {
             MemPerms::from(flags) as u64,
         ))
         .map_err(|err| VmError::SetUserMemoryRegionError(err.to_string()))?;
+
+        Ok(())
+    }
+
+    fn tick_all_vcpus(&self, vcpus: Vec<Arc<Mutex<Vcpu>>>) -> Result<(), VmError> {
+        let mut handlers: Vec<hv_vcpu_t> = Vec::with_capacity(vcpus.len());
+
+        for vcpu in vcpus {
+            let vcpu = vcpu.lock().unwrap();
+
+            let vcpu_instance = vcpu
+                .vcpu_instance
+                .as_any()
+                .downcast_ref::<HvpVcpu>()
+                .ok_or(VmError::Internal(
+                    "Failed to downcast vcpu instance to HvpVcpu",
+                ))?;
+
+            handlers.push(vcpu_instance.try_get_handler()?);
+        }
+
+        hv_unsafe_call!(hv_vcpus_exit(
+            handlers.as_ptr(),
+            handlers.len().try_into().unwrap()
+        ))?;
 
         Ok(())
     }

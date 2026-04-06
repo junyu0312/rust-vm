@@ -1,8 +1,11 @@
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use thiserror::Error;
 
 use crate::arch::irq::InterruptController;
+use crate::cpu::error::VcpuError;
+use crate::cpu::vcpu::Vcpu;
 use crate::virtualization::vcpu::HypervisorVcpu;
 
 pub enum SetUserMemoryRegionFlags {
@@ -20,6 +23,12 @@ pub enum VmError {
     #[cfg(feature = "hvp")]
     #[error("Applevisor error: {0}")]
     ApplevisorError(#[from] applevisor::error::HypervisorError),
+
+    #[error("Vcpu error: {0}")]
+    VcpuError(#[from] VcpuError),
+
+    #[error("Internal error: {0}")]
+    Internal(&'static str),
 }
 
 pub trait HypervisorVm: Send + Sync {
@@ -34,4 +43,6 @@ pub trait HypervisorVm: Send + Sync {
         memory_size: usize,
         flags: SetUserMemoryRegionFlags,
     ) -> Result<(), VmError>;
+
+    fn tick_all_vcpus(&self, vcpus: Vec<Arc<Mutex<Vcpu>>>) -> Result<(), VmError>;
 }

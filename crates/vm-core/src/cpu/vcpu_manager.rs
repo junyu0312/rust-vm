@@ -100,4 +100,10 @@ impl VcpuManager {
 
         Ok(())
     }
+
+    pub fn tick_all_vcpus(&self) -> Result<(), VmError> {
+        self.vm_instance.tick_all_vcpus(self.vcpus.clone())?;
+
+        Ok(())
+    }
 }

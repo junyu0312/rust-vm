@@ -101,7 +101,7 @@ impl HvpVcpu {
         }
     }
 
-    fn try_get_handler(&self) -> Result<u64, VcpuError> {
+    pub fn try_get_handler(&self) -> Result<u64, VcpuError> {
         self.handler
             .as_ref()
             .ok_or(VcpuError::VcpuNotCreated(self.vcpu_id))
@@ -163,6 +163,10 @@ impl AArch64Vcpu for HvpVcpu {
 }
 
 impl HypervisorVcpu for HvpVcpu {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn post_init_within_thread(&mut self) -> Result<(), VcpuError> {
         let mut vcpu = 0;
         let mut exit = null_mut() as *const hv_vcpu_exit_t;
