@@ -93,8 +93,8 @@ impl Vmm {
         Ok(())
     }
 
-    pub fn run_monitor(&mut self) -> Result<(), CommandError> {
-        while let Some(command) = self.command_rx.blocking_recv() {
+    pub async fn run_monitor(&mut self) -> Result<(), CommandError> {
+        while let Some(command) = self.command_rx.recv().await {
             self.handle_command(command)?;
         }
 

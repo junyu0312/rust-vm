@@ -143,13 +143,13 @@ impl Vmm {
         Ok(())
     }
 
-    pub fn run(&mut self, boot_loader: &dyn BootLoader) -> Result<()> {
+    pub async fn run(&mut self, boot_loader: &dyn BootLoader) -> Result<()> {
         self.vm
             .as_mut()
             .ok_or(Error::VmNotExists)?
             .boot(boot_loader)?;
 
-        self.run_monitor()?;
+        self.run_monitor().await?;
 
         Ok(())
     }

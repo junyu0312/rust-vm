@@ -16,7 +16,10 @@ use crate::term::term_init;
 mod cmd;
 mod term;
 
-fn build_and_run_vm<Loader>(hypervisor: Box<dyn Hypervisor>, args: Command) -> anyhow::Result<()>
+async fn build_and_run_vm<Loader>(
+    hypervisor: Box<dyn Hypervisor>,
+    args: Command,
+) -> anyhow::Result<()>
 where
     Loader: BootLoaderBuilder,
 {
@@ -31,7 +34,7 @@ where
 
     let bootloader = Loader::new(args.kernel, args.initramfs, args.cmdline);
 
-    vmm.run(&bootloader)?;
+    vmm.run(&bootloader).await?;
 
     Ok(())
 }
@@ -69,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
                 use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
                 use vm_core::virtualization::hvp::AppleHypervisor;
 
-                build_and_run_vm::<AArch64BootLoader>(Box::new(AppleHypervisor), args)?;
+                build_and_run_vm::<AArch64BootLoader>(Box::new(AppleHypervisor), args).await?;
             }
         }
     };
