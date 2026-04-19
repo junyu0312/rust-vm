@@ -37,6 +37,6 @@ impl Hypervisor for AppleHypervisor {
         hv_unsafe_call!(hv_vm_create(vm_config))
             .map_err(|err| HypervisorError::CreateVm(err.to_string()))?;
 
-        Ok(Arc::new(AppleHypervisorVm))
+        Ok(Arc::new(AppleHypervisorVm::default()))
     }
 }

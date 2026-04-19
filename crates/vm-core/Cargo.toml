@@ -9,10 +9,12 @@ applevisor-sys = { workspace = true, optional = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bitflags = { workspace = true }
+futures = { workspace = true }
 kvm-bindings = { workspace = true, optional = true }
 kvm-ioctls = { workspace = true, optional = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 vm-fdt = { workspace = true }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]

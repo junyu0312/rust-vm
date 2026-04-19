@@ -3,7 +3,6 @@
 use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
-use vm_bootloader::boot_loader::BootLoaderBuilder;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_vmm::vm::config::VmConfig;
 use vm_vmm::vmm::Vmm;
@@ -16,13 +15,7 @@ use crate::term::term_init;
 mod cmd;
 mod term;
 
-async fn build_and_run_vm<Loader>(
-    hypervisor: Box<dyn Hypervisor>,
-    args: Command,
-) -> anyhow::Result<()>
-where
-    Loader: BootLoaderBuilder,
-{
+async fn build_and_run_vm(hypervisor: Box<dyn Hypervisor>, args: Command) -> anyhow::Result<()> {
     let mut vmm = Vmm::new(hypervisor);
 
     vmm.create_vm_from_config(VmConfig {
@@ -30,11 +23,12 @@ where
         vcpus: args.cpus,
         devices: args.device.into_iter().map(Into::into).collect(),
         gdb_port: args.gdb,
+        kernel: args.kernel,
+        initramfs: args.initramfs,
+        cmdline: args.cmdline,
     })?;
 
-    let bootloader = Loader::new(args.kernel, args.initramfs, args.cmdline);
-
-    vmm.run(&bootloader).await?;
+    vmm.run().await?;
 
     Ok(())
 }
@@ -69,10 +63,9 @@ async fn main() -> anyhow::Result<()> {
 
             #[cfg(target_arch = "aarch64")]
             {
-                use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
                 use vm_core::virtualization::hvp::AppleHypervisor;
 
-                build_and_run_vm::<AArch64BootLoader>(Box::new(AppleHypervisor), args).await?;
+                build_and_run_vm(Box::new(AppleHypervisor), args).await?;
             }
         }
     };

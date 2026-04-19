@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_bootloader::boot_loader::BootLoader;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::DTB_START;
 use vm_core::arch::irq::InterruptController;
@@ -28,18 +27,11 @@ pub struct Vm {
     pub(crate) gdb_stub: Option<VmGdbStubConnector>,
     pub(crate) monitor: MonitorServer,
     pub(crate) vm_config: VmConfig,
+    pub(crate) start_pc: u64,
 }
 
 impl Vm {
-    pub fn boot(&mut self, boot_loader: &dyn BootLoader) -> Result<()> {
-        let start_pc = boot_loader.load(
-            self.vm_config.memory_size as u64,
-            self.vm_config.vcpus,
-            &self.memory_address_space,
-            self.irq_chip.as_ref(),
-            self.device_manager.mmio_devices(),
-        )?;
-
+    pub async fn boot(&mut self) -> Result<()> {
         self.monitor.start();
 
         if let Some(gdb_stub) = &self.gdb_stub {
@@ -47,10 +39,14 @@ impl Vm {
         }
 
         #[cfg(target_arch = "aarch64")]
-        self.vcpu_manager
-            .lock()
-            .unwrap()
-            .start_vcpu(0, start_pc, DTB_START)?;
+        {
+            println!("boot vcpu");
+            self.vcpu_manager
+                .lock()
+                .unwrap()
+                .boot_vcpu(0, self.start_pc, DTB_START)
+                .await?;
+        }
 
         #[cfg(not(target_arch = "aarch64"))]
         todo!();

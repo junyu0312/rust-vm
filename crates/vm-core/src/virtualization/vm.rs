@@ -1,11 +1,10 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use thiserror::Error;
 
 use crate::arch::irq::InterruptController;
 use crate::cpu::error::VcpuError;
-use crate::cpu::vcpu::Vcpu;
+use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vcpu::HypervisorVcpu;
 
 pub enum SetUserMemoryRegionFlags {
@@ -32,7 +31,11 @@ pub enum VmError {
 }
 
 pub trait HypervisorVm: Send + Sync {
-    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn HypervisorVcpu>, VmError>;
+    fn create_vcpu(
+        &self,
+        vcpu_id: usize,
+        vm_exit_handler: Arc<dyn VmExit>,
+    ) -> Result<Box<dyn HypervisorVcpu>, VmError>;
 
     fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, VmError>;
 
@@ -43,6 +46,4 @@ pub trait HypervisorVm: Send + Sync {
         memory_size: usize,
         flags: SetUserMemoryRegionFlags,
     ) -> Result<(), VmError>;
-
-    fn tick_all_vcpus(&self, vcpus: Vec<Arc<Mutex<Vcpu>>>) -> Result<(), VmError>;
 }

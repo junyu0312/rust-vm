@@ -10,6 +10,7 @@ async-trait = "0.1.89"
 bitflags = "2.10.0"
 cc = "1.2.51"
 clap = { version = "4.5.53", features = ["derive"] }
+futures = "0.3.32"
 gdbstub = "0.7.10"
 gdbstub_arch = "0.3.3"
 kvm-bindings = "0.14.0"

@@ -125,6 +125,27 @@ impl Vmm {
                 .create_vcpu(vcpu_id, vm_exit_handler.clone())?;
         }
 
+        let mut start_pc = 0;
+        #[cfg(target_arch = "aarch64")]
+        {
+            use vm_bootloader::boot_loader::BootLoaderBuilder;
+            use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
+
+            let bootloader = AArch64BootLoader::new(
+                vm_config.kernel.clone(),
+                vm_config.initramfs.clone(),
+                vm_config.cmdline.clone(),
+            );
+
+            start_pc = bootloader.load(
+                vm_config.memory_size as u64,
+                vm_config.vcpus,
+                &memory_address_space,
+                irq_chip.as_ref(),
+                device_manager.mmio_devices(),
+            )?;
+        }
+
         let vm = Vm {
             _vm_instance: vm_instance,
             vcpu_manager,
@@ -136,6 +157,7 @@ impl Vmm {
                 .map(|port| VmGdbStubConnector::new(self.command_tx.clone(), port)),
             monitor: monitor_server_builder.build(),
             vm_config,
+            start_pc,
         };
 
         self.vm = Some(vm);
@@ -143,11 +165,8 @@ impl Vmm {
         Ok(())
     }
 
-    pub async fn run(&mut self, boot_loader: &dyn BootLoader) -> Result<()> {
-        self.vm
-            .as_mut()
-            .ok_or(Error::VmNotExists)?
-            .boot(boot_loader)?;
+    pub async fn run(&mut self) -> Result<()> {
+        self.vm.as_mut().ok_or(Error::VmNotExists)?.boot().await?;
 
         self.run_monitor().await?;
 

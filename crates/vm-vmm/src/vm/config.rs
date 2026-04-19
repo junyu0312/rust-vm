@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use vm_device::device::Device;
 
 pub struct VmConfig {
@@ -5,4 +7,7 @@ pub struct VmConfig {
     pub vcpus: usize,
     pub devices: Vec<Device>,
     pub gdb_port: Option<u16>,
+    pub kernel: PathBuf,
+    pub initramfs: Option<PathBuf>,
+    pub cmdline: Option<String>,
 }

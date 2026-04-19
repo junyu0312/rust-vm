@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use futures::executor::block_on;
 use strum_macros::FromRepr;
 
 use crate::arch::aarch64::firmware::psci::Psci;
@@ -50,11 +51,12 @@ impl Psci for Psci02 {
                     let entry_point_address = vcpu.get_smc_arg2().unwrap();
                     let context_id = vcpu.get_smc_arg3().unwrap();
 
-                    self.vcpu_manager
-                        .lock()
-                        .unwrap()
-                        .start_vcpu(target_cpu as usize, entry_point_address, context_id)
-                        .unwrap();
+                    block_on(self.vcpu_manager.lock().unwrap().boot_vcpu(
+                        target_cpu as usize,
+                        entry_point_address,
+                        context_id,
+                    ))
+                    .unwrap();
 
                     PsciRet::SUCCESS as u32
                 }

@@ -1,5 +1,8 @@
 use thiserror::Error;
 
+#[cfg(target_arch = "aarch64")]
+use crate::arch::aarch64::vcpu::AArch64Vcpu;
+
 #[derive(Error, Debug)]
 pub enum VmExitHandlerError {
     #[error("no device found for port 0x{0:#x}")]
@@ -34,8 +37,5 @@ pub trait VmExit: Send + Sync {
     fn in_mmio_region(&self, addr: u64) -> bool;
 
     #[cfg(target_arch = "aarch64")]
-    fn call_smc(
-        &self,
-        vcpu: &mut dyn crate::virtualization::vcpu::HypervisorVcpu,
-    ) -> Result<(), VmExitHandlerError>;
+    fn call_smc(&self, vcpu: &mut dyn AArch64Vcpu) -> Result<(), VmExitHandlerError>;
 }
