@@ -17,6 +17,7 @@ use crate::arch::aarch64::layout::GIC_MSI;
 use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
 use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
+use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::hvp::hv_unsafe_call;
 use crate::virtualization::hvp::irq_chip::HvpGicV3;
 use crate::virtualization::hvp::vcpu::HvpVcpu;
@@ -33,13 +34,18 @@ impl From<SetUserMemoryRegionFlags> for MemPerms {
     }
 }
 
-pub struct AppleHypervisorVm;
+#[derive(Default)]
+pub struct AppleHypervisorVm {}
 
 impl HypervisorVm for AppleHypervisorVm {
-    fn create_vcpu(&self, vcpu_id: usize) -> Result<Box<dyn HypervisorVcpu>, VmError> {
-        let vcpu = HvpVcpu::new(vcpu_id);
+    fn create_vcpu(
+        &self,
+        vcpu_id: usize,
+        vm_exit_handler: Arc<dyn VmExit>,
+    ) -> Result<Box<dyn HypervisorVcpu>, VmError> {
+        let vcpu = Box::new(HvpVcpu::new(vcpu_id, vm_exit_handler)?);
 
-        Ok(Box::new(vcpu))
+        Ok(vcpu as _)
     }
 
     fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, VmError> {

@@ -27,15 +27,14 @@ impl VmGdbStubConnector {
         let sockaddr = format!("localhost:{}", self.port);
         let listener = TcpListener::bind(&sockaddr)?;
 
-        eprintln!("Waiting for a GDB connection on {:?}...", sockaddr);
-
-        let (stream, addr) = listener.accept()?;
-
-        eprintln!("{} connected", addr);
-
         let tx = self.tx.clone();
 
-        std::thread::spawn(move || {
+        std::thread::spawn(move || -> Result<(), VmGdbStubError> {
+            eprintln!("Waiting for a GDB connection on {:?}...", sockaddr);
+            let (stream, addr) = listener.accept()?;
+
+            eprintln!("{} connected", addr);
+
             let connection = Box::new(stream) as _;
             let gdbstub = GdbStub::new(connection);
             let mut target = VmGdbStubTarget::new(tx);
@@ -51,6 +50,8 @@ impl VmGdbStubConnector {
                     error!(?err);
                 }
             }
+
+            Ok(())
         });
 
         Ok(())

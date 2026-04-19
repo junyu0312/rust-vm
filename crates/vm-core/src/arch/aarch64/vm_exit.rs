@@ -1,9 +1,9 @@
 use tracing::trace;
 
+use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::cpu::error::VcpuError;
-use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ pub enum HandleVmExitResult {
 }
 
 pub fn handle_vm_exit(
-    vcpu: &mut Vcpu,
+    vcpu: &mut dyn AArch64Vcpu,
     exit_reason: VmExitReason,
     vm_exit_handler: &dyn VmExit,
 ) -> Result<HandleVmExitResult, VcpuError> {
@@ -49,8 +49,7 @@ pub fn handle_vm_exit(
         VmExitReason::MMRead { gpa, srt, len } if vm_exit_handler.in_mmio_region(gpa) => {
             let mut buf = [0; 8];
             vm_exit_handler.mmio_read(gpa, len, &mut buf[0..len])?;
-            vcpu.vcpu_instance
-                .set_core_reg(srt, u64::from_le_bytes(buf))?;
+            vcpu.set_core_reg(srt, u64::from_le_bytes(buf))?;
             Ok(HandleVmExitResult::NextInstruction)
         }
         VmExitReason::MMRead { .. } => todo!(),
@@ -70,7 +69,7 @@ pub fn handle_vm_exit(
         }
         VmExitReason::Smc => {
             // We only support psci for smc now
-            vm_exit_handler.call_smc(vcpu.vcpu_instance.as_mut())?;
+            vm_exit_handler.call_smc(vcpu)?;
 
             Ok(HandleVmExitResult::NextInstruction)
         }

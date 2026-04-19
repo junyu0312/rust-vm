@@ -4,11 +4,11 @@ use std::sync::Arc;
 use vm_core::arch::aarch64::firmware::psci::Psci;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::vcpu::AArch64Vcpu;
 use vm_core::cpu::vm_exit::VmExit;
 use vm_core::cpu::vm_exit::VmExitHandlerError;
 use vm_core::device_manager::DeviceManager;
-#[cfg(target_arch = "aarch64")]
-use vm_core::virtualization::vcpu::HypervisorVcpu;
 
 pub struct VmExitHandler {
     pub device_manager: Arc<DeviceManager>,
@@ -97,7 +97,7 @@ impl VmExit for VmExitHandler {
     }
 
     #[cfg(target_arch = "aarch64")]
-    fn call_smc(&self, vcpu: &mut dyn HypervisorVcpu) -> Result<(), VmExitHandlerError> {
+    fn call_smc(&self, vcpu: &mut dyn AArch64Vcpu) -> Result<(), VmExitHandlerError> {
         self.psci.call(vcpu)?;
 
         Ok(())
