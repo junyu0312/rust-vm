@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use std::sync::Mutex;
+
+use tokio::sync::Mutex;
 
 use crate::cpu::error::VcpuError;
 use crate::cpu::vcpu::Vcpu;
@@ -56,7 +57,7 @@ impl VcpuManager {
             .get(vcpu_id)
             .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
 
-        let mut vcpu = vcpu.lock().unwrap();
+        let mut vcpu = vcpu.lock().await;
 
         #[cfg(target_arch = "aarch64")]
         {
@@ -81,7 +82,7 @@ impl VcpuManager {
 
     pub async fn tick_all_vcpus(&self) -> Result<(), VmError> {
         for vcpu in &self.vcpus {
-            vcpu.lock().unwrap().vcpu_instance.pause().await?;
+            vcpu.lock().await.vcpu_instance.pause().await?;
         }
 
         Ok(())

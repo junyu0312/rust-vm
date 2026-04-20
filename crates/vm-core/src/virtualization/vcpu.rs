@@ -10,6 +10,8 @@ pub(crate) mod command;
 
 #[async_trait]
 pub trait HypervisorVcpu: Send {
+    fn vcpu_id(&self) -> usize;
+
     async fn read_reigsters(&mut self) -> Result<ArchRegisters, VcpuError>;
 
     async fn write_registers(&mut self, registers: ArchRegisters) -> Result<(), VcpuError>;

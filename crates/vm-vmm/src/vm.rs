@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
+use tokio::sync::Mutex;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::DTB_START;
 use vm_core::arch::irq::InterruptController;
@@ -43,7 +43,7 @@ impl Vm {
             println!("boot vcpu");
             self.vcpu_manager
                 .lock()
-                .unwrap()
+                .await
                 .boot_vcpu(0, self.start_pc, DTB_START)
                 .await?;
         }

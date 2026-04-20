@@ -33,7 +33,7 @@ impl Vmm {
         self.vm.as_ref().ok_or(CommandError::VmNotExists)
     }
 
-    fn handle_gdbstub_command(
+    async fn handle_gdbstub_command(
         &mut self,
         cmd: GdbStubCommand,
     ) -> Result<GdbStubCommandResponse, CommandError> {
@@ -43,11 +43,11 @@ impl Vmm {
                 let vcpu = vm
                     .vcpu_manager
                     .lock()
-                    .unwrap()
+                    .await
                     .get_vcpu(vcpu_id)
                     .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
 
-                vcpu.lock().unwrap().get_registers()?;
+                vcpu.lock().await.get_registers()?;
 
                 Ok(GdbStubCommandResponse::ReadRegisters {})
             }
@@ -56,11 +56,11 @@ impl Vmm {
                 let vcpu = vm
                     .vcpu_manager
                     .lock()
-                    .unwrap()
+                    .await
                     .get_vcpu(vcpu_id)
                     .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
 
-                vcpu.lock().unwrap().write_registers()?;
+                vcpu.lock().await.write_registers()?;
 
                 Ok(GdbStubCommandResponse::WriteRegisters)
             }
@@ -68,17 +68,18 @@ impl Vmm {
             GdbStubCommand::WriteAddrs { .. } => todo!(),
             GdbStubCommand::ListActiveThreads => {
                 let vm = self.try_get_vm()?;
-                let vcpu = vm.vcpu_manager.lock().unwrap().get_active_vcpus();
+                let vcpu = vm.vcpu_manager.lock().await.get_active_vcpus();
                 Ok(GdbStubCommandResponse::ListActiveThreads(vcpu))
             }
         }
     }
 
-    fn handle_command(&mut self, command: VmmCommand) -> Result<(), CommandError> {
+    async fn handle_command(&mut self, command: VmmCommand) -> Result<(), CommandError> {
         match command {
             VmmCommand::GdbCommand(cmd) => {
                 let r = self
                     .handle_gdbstub_command(cmd.command)
+                    .await
                     .inspect_err(|err| {
                         error!(?err, "Failed to handle GDB stub command");
                     })
@@ -95,7 +96,7 @@ impl Vmm {
 
     pub async fn run_monitor(&mut self) -> Result<(), CommandError> {
         while let Some(command) = self.command_rx.recv().await {
-            self.handle_command(command)?;
+            self.handle_command(command).await?;
         }
 
         Ok(())

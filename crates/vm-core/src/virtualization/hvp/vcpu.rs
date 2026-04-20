@@ -124,7 +124,6 @@ impl HvpVcpu {
             let mut vcpu = 0;
             let mut exit = null_mut() as *const hv_vcpu_exit_t;
             hv_unsafe_call!(hv_vcpu_create(&mut vcpu, &mut exit, null_mut()))?;
-            println!("vcpu_id {} map to vcpu: {}", vcpu_id, vcpu);
 
             let hvp_vcpu_handler = Arc::new(Mutex::new(HvpVcpuInternal { vcpu }));
 
@@ -217,6 +216,10 @@ impl HvpVcpu {
 
 #[async_trait]
 impl HypervisorVcpu for HvpVcpu {
+    fn vcpu_id(&self) -> usize {
+        self.vcpu_id
+    }
+
     async fn read_reigsters(&mut self) -> Result<AArch64Registers, VcpuError> {
         let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::ReadRegisters);
 
