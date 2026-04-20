@@ -26,7 +26,8 @@ async fn build_and_run_vm(hypervisor: Box<dyn Hypervisor>, args: Command) -> any
         kernel: args.kernel,
         initramfs: args.initramfs,
         cmdline: args.cmdline,
-    })?;
+    })
+    .await?;
 
     vmm.run().await?;
 
@@ -67,8 +68,8 @@ async fn main() -> anyhow::Result<()> {
 
                 build_and_run_vm(Box::new(AppleHypervisor), args).await?;
             }
-        }
-    };
 
-    Ok(())
+            Ok(())
+        }
+    }
 }

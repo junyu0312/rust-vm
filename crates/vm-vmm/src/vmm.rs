@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
+use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
@@ -64,7 +64,7 @@ impl Vmm {
         }
     }
 
-    pub fn create_vm_from_config(&mut self, vm_config: VmConfig) -> Result<()> {
+    pub async fn create_vm_from_config(&mut self, vm_config: VmConfig) -> Result<()> {
         if self.vm.is_some() {
             return Err(Error::VmAlreadyExists);
         }
@@ -118,11 +118,12 @@ impl Vmm {
             psci,
         });
 
-        for vcpu_id in 0..vm_config.vcpus {
-            vcpu_manager
-                .lock()
-                .unwrap()
-                .create_vcpu(vcpu_id, vm_exit_handler.clone())?;
+        {
+            let mut vcpu_manager = vcpu_manager.lock().await;
+
+            for vcpu_id in 0..vm_config.vcpus {
+                vcpu_manager.create_vcpu(vcpu_id, vm_exit_handler.clone())?;
+            }
         }
 
         let mut start_pc = 0;

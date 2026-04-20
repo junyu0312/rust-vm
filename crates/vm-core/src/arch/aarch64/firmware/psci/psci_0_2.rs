@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use futures::executor::block_on;
 use strum_macros::FromRepr;
+use tokio::sync::Mutex;
 
 use crate::arch::aarch64::firmware::psci::Psci;
 use crate::arch::aarch64::firmware::psci::error::PsciError;
@@ -51,7 +51,7 @@ impl Psci for Psci02 {
                     let entry_point_address = vcpu.get_smc_arg2().unwrap();
                     let context_id = vcpu.get_smc_arg3().unwrap();
 
-                    block_on(self.vcpu_manager.lock().unwrap().boot_vcpu(
+                    block_on(self.vcpu_manager.blocking_lock().boot_vcpu(
                         target_cpu as usize,
                         entry_point_address,
                         context_id,
