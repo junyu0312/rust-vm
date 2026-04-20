@@ -49,7 +49,7 @@ impl Vmm {
             GdbStubCommand::ReadRegisters { vcpu_id } => {
                 let vm = self.try_get_vm()?;
                 let vcpu = vm
-                    .vcpu_manager
+                    .vcpu_manager()
                     .lock()
                     .await
                     .get_vcpu(vcpu_id)
@@ -64,7 +64,7 @@ impl Vmm {
             GdbStubCommand::WriteRegisters { vcpu_id, registers } => {
                 let vm = self.try_get_vm()?;
                 let vcpu = vm
-                    .vcpu_manager
+                    .vcpu_manager()
                     .lock()
                     .await
                     .get_vcpu(vcpu_id)
@@ -85,7 +85,7 @@ impl Vmm {
             GdbStubCommand::WriteAddrs { .. } => todo!(),
             GdbStubCommand::ListActiveThreads => {
                 let vm = self.try_get_vm()?;
-                let vcpu = vm.vcpu_manager.lock().await.get_active_vcpus();
+                let vcpu = vm.vcpu_manager().lock().await.get_active_vcpus();
                 Ok(GdbStubCommandResponse::ListActiveThreads(vcpu))
             }
             GdbStubCommand::Resume => {
