@@ -1,4 +1,5 @@
-use crate::{cpu::error::VcpuError, virtualization::vcpu::HypervisorVcpu};
+use crate::cpu::error::VcpuError;
+use crate::virtualization::vcpu::HypervisorVcpu;
 
 pub struct Vcpu {
     pub vcpu_id: usize,
