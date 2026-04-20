@@ -40,7 +40,6 @@ impl Vm {
 
         #[cfg(target_arch = "aarch64")]
         {
-            println!("boot vcpu");
             self.vcpu_manager
                 .lock()
                 .await
