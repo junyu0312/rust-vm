@@ -66,13 +66,25 @@ impl Vm {
     }
 
     pub async fn pause(&mut self) -> Result<()> {
-        todo!()
+        {
+            let vcpu_manager = self.vcpu_manager.lock().await;
+
+            vcpu_manager.pause_all_vcpus().await?;
+        }
+
+        // TODO: pause devices
+
+        Ok(())
     }
 
     pub async fn resume(&mut self) -> Result<()> {
-        let vcpu_manager = self.vcpu_manager.lock().await;
+        {
+            let vcpu_manager = self.vcpu_manager.lock().await;
 
-        vcpu_manager.resume_all_vcpus().await?;
+            vcpu_manager.resume_all_vcpus().await?;
+        }
+
+        // TODO: resume devices
 
         Ok(())
     }
