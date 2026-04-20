@@ -183,11 +183,18 @@ impl MultiThreadBase for VmGdbStubTarget {
 
 impl MultiThreadResume for VmGdbStubTarget {
     fn resume(&mut self) -> Result<(), Self::Error> {
-        todo!()
+        match GdbStubCommand::Resume.send_and_then_wait(&self.tx)? {
+            Ok(GdbStubCommandResponse::Resume) => Ok(()),
+            Ok(_) => Err(VmGdbStubError::InvalidResponse),
+            Err(err) => {
+                error!(?err, "Failed to resume");
+                Err(VmGdbStubError::ResumeFailed)
+            }
+        }
     }
 
     fn clear_resume_actions(&mut self) -> Result<(), Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn set_resume_action_continue(

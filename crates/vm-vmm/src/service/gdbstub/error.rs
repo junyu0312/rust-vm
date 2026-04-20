@@ -17,6 +17,9 @@ pub enum VmGdbStubError {
     #[error("Failed to list active threads")]
     ListActiveThreadsFailed,
 
+    #[error("Failed to resume")]
+    ResumeFailed,
+
     #[error("Received invalid response from VMM")]
     InvalidResponse,
 
