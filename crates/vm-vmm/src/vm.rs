@@ -183,12 +183,10 @@ impl Vm {
 
         #[cfg(target_arch = "aarch64")]
         {
-            let vcpu_manager = self.vcpu_manager.lock().await;
+            let mut vcpu_manager = self.vcpu_manager.lock().await;
 
-            let boot_vcpu = vcpu_manager.get_vcpu(0).unwrap();
-            let mut boot_vcpu = boot_vcpu.lock().await;
-
-            boot_vcpu
+            vcpu_manager
+                .get_vcpu_mut(0)?
                 .boot_vcpu(self.start_pc, DTB_START, stop_on_boot)
                 .await?;
         }
@@ -204,7 +202,7 @@ impl Vm {
 
     pub async fn pause(&mut self) -> Result<()> {
         {
-            let vcpu_manager = self.vcpu_manager.lock().await;
+            let mut vcpu_manager = self.vcpu_manager.lock().await;
 
             vcpu_manager.pause_all_vcpus().await?;
         }
@@ -216,7 +214,7 @@ impl Vm {
 
     pub async fn resume(&mut self) -> Result<()> {
         {
-            let vcpu_manager = self.vcpu_manager.lock().await;
+            let mut vcpu_manager = self.vcpu_manager.lock().await;
 
             vcpu_manager.resume_all_vcpus().await?;
         }

@@ -51,17 +51,9 @@ impl Psci for Psci02 {
                     let entry_point_address = vcpu.get_smc_arg2().unwrap();
                     let context_id = vcpu.get_smc_arg3().unwrap();
 
-                    let vcpu = self
-                        .vcpu_manager
-                        .blocking_lock()
-                        .get_vcpu(target_cpu as usize)
-                        .unwrap();
-                    block_on(vcpu.blocking_lock().boot_vcpu(
-                        entry_point_address,
-                        context_id,
-                        false,
-                    ))
-                    .unwrap();
+                    let mut vcpu_manager = self.vcpu_manager.blocking_lock();
+                    let vcpu = vcpu_manager.get_vcpu_mut(target_cpu as usize).unwrap();
+                    block_on(vcpu.boot_vcpu(entry_point_address, context_id, false)).unwrap();
 
                     PsciRet::SUCCESS as u32
                 }
