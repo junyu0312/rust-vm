@@ -47,33 +47,22 @@ impl Vmm {
     ) -> Result<GdbStubCommandResponse, CommandError> {
         match cmd {
             GdbStubCommand::ReadRegisters { vcpu_id } => {
-                let vm = self.try_get_vm()?;
-                let vcpu = vm
-                    .vcpu_manager
-                    .lock()
-                    .await
-                    .get_vcpu(vcpu_id)
-                    .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
+                let vcpu_manager = self.try_get_vm()?.vcpu_manager();
+                let mut vcpu_manager = vcpu_manager.lock().await;
+                let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
 
-                let registers = vcpu.lock().await.read_core_registers().await?;
+                let registers = vcpu.read_core_registers().await?;
 
                 Ok(GdbStubCommandResponse::ReadRegisters {
                     registers: Box::new(registers.into()),
                 })
             }
             GdbStubCommand::WriteRegisters { vcpu_id, registers } => {
-                let vm = self.try_get_vm()?;
-                let vcpu = vm
-                    .vcpu_manager
-                    .lock()
-                    .await
-                    .get_vcpu(vcpu_id)
-                    .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
+                let vcpu_manager = self.try_get_vm()?.vcpu_manager();
+                let mut vcpu_manager = vcpu_manager.lock().await;
+                let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
 
-                vcpu.lock()
-                    .await
-                    .write_core_registers((*registers).into())
-                    .await?;
+                vcpu.write_core_registers((*registers).into()).await?;
 
                 Ok(GdbStubCommandResponse::WriteRegisters)
             }
@@ -85,7 +74,7 @@ impl Vmm {
             GdbStubCommand::WriteAddrs { .. } => todo!(),
             GdbStubCommand::ListActiveThreads => {
                 let vm = self.try_get_vm()?;
-                let vcpu = vm.vcpu_manager.lock().await.get_active_vcpus();
+                let vcpu = vm.vcpu_manager().lock().await.get_active_vcpus();
                 Ok(GdbStubCommandResponse::ListActiveThreads(vcpu))
             }
             GdbStubCommand::Resume => {

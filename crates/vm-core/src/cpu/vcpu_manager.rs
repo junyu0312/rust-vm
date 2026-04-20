@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
-
+use crate::cpu::error::VcpuError;
 use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vm::HypervisorVm;
@@ -9,7 +8,7 @@ use crate::virtualization::vm::VmError;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn HypervisorVm>,
-    vcpus: Vec<Arc<Mutex<Vcpu>>>,
+    vcpus: Vec<Vcpu>,
 }
 
 impl VcpuManager {
@@ -24,8 +23,16 @@ impl VcpuManager {
         self.vcpus.len()
     }
 
-    pub fn get_vcpu(&self, vcpu_id: usize) -> Option<Arc<Mutex<Vcpu>>> {
-        self.vcpus.get(vcpu_id).cloned()
+    pub fn get_vcpu(&self, vcpu_id: usize) -> Result<&Vcpu, VcpuError> {
+        self.vcpus
+            .get(vcpu_id)
+            .ok_or(VcpuError::VcpuNotCreated(vcpu_id))
+    }
+
+    pub fn get_vcpu_mut(&mut self, vcpu_id: usize) -> Result<&mut Vcpu, VcpuError> {
+        self.vcpus
+            .get_mut(vcpu_id)
+            .ok_or(VcpuError::VcpuNotCreated(vcpu_id))
     }
 
     pub fn create_vcpu(
@@ -37,25 +44,21 @@ impl VcpuManager {
 
         let vcpu = Vcpu::new(vcpu_id, vcpu_instance);
 
-        self.vcpus.push(Arc::new(Mutex::new(vcpu)));
+        self.vcpus.push(vcpu);
 
         Ok(())
     }
 
-    pub async fn pause_all_vcpus(&self) -> Result<(), VmError> {
-        for vcpu in &self.vcpus {
-            let mut vcpu = vcpu.lock().await;
-
+    pub async fn pause_all_vcpus(&mut self) -> Result<(), VmError> {
+        for vcpu in &mut self.vcpus {
             vcpu.pause().await?;
         }
 
         Ok(())
     }
 
-    pub async fn resume_all_vcpus(&self) -> Result<(), VmError> {
-        for vcpu in &self.vcpus {
-            let mut vcpu = vcpu.lock().await;
-
+    pub async fn resume_all_vcpus(&mut self) -> Result<(), VmError> {
+        for vcpu in &mut self.vcpus {
             vcpu.resume().await?;
         }
 
