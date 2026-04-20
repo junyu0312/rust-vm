@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
 use gdbstub::arch::Arch;
+use gdbstub::common::Signal;
 use gdbstub::common::Tid;
 use gdbstub::target::Target;
 use gdbstub::target::TargetError;
 use gdbstub::target::TargetResult;
 use gdbstub::target::ext::base::BaseOps;
 use gdbstub::target::ext::base::multithread::MultiThreadBase;
+use gdbstub::target::ext::base::multithread::MultiThreadResume;
+use gdbstub::target::ext::base::multithread::MultiThreadResumeOps;
 use tokio::sync::mpsc;
 use tracing::error;
 
@@ -37,7 +40,7 @@ impl VmGdbStubTarget {
 impl MultiThreadBase for VmGdbStubTarget {
     fn read_registers(
         &mut self,
-        _regs: &mut <GdbStubArch as Arch>::Registers,
+        regs: &mut <GdbStubArch as Arch>::Registers,
         tid: Tid,
     ) -> TargetResult<(), Self> {
         let vcpu_id = tid_to_vcpu_id(tid);
@@ -47,8 +50,10 @@ impl MultiThreadBase for VmGdbStubTarget {
             .map_err(|_| TargetError::NonFatal)?;
 
         match response {
-            Ok(GdbStubCommandResponse::ReadRegisters) => {
-                todo!();
+            Ok(GdbStubCommandResponse::ReadRegisters { registers }) => {
+                *regs = *registers;
+
+                Ok(())
             }
             Ok(_) => {
                 error!("Unexpected response to ReadRegisters command");
@@ -63,14 +68,17 @@ impl MultiThreadBase for VmGdbStubTarget {
 
     fn write_registers(
         &mut self,
-        _regs: &<GdbStubArch as Arch>::Registers,
+        regs: &<GdbStubArch as Arch>::Registers,
         tid: Tid,
     ) -> TargetResult<(), Self> {
         let vcpu_id = tid_to_vcpu_id(tid);
 
-        let response = GdbStubCommand::WriteRegisters { vcpu_id }
-            .send_and_then_wait(&self.tx)
-            .map_err(|_| TargetError::NonFatal)?;
+        let response = GdbStubCommand::WriteRegisters {
+            vcpu_id,
+            registers: Box::new(regs.clone()),
+        }
+        .send_and_then_wait(&self.tx)
+        .map_err(|_| TargetError::NonFatal)?;
 
         match response {
             Ok(GdbStubCommandResponse::WriteRegisters) => Ok(()),
@@ -165,6 +173,29 @@ impl MultiThreadBase for VmGdbStubTarget {
                 Err(VmGdbStubError::ListActiveThreadsFailed)
             }
         }
+    }
+
+    #[inline(always)]
+    fn support_resume(&mut self) -> Option<MultiThreadResumeOps<'_, Self>> {
+        Some(self)
+    }
+}
+
+impl MultiThreadResume for VmGdbStubTarget {
+    fn resume(&mut self) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn clear_resume_actions(&mut self) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn set_resume_action_continue(
+        &mut self,
+        _tid: Tid,
+        _signal: Option<Signal>,
+    ) -> Result<(), Self::Error> {
+        todo!()
     }
 }
 

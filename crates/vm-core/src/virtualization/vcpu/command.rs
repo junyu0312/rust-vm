@@ -1,20 +1,21 @@
 use tokio::sync::oneshot;
 
-#[cfg(target_arch = "aarch64")]
-use crate::arch::aarch64::register::AArch64Registers as ArchRegisters;
-#[cfg(target_arch = "x86_64")]
-use crate::arch::x86_64::register::X86_64Registers as ArchRegisters;
+use crate::arch::registers::ArchCoreRegisters;
+use crate::arch::registers::ArchRegisters;
 
 pub enum VcpuCommand {
     ReadRegisters,
     WriteRegisters(ArchRegisters),
+    ReadCoreRegisters,
+    WriteCoreRegisters(ArchCoreRegisters),
     Pause,
     Resume,
 }
 
 pub enum VcpuCommandResponse {
     Empty,
-    Registers(ArchRegisters),
+    CoreRegisters(Box<ArchCoreRegisters>),
+    Registers(Box<ArchRegisters>),
 }
 
 pub struct VcpuCommandRequest {

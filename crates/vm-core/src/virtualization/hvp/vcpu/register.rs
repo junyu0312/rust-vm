@@ -1,9 +1,11 @@
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_reg_t;
+use applevisor_sys::hv_simd_fp_reg_t;
 use applevisor_sys::hv_sys_reg_t;
 use applevisor_sys::hv_vcpu_get_reg;
 
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
+use crate::arch::aarch64::vcpu::reg::FpRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::cpu::error::VcpuError;
 use crate::virtualization::hvp::hv_unsafe_call;
@@ -50,6 +52,47 @@ impl From<CoreRegister> for HvpReg {
             CoreRegister::SP => HvpReg::SysReg(hv_sys_reg_t::SP_EL0),
             CoreRegister::PC => HvpReg::CoreReg(hv_reg_t::PC),
             CoreRegister::PState => HvpReg::CoreReg(hv_reg_t::CPSR),
+            CoreRegister::Fpcr => HvpReg::CoreReg(hv_reg_t::FPCR),
+            CoreRegister::Fpsr => HvpReg::CoreReg(hv_reg_t::FPSR),
+        }
+    }
+}
+
+impl From<FpRegister> for hv_simd_fp_reg_t {
+    fn from(reg: FpRegister) -> Self {
+        match reg {
+            FpRegister::V0 => hv_simd_fp_reg_t::Q0,
+            FpRegister::V1 => hv_simd_fp_reg_t::Q1,
+            FpRegister::V2 => hv_simd_fp_reg_t::Q2,
+            FpRegister::V3 => hv_simd_fp_reg_t::Q3,
+            FpRegister::V4 => hv_simd_fp_reg_t::Q4,
+            FpRegister::V5 => hv_simd_fp_reg_t::Q5,
+            FpRegister::V6 => hv_simd_fp_reg_t::Q6,
+            FpRegister::V7 => hv_simd_fp_reg_t::Q7,
+            FpRegister::V8 => hv_simd_fp_reg_t::Q8,
+            FpRegister::V9 => hv_simd_fp_reg_t::Q9,
+            FpRegister::V10 => hv_simd_fp_reg_t::Q10,
+            FpRegister::V11 => hv_simd_fp_reg_t::Q11,
+            FpRegister::V12 => hv_simd_fp_reg_t::Q12,
+            FpRegister::V13 => hv_simd_fp_reg_t::Q13,
+            FpRegister::V14 => hv_simd_fp_reg_t::Q14,
+            FpRegister::V15 => hv_simd_fp_reg_t::Q15,
+            FpRegister::V16 => hv_simd_fp_reg_t::Q16,
+            FpRegister::V17 => hv_simd_fp_reg_t::Q17,
+            FpRegister::V18 => hv_simd_fp_reg_t::Q18,
+            FpRegister::V19 => hv_simd_fp_reg_t::Q19,
+            FpRegister::V20 => hv_simd_fp_reg_t::Q20,
+            FpRegister::V21 => hv_simd_fp_reg_t::Q21,
+            FpRegister::V22 => hv_simd_fp_reg_t::Q22,
+            FpRegister::V23 => hv_simd_fp_reg_t::Q23,
+            FpRegister::V24 => hv_simd_fp_reg_t::Q24,
+            FpRegister::V25 => hv_simd_fp_reg_t::Q25,
+            FpRegister::V26 => hv_simd_fp_reg_t::Q26,
+            FpRegister::V27 => hv_simd_fp_reg_t::Q27,
+            FpRegister::V28 => hv_simd_fp_reg_t::Q28,
+            FpRegister::V29 => hv_simd_fp_reg_t::Q29,
+            FpRegister::V30 => hv_simd_fp_reg_t::Q30,
+            FpRegister::V31 => hv_simd_fp_reg_t::Q31,
         }
     }
 }
