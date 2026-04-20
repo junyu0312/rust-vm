@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 
 use crate::arch::registers::ArchCoreRegisters;
-use crate::{arch::registers::ArchRegisters, cpu::error::VcpuError};
+use crate::arch::registers::ArchRegisters;
+use crate::cpu::error::VcpuError;
 
 pub(crate) mod command;
 

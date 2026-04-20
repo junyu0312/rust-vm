@@ -1,6 +1,7 @@
 use gdbstub_arch::aarch64::reg::AArch64CoreRegs;
 
-use crate::arch::aarch64::vcpu::reg::{cnthctl_el2::CnthctlEl2, sctlr_el1::SctlrEl1};
+use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
+use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
 
 pub struct AArch64CoreRegisters {
     pub general_purpose: [u64; 31],

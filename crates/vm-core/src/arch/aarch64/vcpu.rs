@@ -1,12 +1,12 @@
-use crate::{
-    arch::{
-        aarch64::vcpu::reg::{
-            CoreRegister, FpRegister, SysRegister, cnthctl_el2::CnthctlEl2, sctlr_el1::SctlrEl1,
-        },
-        registers::aarch64::{AArch64CoreRegisters, AArch64Registers, AArch64SysRegisters},
-    },
-    cpu::error::VcpuError,
-};
+use crate::arch::aarch64::vcpu::reg::CoreRegister;
+use crate::arch::aarch64::vcpu::reg::FpRegister;
+use crate::arch::aarch64::vcpu::reg::SysRegister;
+use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
+use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
+use crate::arch::registers::aarch64::AArch64CoreRegisters;
+use crate::arch::registers::aarch64::AArch64Registers;
+use crate::arch::registers::aarch64::AArch64SysRegisters;
+use crate::cpu::error::VcpuError;
 
 pub mod reg;
 
