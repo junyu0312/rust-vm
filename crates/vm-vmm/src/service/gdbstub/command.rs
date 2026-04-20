@@ -27,6 +27,8 @@ pub enum GdbStubCommand {
     },
 
     ListActiveThreads,
+
+    Resume,
 }
 
 pub enum GdbStubCommandResponse {
@@ -39,6 +41,8 @@ pub enum GdbStubCommandResponse {
     WriteAddrs,
 
     ListActiveThreads(usize),
+
+    Resume,
 }
 
 #[derive(Error, Debug)]

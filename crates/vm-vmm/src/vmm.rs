@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
-use vm_bootloader::boot_loader::BootLoader;
+use tracing::error;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
 #[cfg(target_arch = "aarch64")]
@@ -126,9 +126,11 @@ impl Vmm {
             }
         }
 
-        let mut start_pc = 0;
+        #[cfg(target_arch = "aarch64")]
+        let start_pc;
         #[cfg(target_arch = "aarch64")]
         {
+            use vm_bootloader::boot_loader::BootLoader;
             use vm_bootloader::boot_loader::BootLoaderBuilder;
             use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
 
@@ -150,14 +152,15 @@ impl Vmm {
         let vm = Vm {
             _vm_instance: vm_instance,
             vcpu_manager,
-            memory_address_space,
-            irq_chip,
-            device_manager,
+            _memory_address_space: memory_address_space,
+            _irq_chip: irq_chip,
+            _device_manager: device_manager,
             gdb_stub: vm_config
                 .gdb_port
                 .map(|port| VmGdbStubConnector::new(self.command_tx.clone(), port)),
             monitor: monitor_server_builder.build(),
-            vm_config,
+            _vm_config: vm_config,
+            #[cfg(target_arch = "aarch64")]
             start_pc,
         };
 
@@ -169,7 +172,9 @@ impl Vmm {
     pub async fn run(&mut self) -> Result<()> {
         self.vm.as_mut().ok_or(Error::VmNotExists)?.boot().await?;
 
-        self.run_monitor().await?;
+        if let Err(err) = self.run_monitor().await {
+            error!(?err, "monitor error");
+        }
 
         Ok(())
     }

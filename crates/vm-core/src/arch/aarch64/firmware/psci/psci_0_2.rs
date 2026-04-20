@@ -51,10 +51,15 @@ impl Psci for Psci02 {
                     let entry_point_address = vcpu.get_smc_arg2().unwrap();
                     let context_id = vcpu.get_smc_arg3().unwrap();
 
-                    block_on(self.vcpu_manager.blocking_lock().boot_vcpu(
-                        target_cpu as usize,
+                    let vcpu = self
+                        .vcpu_manager
+                        .blocking_lock()
+                        .get_vcpu(target_cpu as usize)
+                        .unwrap();
+                    block_on(vcpu.blocking_lock().boot_vcpu(
                         entry_point_address,
                         context_id,
+                        false,
                     ))
                     .unwrap();
 

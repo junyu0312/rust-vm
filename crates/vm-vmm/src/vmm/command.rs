@@ -24,6 +24,9 @@ pub enum CommandError {
     #[error("Vcpu error: {0}")]
     VcpuError(#[from] VcpuError),
 
+    #[error("Vm error: {0}")]
+    VmError(#[from] crate::error::Error),
+
     #[error("Failed to send response to command request")]
     FailedToSendResponse,
 }
@@ -31,6 +34,10 @@ pub enum CommandError {
 impl Vmm {
     fn try_get_vm(&self) -> Result<&Vm, CommandError> {
         self.vm.as_ref().ok_or(CommandError::VmNotExists)
+    }
+
+    fn try_get_vm_mut(&mut self) -> Result<&mut Vm, CommandError> {
+        self.vm.as_mut().ok_or(CommandError::VmNotExists)
     }
 
     async fn handle_gdbstub_command(
@@ -47,7 +54,7 @@ impl Vmm {
                     .get_vcpu(vcpu_id)
                     .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
 
-                vcpu.lock().await.get_registers()?;
+                vcpu.lock().await.get_registers().await?;
 
                 Ok(GdbStubCommandResponse::ReadRegisters {})
             }
@@ -60,7 +67,7 @@ impl Vmm {
                     .get_vcpu(vcpu_id)
                     .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
 
-                vcpu.lock().await.write_registers()?;
+                vcpu.lock().await.write_registers().await?;
 
                 Ok(GdbStubCommandResponse::WriteRegisters)
             }
@@ -70,6 +77,11 @@ impl Vmm {
                 let vm = self.try_get_vm()?;
                 let vcpu = vm.vcpu_manager.lock().await.get_active_vcpus();
                 Ok(GdbStubCommandResponse::ListActiveThreads(vcpu))
+            }
+            GdbStubCommand::Resume => {
+                let vm = self.try_get_vm_mut()?;
+                vm.resume().await?;
+                Ok(GdbStubCommandResponse::Resume)
             }
         }
     }
