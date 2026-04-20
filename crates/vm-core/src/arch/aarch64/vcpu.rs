@@ -1,8 +1,12 @@
-use crate::arch::aarch64::register::AArch64Registers;
-use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
-use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
-use crate::arch::aarch64::vcpu::reg::*;
-use crate::cpu::error::VcpuError;
+use crate::{
+    arch::{
+        aarch64::vcpu::reg::{
+            CoreRegister, FpRegister, SysRegister, cnthctl_el2::CnthctlEl2, sctlr_el1::SctlrEl1,
+        },
+        registers::aarch64::{AArch64CoreRegisters, AArch64Registers, AArch64SysRegisters},
+    },
+    cpu::error::VcpuError,
+};
 
 pub mod reg;
 
@@ -11,9 +15,21 @@ pub trait AArch64Vcpu {
 
     fn write_registers(&mut self, registers: AArch64Registers) -> Result<(), VcpuError>;
 
+    fn read_core_registers(&mut self) -> Result<AArch64CoreRegisters, VcpuError>;
+
+    fn write_core_registers(&mut self, registers: AArch64CoreRegisters) -> Result<(), VcpuError>;
+
+    fn read_sys_registers(&mut self) -> Result<AArch64SysRegisters, VcpuError>;
+
+    fn write_sys_registers(&mut self, registers: AArch64SysRegisters) -> Result<(), VcpuError>;
+
     fn get_core_reg(&mut self, reg: CoreRegister) -> Result<u64, VcpuError>;
 
     fn set_core_reg(&mut self, reg: CoreRegister, value: u64) -> Result<(), VcpuError>;
+
+    fn get_fp_reg(&mut self, reg: FpRegister) -> Result<u128, VcpuError>;
+
+    fn set_fp_reg(&mut self, reg: FpRegister, value: u128) -> Result<(), VcpuError>;
 
     fn get_sys_reg(&mut self, reg: SysRegister) -> Result<u64, VcpuError>;
 

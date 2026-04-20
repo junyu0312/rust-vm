@@ -1,5 +1,6 @@
 use thiserror::Error;
 use tracing::error;
+use tracing::trace;
 use vm_core::cpu::error::VcpuError;
 
 use crate::service::gdbstub::command::GdbStubCommand;
@@ -54,11 +55,13 @@ impl Vmm {
                     .get_vcpu(vcpu_id)
                     .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
 
-                vcpu.lock().await.get_registers().await?;
+                let registers = vcpu.lock().await.read_core_registers().await?;
 
-                Ok(GdbStubCommandResponse::ReadRegisters {})
+                Ok(GdbStubCommandResponse::ReadRegisters {
+                    registers: Box::new(registers.into()),
+                })
             }
-            GdbStubCommand::WriteRegisters { vcpu_id } => {
+            GdbStubCommand::WriteRegisters { vcpu_id, registers } => {
                 let vm = self.try_get_vm()?;
                 let vcpu = vm
                     .vcpu_manager
@@ -67,11 +70,18 @@ impl Vmm {
                     .get_vcpu(vcpu_id)
                     .ok_or(VcpuError::VcpuNotCreated(vcpu_id))?;
 
-                vcpu.lock().await.write_registers().await?;
+                vcpu.lock()
+                    .await
+                    .write_core_registers((*registers).into())
+                    .await?;
 
                 Ok(GdbStubCommandResponse::WriteRegisters)
             }
-            GdbStubCommand::ReadAddrs { .. } => todo!(),
+            GdbStubCommand::ReadAddrs { gva, len, vcpu_id } => {
+                trace!(gva, len, vcpu_id);
+
+                Ok(GdbStubCommandResponse::ReadAddrs { buf: vec![] })
+            }
             GdbStubCommand::WriteAddrs { .. } => todo!(),
             GdbStubCommand::ListActiveThreads => {
                 let vm = self.try_get_vm()?;

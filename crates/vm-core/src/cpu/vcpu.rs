@@ -1,13 +1,23 @@
+use crate::arch::registers::ArchCoreRegisters;
+use crate::arch::registers::ArchRegisters;
 use crate::cpu::error::VcpuError;
 use crate::virtualization::vcpu::HypervisorVcpu;
 
 pub struct Vcpu {
-    pub vcpu_id: usize,
-    pub vcpu_instance: Box<dyn HypervisorVcpu>,
-    pub booted: bool,
+    vcpu_id: usize,
+    vcpu_instance: Box<dyn HypervisorVcpu>,
+    booted: bool,
 }
 
 impl Vcpu {
+    pub fn new(vcpu_id: usize, vcpu_instance: Box<dyn HypervisorVcpu>) -> Self {
+        Vcpu {
+            vcpu_id,
+            vcpu_instance,
+            booted: false,
+        }
+    }
+
     pub async fn boot_vcpu(
         &mut self,
         pc: u64,
@@ -16,17 +26,11 @@ impl Vcpu {
     ) -> Result<(), VcpuError> {
         #[cfg(target_arch = "aarch64")]
         {
-            use crate::arch::aarch64::register::AArch64Registers;
+            use crate::arch::registers::aarch64::AArch64Registers;
 
             let register = self.vcpu_instance.read_reigsters().await?;
-            let registers = AArch64Registers::boot_registers(
-                self.vcpu_id,
-                dtb_or_context_id,
-                pc,
-                register.pstate,
-                register.sctlr_el1,
-                register.cnthctl_el2,
-            );
+            let registers =
+                AArch64Registers::boot_registers(self.vcpu_id, dtb_or_context_id, pc, register);
             self.vcpu_instance.write_registers(registers).await?;
         }
 
@@ -39,12 +43,23 @@ impl Vcpu {
         Ok(())
     }
 
-    pub async fn get_registers(&mut self) -> Result<(), VcpuError> {
-        todo!()
+    pub async fn read_registers(&mut self) -> Result<ArchRegisters, VcpuError> {
+        self.vcpu_instance.read_reigsters().await
     }
 
-    pub async fn write_registers(&mut self) -> Result<(), VcpuError> {
-        todo!()
+    pub async fn read_core_registers(&mut self) -> Result<ArchCoreRegisters, VcpuError> {
+        self.vcpu_instance.read_core_registers().await
+    }
+
+    pub async fn write_core_registers(
+        &mut self,
+        registers: ArchCoreRegisters,
+    ) -> Result<(), VcpuError> {
+        self.vcpu_instance.write_core_registers(registers).await
+    }
+
+    pub async fn write_registers(&mut self, registers: ArchRegisters) -> Result<(), VcpuError> {
+        self.vcpu_instance.write_registers(registers).await
     }
 
     pub async fn resume(&mut self) -> Result<(), VcpuError> {

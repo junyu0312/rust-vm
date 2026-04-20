@@ -1,3 +1,7 @@
+#[cfg(target_arch = "aarch64")]
+use gdbstub_arch::aarch64::reg::AArch64CoreRegs as ArchGdbRegs;
+#[cfg(target_arch = "x86_64")]
+use gdbstub_arch::x86::reg::X86_64CoreRegs as ArchGdbRegs;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -12,6 +16,7 @@ pub enum GdbStubCommand {
 
     WriteRegisters {
         vcpu_id: usize,
+        registers: Box<ArchGdbRegs>,
     },
 
     ReadAddrs {
@@ -32,7 +37,7 @@ pub enum GdbStubCommand {
 }
 
 pub enum GdbStubCommandResponse {
-    ReadRegisters,
+    ReadRegisters { registers: Box<ArchGdbRegs> },
 
     WriteRegisters,
 

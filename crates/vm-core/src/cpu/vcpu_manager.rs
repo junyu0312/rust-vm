@@ -35,11 +35,7 @@ impl VcpuManager {
     ) -> Result<(), VmError> {
         let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id, vm_exit_handler)?;
 
-        let vcpu = Vcpu {
-            vcpu_id,
-            vcpu_instance,
-            booted: false,
-        };
+        let vcpu = Vcpu::new(vcpu_id, vcpu_instance);
 
         self.vcpus.push(Arc::new(Mutex::new(vcpu)));
 

@@ -9,20 +9,25 @@ use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_vcpu_create;
 use applevisor_sys::hv_vcpu_exit_t;
 use applevisor_sys::hv_vcpu_get_reg;
+use applevisor_sys::hv_vcpu_get_simd_fp_reg;
 use applevisor_sys::hv_vcpu_get_sys_reg;
 use applevisor_sys::hv_vcpu_run;
 use applevisor_sys::hv_vcpu_set_reg;
+use applevisor_sys::hv_vcpu_set_simd_fp_reg;
 use applevisor_sys::hv_vcpu_set_sys_reg;
 use applevisor_sys::hv_vcpu_t;
 use applevisor_sys::hv_vcpus_exit;
 use async_trait::async_trait;
 
-use crate::arch::aarch64::register::AArch64Registers;
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
+use crate::arch::aarch64::vcpu::reg::FpRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vm_exit::HandleVmExitResult;
 use crate::arch::aarch64::vm_exit::handle_vm_exit;
+use crate::arch::registers::aarch64::AArch64CoreRegisters;
+use crate::arch::registers::aarch64::AArch64Registers;
+use crate::arch::registers::aarch64::AArch64SysRegisters;
 use crate::cpu::error::VcpuError;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::hvp::hv_unsafe_call;
@@ -44,27 +49,68 @@ struct HvpVcpuInternal {
 impl AArch64Vcpu for HvpVcpuInternal {
     fn read_registers(&mut self) -> Result<AArch64Registers, VcpuError> {
         Ok(AArch64Registers {
-            x0: self.get_core_reg(CoreRegister::X0)?,
-            x1: self.get_core_reg(CoreRegister::X1)?,
-            x2: self.get_core_reg(CoreRegister::X2)?,
-            x3: self.get_core_reg(CoreRegister::X3)?,
+            core: self.read_core_registers()?,
+            sys: self.read_sys_registers()?,
+        })
+    }
+
+    fn write_registers(&mut self, registers: AArch64Registers) -> Result<(), VcpuError> {
+        self.write_core_registers(registers.core)?;
+        self.write_sys_registers(registers.sys)?;
+
+        Ok(())
+    }
+
+    fn read_core_registers(&mut self) -> Result<AArch64CoreRegisters, VcpuError> {
+        let mut general_purpose = [0; 31];
+        for (i, gp) in general_purpose.iter_mut().enumerate() {
+            *gp = self.get_core_reg(CoreRegister::from_srt(i as u64))?;
+        }
+
+        let mut fp = [0; 32];
+        for (i, fp) in fp.iter_mut().enumerate() {
+            *fp = self.get_fp_reg(FpRegister::from_repr(i).unwrap())?;
+        }
+
+        Ok(AArch64CoreRegisters {
+            general_purpose,
+            sp: self.get_core_reg(CoreRegister::SP)?,
             pc: self.get_core_reg(CoreRegister::PC)?,
             pstate: self.get_core_reg(CoreRegister::PState)?,
+            fp,
+            fpcr: self.get_core_reg(CoreRegister::Fpcr)?,
+            fpsr: self.get_core_reg(CoreRegister::Fpsr)?,
+        })
+    }
 
+    fn write_core_registers(&mut self, registers: AArch64CoreRegisters) -> Result<(), VcpuError> {
+        for gp in 0usize..31 {
+            self.set_core_reg(
+                CoreRegister::from_srt(gp as u64),
+                registers.general_purpose[gp],
+            )?;
+        }
+        self.set_core_reg(CoreRegister::SP, registers.sp)?;
+        self.set_core_reg(CoreRegister::PC, registers.pc)?;
+        self.set_core_reg(CoreRegister::PState, registers.pstate)?;
+        for fp in 0usize..32 {
+            self.set_fp_reg(FpRegister::from_repr(fp).unwrap(), registers.fp[fp])?;
+        }
+        self.set_core_reg(CoreRegister::Fpcr, registers.fpcr)?;
+        self.set_core_reg(CoreRegister::Fpsr, registers.fpsr)?;
+
+        Ok(())
+    }
+
+    fn read_sys_registers(&mut self) -> Result<AArch64SysRegisters, VcpuError> {
+        Ok(AArch64SysRegisters {
             mpidr_el1: self.get_sys_reg(SysRegister::MpidrEl1)?,
             sctlr_el1: self.get_sys_reg(SysRegister::SctlrEl1)?,
             cnthctl_el2: self.get_sys_reg(SysRegister::CnthctlEl2)?,
         })
     }
 
-    fn write_registers(&mut self, registers: AArch64Registers) -> Result<(), VcpuError> {
-        self.set_core_reg(CoreRegister::X0, registers.x0)?;
-        self.set_core_reg(CoreRegister::X1, registers.x1)?;
-        self.set_core_reg(CoreRegister::X2, registers.x2)?;
-        self.set_core_reg(CoreRegister::X3, registers.x3)?;
-        self.set_core_reg(CoreRegister::PC, registers.pc)?;
-        self.set_core_reg(CoreRegister::PState, registers.pstate)?;
-
+    fn write_sys_registers(&mut self, registers: AArch64SysRegisters) -> Result<(), VcpuError> {
         self.set_sys_reg(SysRegister::MpidrEl1, registers.mpidr_el1)?;
         self.set_sys_reg(SysRegister::SctlrEl1, registers.sctlr_el1)?;
         self.set_sys_reg(SysRegister::CnthctlEl2, registers.cnthctl_el2)?;
@@ -94,6 +140,20 @@ impl AArch64Vcpu for HvpVcpuInternal {
                 hv_unsafe_call!(hv_vcpu_set_sys_reg(self.vcpu, reg, value)).map_err(Into::into)
             }
         }
+    }
+
+    fn get_fp_reg(&mut self, reg: FpRegister) -> Result<u128, VcpuError> {
+        let mut value = 0;
+
+        hv_unsafe_call!(hv_vcpu_get_simd_fp_reg(self.vcpu, reg.into(), &mut value))?;
+
+        Ok(value)
+    }
+
+    fn set_fp_reg(&mut self, reg: FpRegister, value: u128) -> Result<(), VcpuError> {
+        hv_unsafe_call!(hv_vcpu_set_simd_fp_reg(self.vcpu, reg.into(), value))?;
+
+        Ok(())
     }
 
     fn get_sys_reg(&mut self, reg: SysRegister) -> Result<u64, VcpuError> {
@@ -174,13 +234,31 @@ impl HvpVcpu {
                         let registers = handler.read_registers()?;
 
                         cmd.response
-                            .send(VcpuCommandResponse::Registers(registers))
+                            .send(VcpuCommandResponse::Registers(Box::new(registers)))
                             .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
                     }
                     VcpuCommand::WriteRegisters(registers) => {
                         let mut handler = hvp_vcpu_handler.lock().unwrap();
 
                         handler.write_registers(registers)?;
+
+                        cmd.response
+                            .send(VcpuCommandResponse::Empty)
+                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+                    }
+                    VcpuCommand::ReadCoreRegisters => {
+                        let mut handler = hvp_vcpu_handler.lock().unwrap();
+
+                        let registers = handler.read_core_registers()?;
+
+                        cmd.response
+                            .send(VcpuCommandResponse::CoreRegisters(Box::new(registers)))
+                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+                    }
+                    VcpuCommand::WriteCoreRegisters(registers) => {
+                        let mut handler = hvp_vcpu_handler.lock().unwrap();
+
+                        handler.write_core_registers(registers)?;
 
                         cmd.response
                             .send(VcpuCommandResponse::Empty)
@@ -228,13 +306,41 @@ impl HypervisorVcpu for HvpVcpu {
             .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
 
         match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
-            VcpuCommandResponse::Empty => unreachable!(),
-            VcpuCommandResponse::Registers(registers) => return Ok(registers),
+            VcpuCommandResponse::Registers(registers) => return Ok(*registers),
+            _ => unreachable!(),
         }
     }
 
     async fn write_registers(&mut self, registers: AArch64Registers) -> Result<(), VcpuError> {
         let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::WriteRegisters(registers));
+
+        self.command_tx
+            .send(cmd)
+            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+
+        rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+
+        Ok(())
+    }
+
+    async fn read_core_registers(&mut self) -> Result<AArch64CoreRegisters, VcpuError> {
+        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::ReadCoreRegisters);
+
+        self.command_tx
+            .send(cmd)
+            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+
+        match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
+            VcpuCommandResponse::CoreRegisters(registers) => return Ok(*registers),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn write_core_registers(
+        &mut self,
+        registers: AArch64CoreRegisters,
+    ) -> Result<(), VcpuError> {
+        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::WriteCoreRegisters(registers));
 
         self.command_tx
             .send(cmd)

@@ -9,6 +9,7 @@ applevisor-sys = { workspace = true, optional = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bitflags = { workspace = true }
+gdbstub_arch = { workspace = true }
 kvm-bindings = { workspace = true, optional = true }
 kvm-ioctls = { workspace = true, optional = true }
 serde_json = { workspace = true }

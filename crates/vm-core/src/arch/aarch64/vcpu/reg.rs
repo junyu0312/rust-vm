@@ -1,3 +1,5 @@
+use strum_macros::FromRepr;
+
 pub mod esr_el2;
 
 #[derive(Debug)]
@@ -36,6 +38,8 @@ pub enum CoreRegister {
     SP,
     PC,
     PState,
+    Fpcr,
+    Fpsr,
 }
 
 impl CoreRegister {
@@ -47,10 +51,70 @@ impl CoreRegister {
             3 => CoreRegister::X3,
             4 => CoreRegister::X4,
             5 => CoreRegister::X5,
+            6 => CoreRegister::X6,
+            7 => CoreRegister::X7,
+            8 => CoreRegister::X8,
+            9 => CoreRegister::X9,
+            10 => CoreRegister::X10,
+            11 => CoreRegister::X11,
+            12 => CoreRegister::X12,
+            13 => CoreRegister::X13,
+            14 => CoreRegister::X14,
+            15 => CoreRegister::X15,
+            16 => CoreRegister::X16,
+            17 => CoreRegister::X17,
+            18 => CoreRegister::X18,
             19 => CoreRegister::X19,
+            20 => CoreRegister::X20,
+            21 => CoreRegister::X21,
+            22 => CoreRegister::X22,
+            23 => CoreRegister::X23,
+            24 => CoreRegister::X24,
+            25 => CoreRegister::X25,
+            26 => CoreRegister::X26,
+            27 => CoreRegister::X27,
+            28 => CoreRegister::X28,
+            29 => CoreRegister::X29,
+            30 => CoreRegister::X30,
             _ => unimplemented!("{srt}"),
         }
     }
+}
+
+#[derive(Debug, FromRepr)]
+pub enum FpRegister {
+    V0,
+    V1,
+    V2,
+    V3,
+    V4,
+    V5,
+    V6,
+    V7,
+    V8,
+    V9,
+    V10,
+    V11,
+    V12,
+    V13,
+    V14,
+    V15,
+    V16,
+    V17,
+    V18,
+    V19,
+    V20,
+    V21,
+    V22,
+    V23,
+    V24,
+    V25,
+    V26,
+    V27,
+    V28,
+    V29,
+    V30,
+    V31,
 }
 
 #[derive(Debug)]

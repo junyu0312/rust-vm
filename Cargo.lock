@@ -1087,6 +1087,7 @@ dependencies = [
  "async-trait",
  "bitflags 2.10.0",
  "futures",
+ "gdbstub_arch",
  "kvm-bindings",
  "kvm-ioctls",
  "serde_json",
