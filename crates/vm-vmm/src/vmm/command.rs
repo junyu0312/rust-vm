@@ -58,7 +58,7 @@ impl Vmm {
                 })
             }
             GdbStubCommand::WriteRegisters { vcpu_id, registers } => {
-                let vcpu_manager = self.try_get_vm()?.vcpu_manager();
+                let vcpu_manager = self.try_get_vm_mut()?.vcpu_manager();
                 let mut vcpu_manager = vcpu_manager.lock().await;
                 let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
 
@@ -67,11 +67,29 @@ impl Vmm {
                 Ok(GdbStubCommandResponse::WriteRegisters)
             }
             GdbStubCommand::ReadAddrs { gva, len, vcpu_id } => {
-                trace!(gva, len, vcpu_id);
+                trace!(gva, len, vcpu_id, "ReadAddrs");
 
-                Ok(GdbStubCommandResponse::ReadAddrs { buf: vec![] })
+                let vm = self.try_get_vm_mut()?;
+                let vcpu_manager = vm.vcpu_manager();
+                let vcpu_manager = vcpu_manager.lock().await;
+                let _vcpu = vcpu_manager.get_vcpu(vcpu_id)?;
+
+                let _buf = todo!();
+
+                // Ok(GdbStubCommandResponse::ReadAddrs { buf })
             }
-            GdbStubCommand::WriteAddrs { .. } => todo!(),
+            GdbStubCommand::WriteAddrs { gva, data, vcpu_id } => {
+                trace!(gva, len = data.len(), vcpu_id, "WriteAddrs");
+
+                let vm = self.try_get_vm_mut()?;
+                let vcpu_manager = vm.vcpu_manager();
+                let vcpu_manager = vcpu_manager.lock().await;
+                let _vcpu = vcpu_manager.get_vcpu(vcpu_id)?;
+
+                let _buf = todo!();
+
+                // Ok(GdbStubCommandResponse::WriteAddrs)
+            }
             GdbStubCommand::ListActiveThreads => {
                 let vm = self.try_get_vm()?;
                 let vcpu = vm.vcpu_manager().lock().await.get_active_vcpus();
