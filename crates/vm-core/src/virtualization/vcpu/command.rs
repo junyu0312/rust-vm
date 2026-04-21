@@ -8,14 +8,16 @@ pub enum VcpuCommand {
     WriteRegisters(ArchRegisters),
     ReadCoreRegisters,
     WriteCoreRegisters(ArchCoreRegisters),
-    Pause,
+    TranslateGvaToGpa(u64),
     Resume,
+    Pause,
 }
 
 pub enum VcpuCommandResponse {
     Empty,
     CoreRegisters(Box<ArchCoreRegisters>),
     Registers(Box<ArchRegisters>),
+    TranslateGvaToGpa(u64),
 }
 
 pub struct VcpuCommandRequest {

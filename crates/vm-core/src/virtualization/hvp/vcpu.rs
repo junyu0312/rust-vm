@@ -167,6 +167,10 @@ impl AArch64Vcpu for HvpVcpuInternal {
     fn set_sys_reg(&mut self, reg: SysRegister, value: u64) -> Result<(), VcpuError> {
         hv_unsafe_call!(hv_vcpu_set_sys_reg(self.vcpu, reg.into(), value)).map_err(Into::into)
     }
+
+    fn translate_gva_to_gpa(&self, _gva: u64) -> Result<u64, VcpuError> {
+        todo!()
+    }
 }
 
 pub struct HvpVcpu {
@@ -264,14 +268,23 @@ impl HvpVcpu {
                             .send(VcpuCommandResponse::Empty)
                             .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
                     }
-                    VcpuCommand::Pause => {
-                        running = false;
+                    VcpuCommand::TranslateGvaToGpa(gva) => {
+                        let handler = hvp_vcpu_handler.lock().unwrap();
+
+                        let gpa = handler.translate_gva_to_gpa(gva)?;
+
                         cmd.response
-                            .send(VcpuCommandResponse::Empty)
+                            .send(VcpuCommandResponse::TranslateGvaToGpa(gpa))
                             .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
                     }
                     VcpuCommand::Resume => {
                         running = true;
+                        cmd.response
+                            .send(VcpuCommandResponse::Empty)
+                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+                    }
+                    VcpuCommand::Pause => {
+                        running = false;
                         cmd.response
                             .send(VcpuCommandResponse::Empty)
                             .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
@@ -306,7 +319,7 @@ impl HypervisorVcpu for HvpVcpu {
             .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
 
         match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
-            VcpuCommandResponse::Registers(registers) => return Ok(*registers),
+            VcpuCommandResponse::Registers(registers) => Ok(*registers),
             _ => unreachable!(),
         }
     }
@@ -331,7 +344,7 @@ impl HypervisorVcpu for HvpVcpu {
             .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
 
         match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
-            VcpuCommandResponse::CoreRegisters(registers) => return Ok(*registers),
+            VcpuCommandResponse::CoreRegisters(registers) => Ok(*registers),
             _ => unreachable!(),
         }
     }
@@ -349,6 +362,19 @@ impl HypervisorVcpu for HvpVcpu {
         rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)?;
 
         Ok(())
+    }
+
+    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError> {
+        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::TranslateGvaToGpa(gva));
+
+        self.command_tx
+            .send(cmd)
+            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+
+        match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
+            VcpuCommandResponse::TranslateGvaToGpa(gpa) => Ok(gpa),
+            _ => unreachable!(),
+        }
     }
 
     async fn resume(&mut self) -> Result<(), VcpuError> {

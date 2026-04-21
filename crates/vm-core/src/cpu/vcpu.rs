@@ -62,6 +62,10 @@ impl Vcpu {
         self.vcpu_instance.write_registers(registers).await
     }
 
+    pub async fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError> {
+        self.vcpu_instance.translate_gva_to_gpa(gva).await
+    }
+
     pub async fn resume(&mut self) -> Result<(), VcpuError> {
         if !self.booted {
             return Ok(());
