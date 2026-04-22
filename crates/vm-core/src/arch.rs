@@ -6,4 +6,5 @@ pub mod x86_64;
 
 pub mod irq;
 pub mod layout;
+pub mod mmu;
 pub mod registers;

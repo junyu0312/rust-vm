@@ -1,8 +1,9 @@
+use vm_aarch64::register::cnthctl_el2::CnthctlEl2;
+use vm_aarch64::register::sctlr_el1::SctlrEl1;
+
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::FpRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
-use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
 use crate::arch::registers::aarch64::AArch64CoreRegisters;
 use crate::arch::registers::aarch64::AArch64Registers;
 use crate::arch::registers::aarch64::AArch64SysRegisters;
