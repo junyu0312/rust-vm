@@ -11,6 +11,7 @@ use applevisor_sys::hv_gic_config_set_redistributor_base;
 use applevisor_sys::hv_gic_config_t;
 use applevisor_sys::hv_gic_create;
 use applevisor_sys::hv_vm_map;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
 use crate::arch::aarch64::layout::GIC_MSI;
@@ -41,9 +42,10 @@ impl HypervisorVm for AppleHypervisorVm {
     fn create_vcpu(
         &self,
         vcpu_id: usize,
+        mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Box<dyn HypervisorVcpu>, VmError> {
-        let vcpu = Box::new(HvpVcpu::new(vcpu_id, vm_exit_handler)?);
+        let vcpu = Box::new(HvpVcpu::new(vcpu_id, mm, vm_exit_handler)?);
 
         Ok(vcpu as _)
     }

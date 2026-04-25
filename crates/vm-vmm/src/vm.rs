@@ -53,7 +53,7 @@ const PAGE_SIZE: usize = 4 << 10;
 pub struct Vm {
     _vm_instance: Arc<dyn HypervisorVm>,
     vcpu_manager: Arc<Mutex<VcpuManager>>,
-    _memory_address_space: Arc<MemoryAddressSpace>,
+    memory_address_space: Arc<MemoryAddressSpace>,
     _irq_chip: Arc<dyn InterruptController>,
     _device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
@@ -122,7 +122,11 @@ impl Vm {
             let mut vcpu_manager = vcpu_manager.lock().await;
 
             for vcpu_id in 0..vm_config.vcpus {
-                vcpu_manager.create_vcpu(vcpu_id, vm_exit_handler.clone())?;
+                vcpu_manager.create_vcpu(
+                    vcpu_id,
+                    memory_address_space.clone(),
+                    vm_exit_handler.clone(),
+                )?;
             }
         }
 
@@ -152,7 +156,7 @@ impl Vm {
         let vm = Vm {
             _vm_instance: vm_instance,
             vcpu_manager,
-            _memory_address_space: memory_address_space,
+            memory_address_space,
             _irq_chip: irq_chip,
             _device_manager: device_manager,
             gdb_stub: vm_config
@@ -169,6 +173,10 @@ impl Vm {
 
     pub fn vcpu_manager(&self) -> Arc<Mutex<VcpuManager>> {
         self.vcpu_manager.clone()
+    }
+
+    pub fn memory_address_space(&self) -> &MemoryAddressSpace {
+        self.memory_address_space.as_ref()
     }
 
     pub async fn boot(&mut self) -> Result<()> {

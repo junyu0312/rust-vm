@@ -64,14 +64,23 @@ fn walk(
 
 pub fn translate_gva_to_gpa(
     mm: &MemoryAddressSpace,
-    tcr_el1: impl FnOnce() -> TcrEl1,
-    ttbr1_el1: impl FnOnce() -> Ttbr1El1,
-    id_aa64mmfr0_el1: impl FnOnce() -> IdAa64mmfr0El1,
+    tcr_el1: impl FnOnce() -> Result<TcrEl1, VcpuError>,
+    ttbr1_el1: impl FnOnce() -> Result<Ttbr1El1, VcpuError>,
+    id_aa64mmfr0_el1: impl FnOnce() -> Result<IdAa64mmfr0El1, VcpuError>,
     gva: u64,
 ) -> Result<u64, VcpuError> {
-    let tcr_el1 = tcr_el1();
-    let ttbr1_el1 = ttbr1_el1();
-    let id_aa64mmfr0_el1 = id_aa64mmfr0_el1();
+    let tcr_el1 = tcr_el1()?;
+    let ttbr1_el1 = ttbr1_el1()?;
+    let id_aa64mmfr0_el1 = id_aa64mmfr0_el1()?;
+
+    if ttbr1_el1.0 == 0 {
+        return Err(VcpuError::TranslateErr);
+    }
+
+    // println!(
+    //     "tcr_el1: {:x} ttbr1_el1: {:x}, id_aa64mmfr0_el1: {:x}",
+    //     tcr_el1.0, ttbr1_el1.0, id_aa64mmfr0_el1.0
+    // );
 
     let t1sz = tcr_el1.t1sz();
     let va_size = 64 - t1sz;

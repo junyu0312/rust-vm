@@ -32,7 +32,7 @@ pub trait AArch64Vcpu {
 
     fn set_fp_reg(&mut self, reg: FpRegister, value: u128) -> Result<(), VcpuError>;
 
-    fn get_sys_reg(&mut self, reg: SysRegister) -> Result<u64, VcpuError>;
+    fn get_sys_reg(&self, reg: SysRegister) -> Result<u64, VcpuError>;
 
     fn set_sys_reg(&mut self, reg: SysRegister, value: u64) -> Result<(), VcpuError>;
 

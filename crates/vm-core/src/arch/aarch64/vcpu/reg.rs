@@ -125,6 +125,9 @@ pub enum SysRegister {
     OslarEl1,
     OslsrEl1,
     OsdlrEl1,
+    TcrEl1,
+    Ttbr1El1,
+    IdAa64mmfr0El1,
 }
 
 impl SysRegister {

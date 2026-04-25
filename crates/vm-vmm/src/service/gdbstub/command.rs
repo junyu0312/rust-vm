@@ -48,6 +48,8 @@ pub enum GdbStubCommandResponse {
     ListActiveThreads(usize),
 
     Resume,
+
+    Err,
 }
 
 #[derive(Error, Debug)]

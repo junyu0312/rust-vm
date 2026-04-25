@@ -1,6 +1,6 @@
 use crate::get_field;
 
-pub struct Ttbr1El1(u64);
+pub struct Ttbr1El1(pub u64);
 
 impl From<u64> for Ttbr1El1 {
     fn from(value: u64) -> Self {

@@ -1,7 +1,7 @@
 use crate::get_field;
 use crate::get_field_bit;
 
-pub struct TcrEl1(u64);
+pub struct TcrEl1(pub u64);
 
 impl From<u64> for TcrEl1 {
     fn from(v: u64) -> Self {
