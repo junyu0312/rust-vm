@@ -1,5 +1,3 @@
-use std::u64;
-
 use vm_aarch64::register::id_aa64mmfr0_el1::IdAa64mmfr0El1;
 use vm_aarch64::register::tcr_el1::TcrEl1;
 use vm_aarch64::register::ttbr1_el1::Ttbr1El1;

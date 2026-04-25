@@ -114,9 +114,7 @@ impl MultiThreadBase for VmGdbStubTarget {
                 data[..buf.len()].copy_from_slice(&buf);
                 Ok(data.len())
             }
-            Ok(GdbStubCommandResponse::Err) => {
-                return Err(TargetError::NonFatal);
-            }
+            Ok(GdbStubCommandResponse::Err) => Err(TargetError::NonFatal),
             Ok(_) => {
                 error!("Unexpected response to ReadAddrs command");
                 Err(TargetError::NonFatal)
