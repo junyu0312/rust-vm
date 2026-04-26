@@ -106,6 +106,9 @@ impl From<SysRegister> for hv_sys_reg_t {
             SysRegister::OslarEl1 => todo!(),
             SysRegister::OslsrEl1 => todo!(),
             SysRegister::OsdlrEl1 => todo!(),
+            SysRegister::TcrEl1 => hv_sys_reg_t::TCR_EL1,
+            SysRegister::Ttbr1El1 => hv_sys_reg_t::TTBR1_EL1,
+            SysRegister::IdAa64mmfr0El1 => hv_sys_reg_t::ID_AA64MMFR0_EL1,
         }
     }
 }

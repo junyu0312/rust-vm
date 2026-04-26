@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use thiserror::Error;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::irq::InterruptController;
 use crate::cpu::error::VcpuError;
@@ -34,6 +35,7 @@ pub trait HypervisorVm: Send + Sync {
     fn create_vcpu(
         &self,
         vcpu_id: usize,
+        mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Box<dyn HypervisorVcpu>, VmError>;
 

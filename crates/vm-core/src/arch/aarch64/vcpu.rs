@@ -1,8 +1,9 @@
+use vm_aarch64::register::cnthctl_el2::CnthctlEl2;
+use vm_aarch64::register::sctlr_el1::SctlrEl1;
+
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::FpRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::arch::aarch64::vcpu::reg::cnthctl_el2::CnthctlEl2;
-use crate::arch::aarch64::vcpu::reg::sctlr_el1::SctlrEl1;
 use crate::arch::registers::aarch64::AArch64CoreRegisters;
 use crate::arch::registers::aarch64::AArch64Registers;
 use crate::arch::registers::aarch64::AArch64SysRegisters;
@@ -31,7 +32,7 @@ pub trait AArch64Vcpu {
 
     fn set_fp_reg(&mut self, reg: FpRegister, value: u128) -> Result<(), VcpuError>;
 
-    fn get_sys_reg(&mut self, reg: SysRegister) -> Result<u64, VcpuError>;
+    fn get_sys_reg(&self, reg: SysRegister) -> Result<u64, VcpuError>;
 
     fn set_sys_reg(&mut self, reg: SysRegister, value: u64) -> Result<(), VcpuError>;
 
@@ -86,5 +87,5 @@ pub trait AArch64Vcpu {
         Ok(())
     }
 
-    fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError>;
+    fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError>;
 }

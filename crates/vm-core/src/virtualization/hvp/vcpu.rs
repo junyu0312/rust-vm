@@ -18,6 +18,10 @@ use applevisor_sys::hv_vcpu_set_sys_reg;
 use applevisor_sys::hv_vcpu_t;
 use applevisor_sys::hv_vcpus_exit;
 use async_trait::async_trait;
+use vm_aarch64::register::id_aa64mmfr0_el1::IdAa64mmfr0El1;
+use vm_aarch64::register::tcr_el1::TcrEl1;
+use vm_aarch64::register::ttbr1_el1::Ttbr1El1;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
@@ -25,6 +29,7 @@ use crate::arch::aarch64::vcpu::reg::FpRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vm_exit::HandleVmExitResult;
 use crate::arch::aarch64::vm_exit::handle_vm_exit;
+use crate::arch::mmu::aarch64::translate_gva_to_gpa;
 use crate::arch::registers::aarch64::AArch64CoreRegisters;
 use crate::arch::registers::aarch64::AArch64Registers;
 use crate::arch::registers::aarch64::AArch64SysRegisters;
@@ -44,6 +49,7 @@ mod vm_exit;
 struct HvpVcpuInternal {
     /// handler for apple hypervisor vcpu
     vcpu: hv_vcpu_t,
+    mm: Arc<MemoryAddressSpace>,
 }
 
 impl AArch64Vcpu for HvpVcpuInternal {
@@ -156,7 +162,7 @@ impl AArch64Vcpu for HvpVcpuInternal {
         Ok(())
     }
 
-    fn get_sys_reg(&mut self, reg: SysRegister) -> Result<u64, VcpuError> {
+    fn get_sys_reg(&self, reg: SysRegister) -> Result<u64, VcpuError> {
         let mut value = 0;
 
         hv_unsafe_call!(hv_vcpu_get_sys_reg(self.vcpu, reg.into(), &mut value))?;
@@ -168,8 +174,15 @@ impl AArch64Vcpu for HvpVcpuInternal {
         hv_unsafe_call!(hv_vcpu_set_sys_reg(self.vcpu, reg.into(), value)).map_err(Into::into)
     }
 
-    fn translate_gva_to_gpa(&self, _gva: u64) -> Result<u64, VcpuError> {
-        todo!()
+    fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError> {
+        let tcr_el1 = || Ok(TcrEl1::from(self.get_sys_reg(SysRegister::TcrEl1)?));
+        let ttbr1_el1 = || Ok(Ttbr1El1::from(self.get_sys_reg(SysRegister::Ttbr1El1)?));
+        let id_aa64mmfr0_el1 = || {
+            Ok(IdAa64mmfr0El1::from(
+                self.get_sys_reg(SysRegister::IdAa64mmfr0El1)?,
+            ))
+        };
+        translate_gva_to_gpa(&self.mm, tcr_el1, ttbr1_el1, id_aa64mmfr0_el1, gva)
     }
 }
 
@@ -180,7 +193,11 @@ pub struct HvpVcpu {
 }
 
 impl HvpVcpu {
-    pub fn new(vcpu_id: usize, vm_exit_handler: Arc<dyn VmExit>) -> Result<Self, VcpuError> {
+    pub fn new(
+        vcpu_id: usize,
+        mm: Arc<MemoryAddressSpace>,
+        vm_exit_handler: Arc<dyn VmExit>,
+    ) -> Result<Self, VcpuError> {
         let (handler_tx, handler_rx) = mpsc::channel();
         let (command_tx, command_rx) = mpsc::channel();
 
@@ -189,7 +206,7 @@ impl HvpVcpu {
             let mut exit = null_mut() as *const hv_vcpu_exit_t;
             hv_unsafe_call!(hv_vcpu_create(&mut vcpu, &mut exit, null_mut()))?;
 
-            let hvp_vcpu_handler = Arc::new(Mutex::new(HvpVcpuInternal { vcpu }));
+            let hvp_vcpu_handler = Arc::new(Mutex::new(HvpVcpuInternal { vcpu, mm }));
 
             handler_tx.send(hvp_vcpu_handler.clone()).unwrap();
 
@@ -364,7 +381,7 @@ impl HypervisorVcpu for HvpVcpu {
         Ok(())
     }
 
-    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError> {
+    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError> {
         let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::TranslateGvaToGpa(gva));
 
         self.command_tx

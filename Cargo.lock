@@ -1048,6 +1048,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
+name = "vm-aarch64"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.10.0",
+]
+
+[[package]]
 name = "vm-bootloader"
 version = "0.1.0"
 dependencies = [
@@ -1096,7 +1103,9 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "vm-aarch64",
  "vm-fdt",
+ "vm-mm",
 ]
 
 [[package]]

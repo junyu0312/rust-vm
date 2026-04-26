@@ -16,8 +16,10 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 vm-fdt = { workspace = true }
+vm-mm = { workspace = true }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
+vm-aarch64 = { workspace = true }
 futures = { workspace = true }
 static_assertions = { workspace = true }
 strum_macros = { workspace = true }

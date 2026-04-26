@@ -17,7 +17,7 @@ pub enum VcpuCommandResponse {
     Empty,
     CoreRegisters(Box<ArchCoreRegisters>),
     Registers(Box<ArchRegisters>),
-    TranslateGvaToGpa(u64),
+    TranslateGvaToGpa(Option<u64>),
 }
 
 pub struct VcpuCommandRequest {

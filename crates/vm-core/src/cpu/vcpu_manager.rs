@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use vm_mm::manager::MemoryAddressSpace;
+
 use crate::cpu::error::VcpuError;
 use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
@@ -38,9 +40,10 @@ impl VcpuManager {
     pub fn create_vcpu(
         &mut self,
         vcpu_id: usize,
+        mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<(), VmError> {
-        let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id, vm_exit_handler)?;
+        let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id, mm, vm_exit_handler)?;
 
         let vcpu = Vcpu::new(vcpu_id, vcpu_instance);
 

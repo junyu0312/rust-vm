@@ -26,4 +26,7 @@ pub enum VcpuError {
 
     #[error("{0}")]
     VmExitHandlerErr(#[from] VmExitHandlerError),
+
+    #[error("Failed to translate va to pa")]
+    TranslateErr,
 }
