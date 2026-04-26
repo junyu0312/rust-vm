@@ -2,11 +2,10 @@ use std::sync::Arc;
 
 use vm_mm::manager::MemoryAddressSpace;
 
-use crate::cpu::error::VcpuError;
 use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vm::HypervisorVm;
-use crate::virtualization::vm::VmError;
+use crate::virtualization::vm::error::VmError;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn HypervisorVm>,
@@ -25,16 +24,16 @@ impl VcpuManager {
         self.vcpus.len()
     }
 
-    pub fn get_vcpu(&self, vcpu_id: usize) -> Result<&Vcpu, VcpuError> {
+    pub fn get_vcpu(&self, vcpu_id: usize) -> Result<&Vcpu, VmError> {
         self.vcpus
             .get(vcpu_id)
-            .ok_or(VcpuError::VcpuNotCreated(vcpu_id))
+            .ok_or(VmError::VcpuNotCreated(vcpu_id))
     }
 
-    pub fn get_vcpu_mut(&mut self, vcpu_id: usize) -> Result<&mut Vcpu, VcpuError> {
+    pub fn get_vcpu_mut(&mut self, vcpu_id: usize) -> Result<&mut Vcpu, VmError> {
         self.vcpus
             .get_mut(vcpu_id)
-            .ok_or(VcpuError::VcpuNotCreated(vcpu_id))
+            .ok_or(VmError::VcpuNotCreated(vcpu_id))
     }
 
     pub fn create_vcpu(
@@ -45,7 +44,7 @@ impl VcpuManager {
     ) -> Result<(), VmError> {
         let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id, mm, vm_exit_handler)?;
 
-        let vcpu = Vcpu::new(vcpu_id, vcpu_instance);
+        let vcpu = Vcpu::new(vcpu_instance);
 
         self.vcpus.push(vcpu);
 

@@ -1,9 +1,9 @@
 use thiserror::Error;
-use vm_core::cpu::error::VcpuError;
+use vm_core::cpu::error::CpuError;
 use vm_core::monitor::MonitorError;
 use vm_core::utils::address_space::AddressSpaceError;
-use vm_core::virtualization::hypervisor::HypervisorError;
-use vm_core::virtualization::vm::VmError;
+use vm_core::virtualization::hypervisor::error::HypervisorError;
+use vm_core::virtualization::vm::error::VmError;
 
 use crate::service::gdbstub::error::VmGdbStubError;
 
@@ -21,8 +21,8 @@ pub enum Error {
     #[error("Vm error: {0}")]
     VmError(#[from] VmError),
 
-    #[error("Vcpu error: {0}")]
-    VcpuError(#[from] VcpuError),
+    #[error("Cpu error: {0}")]
+    CpuError(#[from] CpuError),
 
     #[error("Gdb error: {0}")]
     GdbError(#[from] VmGdbStubError),

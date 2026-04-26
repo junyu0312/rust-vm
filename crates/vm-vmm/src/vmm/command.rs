@@ -1,7 +1,7 @@
 use thiserror::Error;
 use tracing::error;
 use tracing::trace;
-use vm_core::cpu::error::VcpuError;
+use vm_core::cpu::error::CpuError;
 
 use crate::service::gdbstub::command::GdbStubCommand;
 use crate::service::gdbstub::command::GdbStubCommandError;
@@ -22,11 +22,11 @@ pub enum CommandError {
     #[error("vCPU with ID {vcpu_id} does not exist")]
     VcpuNotExists { vcpu_id: usize },
 
-    #[error("Vcpu error: {0}")]
-    VcpuError(#[from] VcpuError),
-
     #[error("Vm error: {0}")]
     VmError(#[from] crate::error::Error),
+
+    #[error("Cpu error: {0}")]
+    CpuError(#[from] CpuError),
 
     #[error("Failed to send response to command request")]
     FailedToSendResponse,
@@ -51,7 +51,9 @@ impl Vmm {
 
                 let vcpu_manager = self.try_get_vm()?.vcpu_manager();
                 let mut vcpu_manager = vcpu_manager.lock().await;
-                let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
+                let vcpu = vcpu_manager
+                    .get_vcpu_mut(vcpu_id)
+                    .map_err(|_| CommandError::VcpuNotExists { vcpu_id })?;
 
                 let registers = vcpu.read_core_registers().await.unwrap();
 
@@ -64,7 +66,9 @@ impl Vmm {
 
                 let vcpu_manager = self.try_get_vm_mut()?.vcpu_manager();
                 let mut vcpu_manager = vcpu_manager.lock().await;
-                let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
+                let vcpu = vcpu_manager
+                    .get_vcpu_mut(vcpu_id)
+                    .map_err(|_| CommandError::VcpuNotExists { vcpu_id })?;
 
                 vcpu.write_core_registers((*registers).into()).await?;
 
@@ -76,7 +80,9 @@ impl Vmm {
                 let vm = self.try_get_vm_mut()?;
                 let vcpu_manager = vm.vcpu_manager();
                 let vcpu_manager = vcpu_manager.lock().await;
-                let vcpu = vcpu_manager.get_vcpu(vcpu_id)?;
+                let vcpu = vcpu_manager
+                    .get_vcpu(vcpu_id)
+                    .map_err(|_| CommandError::VcpuNotExists { vcpu_id })?;
 
                 let mut len = len;
                 let mut buf = Vec::with_capacity(len);
@@ -99,7 +105,9 @@ impl Vmm {
                 let vm = self.try_get_vm_mut()?;
                 let vcpu_manager = vm.vcpu_manager();
                 let vcpu_manager = vcpu_manager.lock().await;
-                let _vcpu = vcpu_manager.get_vcpu(vcpu_id)?;
+                let _vcpu = vcpu_manager
+                    .get_vcpu(vcpu_id)
+                    .map_err(|_| CommandError::VcpuNotExists { vcpu_id })?;
 
                 let _buf = todo!();
 

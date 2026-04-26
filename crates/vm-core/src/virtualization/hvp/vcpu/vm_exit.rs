@@ -8,8 +8,8 @@ use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vcpu::reg::esr_el2::{self};
 use crate::arch::aarch64::vm_exit::VmExitReason;
-use crate::cpu::error::VcpuError;
 use crate::virtualization::hvp::vcpu::register::get_reg;
+use crate::virtualization::vcpu::error::VcpuError;
 
 pub fn to_vm_exit(vcpu: u64, exit_info: hv_vcpu_exit_t) -> Result<VmExitReason, VcpuError> {
     match exit_info.reason {
