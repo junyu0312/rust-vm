@@ -174,7 +174,7 @@ impl AArch64Vcpu for HvpVcpuInternal {
         hv_unsafe_call!(hv_vcpu_set_sys_reg(self.vcpu, reg.into(), value)).map_err(Into::into)
     }
 
-    fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError> {
+    fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError> {
         let tcr_el1 = || Ok(TcrEl1::from(self.get_sys_reg(SysRegister::TcrEl1)?));
         let ttbr1_el1 = || Ok(Ttbr1El1::from(self.get_sys_reg(SysRegister::Ttbr1El1)?));
         let id_aa64mmfr0_el1 = || {
@@ -381,7 +381,7 @@ impl HypervisorVcpu for HvpVcpu {
         Ok(())
     }
 
-    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError> {
+    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError> {
         let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::TranslateGvaToGpa(gva));
 
         self.command_tx

@@ -19,7 +19,7 @@ pub trait HypervisorVcpu: Send {
     async fn write_core_registers(&mut self, registers: ArchCoreRegisters)
     -> Result<(), VcpuError>;
 
-    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError>;
+    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError>;
 
     async fn resume(&mut self) -> Result<(), VcpuError>;
 

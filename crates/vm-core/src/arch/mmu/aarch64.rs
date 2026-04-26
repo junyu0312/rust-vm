@@ -66,13 +66,13 @@ pub fn translate_gva_to_gpa(
     ttbr1_el1: impl FnOnce() -> Result<Ttbr1El1, VcpuError>,
     id_aa64mmfr0_el1: impl FnOnce() -> Result<IdAa64mmfr0El1, VcpuError>,
     gva: u64,
-) -> Result<u64, VcpuError> {
+) -> Result<Option<u64>, VcpuError> {
     let tcr_el1 = tcr_el1()?;
     let ttbr1_el1 = ttbr1_el1()?;
     let id_aa64mmfr0_el1 = id_aa64mmfr0_el1()?;
 
     if ttbr1_el1.0 == 0 {
-        return Err(VcpuError::TranslateErr);
+        return Ok(None);
     }
 
     // println!(
@@ -131,7 +131,7 @@ pub fn translate_gva_to_gpa(
         ((gva >> granule_size_bits) >> (index_bits as u64 * skip_level as u64)) & index_mask
     };
 
-    walk(
+    let gpa = walk(
         mm,
         gva,
         index_of_gva,
@@ -140,5 +140,7 @@ pub fn translate_gva_to_gpa(
         baddr,
         level as usize,
         4,
-    )
+    )?;
+
+    Ok(Some(gpa))
 }

@@ -81,10 +81,10 @@ impl Vmm {
                 let mut len = len;
                 let mut buf = Vec::with_capacity(len);
                 while len > 0 {
-                    let gpa = match vcpu.translate_gva_to_gpa(gva).await {
-                        Ok(gpa) => gpa,
-                        Err(_err) => return Ok(GdbStubCommandResponse::Err),
+                    let Some(gpa) = vcpu.translate_gva_to_gpa(gva).await? else {
+                        return Ok(GdbStubCommandResponse::Err);
                     };
+
                     let hva = vm.memory_address_space().gpa_to_hva(gpa).unwrap();
                     buf.push(unsafe { *hva });
                     // TODO: Opt

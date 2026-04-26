@@ -87,5 +87,5 @@ pub trait AArch64Vcpu {
         Ok(())
     }
 
-    fn translate_gva_to_gpa(&self, gva: u64) -> Result<u64, VcpuError>;
+    fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError>;
 }
