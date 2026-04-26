@@ -197,6 +197,8 @@ impl Vm {
                 .get_vcpu_mut(0)?
                 .boot_vcpu(self.start_pc, DTB_START, stop_on_boot)
                 .await?;
+
+            Ok(())
         }
 
         #[cfg(not(target_arch = "aarch64"))]
@@ -204,8 +206,6 @@ impl Vm {
             black_box(stop_on_boot);
             todo!();
         }
-
-        Ok(())
     }
 
     pub async fn pause(&mut self) -> Result<()> {

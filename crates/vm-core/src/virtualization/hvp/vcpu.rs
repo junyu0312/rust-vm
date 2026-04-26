@@ -1,9 +1,6 @@
 use std::ptr::null_mut;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::mpsc;
-use std::sync::mpsc::Sender;
-use std::sync::mpsc::TryRecvError;
 
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_vcpu_create;
@@ -17,7 +14,10 @@ use applevisor_sys::hv_vcpu_set_simd_fp_reg;
 use applevisor_sys::hv_vcpu_set_sys_reg;
 use applevisor_sys::hv_vcpu_t;
 use applevisor_sys::hv_vcpus_exit;
-use async_trait::async_trait;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::WeakSender;
+use tokio::sync::mpsc::error::TryRecvError;
+use tracing::error;
 use vm_aarch64::register::id_aa64mmfr0_el1::IdAa64mmfr0El1;
 use vm_aarch64::register::tcr_el1::TcrEl1;
 use vm_aarch64::register::ttbr1_el1::Ttbr1El1;
@@ -186,6 +186,74 @@ impl AArch64Vcpu for HvpVcpuInternal {
     }
 }
 
+fn handle_command(
+    running: &mut bool,
+    hvp_vcpu_handler: Arc<Mutex<HvpVcpuInternal>>,
+    cmd: VcpuCommandRequest,
+) -> Result<(), VcpuError> {
+    match cmd.cmd {
+        VcpuCommand::ReadRegisters => {
+            let mut handler = hvp_vcpu_handler.lock().unwrap();
+
+            let registers = handler.read_registers()?;
+
+            cmd.response
+                .send(VcpuCommandResponse::Registers(Box::new(registers)))
+                .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+        }
+        VcpuCommand::WriteRegisters(registers) => {
+            let mut handler = hvp_vcpu_handler.lock().unwrap();
+
+            handler.write_registers(registers)?;
+
+            cmd.response
+                .send(VcpuCommandResponse::Empty)
+                .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+        }
+        VcpuCommand::ReadCoreRegisters => {
+            let mut handler = hvp_vcpu_handler.lock().unwrap();
+
+            let registers = handler.read_core_registers()?;
+
+            cmd.response
+                .send(VcpuCommandResponse::CoreRegisters(Box::new(registers)))
+                .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+        }
+        VcpuCommand::WriteCoreRegisters(registers) => {
+            let mut handler = hvp_vcpu_handler.lock().unwrap();
+
+            handler.write_core_registers(registers)?;
+
+            cmd.response
+                .send(VcpuCommandResponse::Empty)
+                .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+        }
+        VcpuCommand::TranslateGvaToGpa(gva) => {
+            let handler = hvp_vcpu_handler.lock().unwrap();
+
+            let gpa = handler.translate_gva_to_gpa(gva)?;
+
+            cmd.response
+                .send(VcpuCommandResponse::TranslateGvaToGpa(gpa))
+                .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+        }
+        VcpuCommand::Resume => {
+            *running = true;
+            cmd.response
+                .send(VcpuCommandResponse::Empty)
+                .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+        }
+        VcpuCommand::Pause => {
+            *running = false;
+            cmd.response
+                .send(VcpuCommandResponse::Empty)
+                .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub struct HvpVcpu {
     vcpu_id: usize,
     handler: Arc<Mutex<HvpVcpuInternal>>,
@@ -198,8 +266,8 @@ impl HvpVcpu {
         mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Self, VcpuError> {
-        let (handler_tx, handler_rx) = mpsc::channel();
-        let (command_tx, command_rx) = mpsc::channel();
+        let (handler_tx, handler_rx) = std::sync::mpsc::channel();
+        let (command_tx, mut command_rx) = tokio::sync::mpsc::channel(8);
 
         let _join_handler = std::thread::spawn(move || -> Result<(), VcpuError> {
             let mut vcpu = 0;
@@ -244,68 +312,12 @@ impl HvpVcpu {
                     }
                 } else {
                     cmd = command_rx
-                        .recv()
-                        .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+                        .blocking_recv()
+                        .ok_or(VcpuError::VcpuCommandDisconnected)?;
                 }
 
-                match cmd.cmd {
-                    VcpuCommand::ReadRegisters => {
-                        let mut handler = hvp_vcpu_handler.lock().unwrap();
-
-                        let registers = handler.read_registers()?;
-
-                        cmd.response
-                            .send(VcpuCommandResponse::Registers(Box::new(registers)))
-                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-                    }
-                    VcpuCommand::WriteRegisters(registers) => {
-                        let mut handler = hvp_vcpu_handler.lock().unwrap();
-
-                        handler.write_registers(registers)?;
-
-                        cmd.response
-                            .send(VcpuCommandResponse::Empty)
-                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-                    }
-                    VcpuCommand::ReadCoreRegisters => {
-                        let mut handler = hvp_vcpu_handler.lock().unwrap();
-
-                        let registers = handler.read_core_registers()?;
-
-                        cmd.response
-                            .send(VcpuCommandResponse::CoreRegisters(Box::new(registers)))
-                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-                    }
-                    VcpuCommand::WriteCoreRegisters(registers) => {
-                        let mut handler = hvp_vcpu_handler.lock().unwrap();
-
-                        handler.write_core_registers(registers)?;
-
-                        cmd.response
-                            .send(VcpuCommandResponse::Empty)
-                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-                    }
-                    VcpuCommand::TranslateGvaToGpa(gva) => {
-                        let handler = hvp_vcpu_handler.lock().unwrap();
-
-                        let gpa = handler.translate_gva_to_gpa(gva)?;
-
-                        cmd.response
-                            .send(VcpuCommandResponse::TranslateGvaToGpa(gpa))
-                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-                    }
-                    VcpuCommand::Resume => {
-                        running = true;
-                        cmd.response
-                            .send(VcpuCommandResponse::Empty)
-                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-                    }
-                    VcpuCommand::Pause => {
-                        running = false;
-                        cmd.response
-                            .send(VcpuCommandResponse::Empty)
-                            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-                    }
+                if let Err(err) = handle_command(&mut running, hvp_vcpu_handler.clone(), cmd) {
+                    error!(?err, "Failed to handle cmd")
                 }
             }
         });
@@ -322,105 +334,22 @@ impl HvpVcpu {
     }
 }
 
-#[async_trait]
 impl HypervisorVcpu for HvpVcpu {
     fn vcpu_id(&self) -> usize {
         self.vcpu_id
     }
 
-    async fn read_reigsters(&mut self) -> Result<AArch64Registers, VcpuError> {
-        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::ReadRegisters);
-
-        self.command_tx
-            .send(cmd)
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
-            VcpuCommandResponse::Registers(registers) => Ok(*registers),
-            _ => unreachable!(),
-        }
+    fn command_tx(&self) -> WeakSender<VcpuCommandRequest> {
+        self.command_tx.downgrade()
     }
 
-    async fn write_registers(&mut self, registers: AArch64Registers) -> Result<(), VcpuError> {
-        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::WriteRegisters(registers));
-
-        self.command_tx
-            .send(cmd)
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        Ok(())
-    }
-
-    async fn read_core_registers(&mut self) -> Result<AArch64CoreRegisters, VcpuError> {
-        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::ReadCoreRegisters);
-
-        self.command_tx
-            .send(cmd)
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
-            VcpuCommandResponse::CoreRegisters(registers) => Ok(*registers),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn write_core_registers(
-        &mut self,
-        registers: AArch64CoreRegisters,
-    ) -> Result<(), VcpuError> {
-        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::WriteCoreRegisters(registers));
-
-        self.command_tx
-            .send(cmd)
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        Ok(())
-    }
-
-    async fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError> {
-        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::TranslateGvaToGpa(gva));
-
-        self.command_tx
-            .send(cmd)
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        match rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)? {
-            VcpuCommandResponse::TranslateGvaToGpa(gpa) => Ok(gpa),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn resume(&mut self) -> Result<(), VcpuError> {
-        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::Resume);
-
-        self.command_tx
-            .send(cmd)
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
-        Ok(())
-    }
-
-    async fn pause(&mut self) -> Result<(), VcpuError> {
-        let (cmd, rx) = VcpuCommandRequest::new(VcpuCommand::Pause);
-
-        self.command_tx
-            .send(cmd)
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
-
+    fn tick(&mut self) -> Result<(), VcpuError> {
         let handlers = [self.handler.lock().unwrap().vcpu];
 
         hv_unsafe_call!(hv_vcpus_exit(
             handlers.as_ptr(),
             handlers.len().try_into().unwrap()
         ))?;
-
-        rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)?;
 
         Ok(())
     }
