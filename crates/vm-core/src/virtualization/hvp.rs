@@ -7,7 +7,7 @@ use applevisor_sys::hv_vm_create;
 
 use crate::virtualization::hvp::vm::AppleHypervisorVm;
 use crate::virtualization::hypervisor::Hypervisor;
-use crate::virtualization::hypervisor::HypervisorError;
+use crate::virtualization::hypervisor::error::HypervisorError;
 use crate::virtualization::vm::HypervisorVm;
 
 mod irq_chip;

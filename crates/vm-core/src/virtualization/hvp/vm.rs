@@ -25,7 +25,7 @@ use crate::virtualization::hvp::vcpu::HvpVcpu;
 use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vm::HypervisorVm;
 use crate::virtualization::vm::SetUserMemoryRegionFlags;
-use crate::virtualization::vm::VmError;
+use crate::virtualization::vm::error::VmError;
 
 impl From<SetUserMemoryRegionFlags> for MemPerms {
     fn from(flags: SetUserMemoryRegionFlags) -> Self {
@@ -45,7 +45,10 @@ impl HypervisorVm for AppleHypervisorVm {
         mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Box<dyn HypervisorVcpu>, VmError> {
-        let vcpu = Box::new(HvpVcpu::new(vcpu_id, mm, vm_exit_handler)?);
+        let vcpu = Box::new(
+            HvpVcpu::new(vcpu_id, mm, vm_exit_handler)
+                .map_err(|err| VmError::CreateVcpuError(Box::new(err)))?,
+        );
 
         Ok(vcpu as _)
     }

@@ -1,6 +1,6 @@
 use strum_macros::FromRepr;
 
-use crate::cpu::error::VcpuError;
+use crate::virtualization::vcpu::error::VcpuError;
 
 #[derive(Debug)]
 pub struct EsrEl2(u64);

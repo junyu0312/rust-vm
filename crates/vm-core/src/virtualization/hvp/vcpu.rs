@@ -33,7 +33,6 @@ use crate::arch::mmu::aarch64::translate_gva_to_gpa;
 use crate::arch::registers::aarch64::AArch64CoreRegisters;
 use crate::arch::registers::aarch64::AArch64Registers;
 use crate::arch::registers::aarch64::AArch64SysRegisters;
-use crate::cpu::error::VcpuError;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::hvp::hv_unsafe_call;
 use crate::virtualization::hvp::vcpu::register::HvpReg;
@@ -42,6 +41,7 @@ use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vcpu::command::VcpuCommand;
 use crate::virtualization::vcpu::command::VcpuCommandRequest;
 use crate::virtualization::vcpu::command::VcpuCommandResponse;
+use crate::virtualization::vcpu::error::VcpuError;
 
 mod register;
 mod vm_exit;
@@ -322,9 +322,7 @@ impl HvpVcpu {
             }
         });
 
-        let handler = handler_rx
-            .recv()
-            .map_err(|err| VcpuError::FailedToCreateVcpu(Box::new(err)))?;
+        let handler = handler_rx.recv().unwrap();
 
         Ok(HvpVcpu {
             vcpu_id,

@@ -7,8 +7,8 @@ use applevisor_sys::hv_vcpu_get_reg;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::FpRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
-use crate::cpu::error::VcpuError;
 use crate::virtualization::hvp::hv_unsafe_call;
+use crate::virtualization::vcpu::error::VcpuError;
 
 pub enum HvpReg {
     CoreReg(hv_reg_t),

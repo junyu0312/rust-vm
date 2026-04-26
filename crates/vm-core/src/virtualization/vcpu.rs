@@ -1,7 +1,9 @@
 use tokio::sync::mpsc::WeakSender;
 
-use crate::cpu::error::VcpuError;
 use crate::virtualization::vcpu::command::VcpuCommandRequest;
+use crate::virtualization::vcpu::error::VcpuError;
+
+pub mod error;
 
 pub(crate) mod command;
 

@@ -2,7 +2,7 @@ use tokio::sync::mpsc::WeakSender;
 
 use crate::arch::registers::ArchCoreRegisters;
 use crate::arch::registers::ArchRegisters;
-use crate::cpu::error::VcpuError;
+use crate::cpu::error::CpuError;
 use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vcpu::command::VcpuCommand;
 use crate::virtualization::vcpu::command::VcpuCommandRequest;
@@ -32,7 +32,7 @@ impl Vcpu {
         pc: u64,
         dtb_or_context_id: u64,
         stop_on_boot: bool,
-    ) -> Result<(), VcpuError> {
+    ) -> Result<(), CpuError> {
         #[cfg(target_arch = "aarch64")]
         {
             use crate::arch::registers::aarch64::AArch64Registers;
@@ -59,7 +59,7 @@ impl Vcpu {
         Ok(())
     }
 
-    pub async fn read_registers(&mut self) -> Result<ArchRegisters, VcpuError> {
+    pub async fn read_registers(&mut self) -> Result<ArchRegisters, CpuError> {
         match self
             .send_command_and_then_wait(VcpuCommand::ReadRegisters)
             .await?
@@ -69,7 +69,7 @@ impl Vcpu {
         }
     }
 
-    pub async fn read_core_registers(&mut self) -> Result<ArchCoreRegisters, VcpuError> {
+    pub async fn read_core_registers(&mut self) -> Result<ArchCoreRegisters, CpuError> {
         match self
             .send_command_and_then_wait(VcpuCommand::ReadCoreRegisters)
             .await?
@@ -82,7 +82,7 @@ impl Vcpu {
     pub async fn write_core_registers(
         &mut self,
         registers: ArchCoreRegisters,
-    ) -> Result<(), VcpuError> {
+    ) -> Result<(), CpuError> {
         match self
             .send_command_and_then_wait(VcpuCommand::WriteCoreRegisters(registers))
             .await?
@@ -92,7 +92,7 @@ impl Vcpu {
         }
     }
 
-    pub async fn write_registers(&mut self, registers: ArchRegisters) -> Result<(), VcpuError> {
+    pub async fn write_registers(&mut self, registers: ArchRegisters) -> Result<(), CpuError> {
         match self
             .send_command_and_then_wait(VcpuCommand::WriteRegisters(registers))
             .await?
@@ -102,7 +102,7 @@ impl Vcpu {
         }
     }
 
-    pub async fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, VcpuError> {
+    pub async fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, CpuError> {
         match self
             .send_command_and_then_wait(VcpuCommand::TranslateGvaToGpa(gva))
             .await?
@@ -112,7 +112,7 @@ impl Vcpu {
         }
     }
 
-    pub async fn resume(&mut self) -> Result<(), VcpuError> {
+    pub async fn resume(&mut self) -> Result<(), CpuError> {
         if !self.booted {
             return Ok(());
         }
@@ -123,7 +123,7 @@ impl Vcpu {
         }
     }
 
-    pub async fn pause(&mut self) -> Result<(), VcpuError> {
+    pub async fn pause(&mut self) -> Result<(), CpuError> {
         if !self.booted {
             return Ok(());
         }
@@ -137,16 +137,16 @@ impl Vcpu {
     async fn send_command_and_then_wait(
         &self,
         command: VcpuCommand,
-    ) -> Result<VcpuCommandResponse, VcpuError> {
+    ) -> Result<VcpuCommandResponse, CpuError> {
         let (req, rx) = VcpuCommandRequest::new(command);
 
         self.command_tx
             .upgrade()
-            .ok_or(VcpuError::VcpuCommandDisconnected)?
+            .ok_or(CpuError::VcpuCommandDisconnected)?
             .send(req)
             .await
-            .map_err(|_| VcpuError::VcpuCommandDisconnected)?;
+            .map_err(|_| CpuError::VcpuCommandDisconnected)?;
 
-        rx.await.map_err(|_| VcpuError::VcpuCommandDisconnected)
+        rx.await.map_err(|_| CpuError::VcpuCommandDisconnected)
     }
 }

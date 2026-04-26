@@ -5,7 +5,7 @@ use vm_mm::manager::MemoryAddressSpace;
 use crate::cpu::vcpu::Vcpu;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vm::HypervisorVm;
-use crate::virtualization::vm::VmError;
+use crate::virtualization::vm::error::VmError;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn HypervisorVm>,

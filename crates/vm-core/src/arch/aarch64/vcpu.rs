@@ -7,7 +7,7 @@ use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::registers::aarch64::AArch64CoreRegisters;
 use crate::arch::registers::aarch64::AArch64Registers;
 use crate::arch::registers::aarch64::AArch64SysRegisters;
-use crate::cpu::error::VcpuError;
+use crate::virtualization::vcpu::error::VcpuError;
 
 pub mod reg;
 

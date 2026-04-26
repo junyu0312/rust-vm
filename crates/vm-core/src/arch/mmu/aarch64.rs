@@ -3,7 +3,7 @@ use vm_aarch64::register::tcr_el1::TcrEl1;
 use vm_aarch64::register::ttbr1_el1::Ttbr1El1;
 use vm_mm::manager::MemoryAddressSpace;
 
-use crate::cpu::error::VcpuError;
+use crate::virtualization::vcpu::error::VcpuError;
 
 #[allow(clippy::too_many_arguments)]
 fn walk(
