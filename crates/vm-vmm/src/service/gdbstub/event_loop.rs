@@ -23,7 +23,7 @@ impl BlockingEventLoop for VmEventLoop {
         Event<MultiThreadStopReason<<GdbStubArch as Arch>::Usize>>,
         WaitForStopReasonError<VmGdbStubError, std::io::Error>,
     > {
-        todo!()
+        loop {}
     }
 
     fn on_interrupt(
