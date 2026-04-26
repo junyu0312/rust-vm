@@ -7,9 +7,6 @@ pub enum VcpuError {
     #[error("Failed to create vcpu: {0}")]
     FailedToCreateVcpu(#[from] Box<dyn std::error::Error + Send + Sync>),
 
-    #[error("vcpu {0} not created")]
-    VcpuNotCreated(usize),
-
     #[error("Vcpu command channel disconnected")]
     VcpuCommandDisconnected,
 

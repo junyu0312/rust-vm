@@ -4,18 +4,20 @@ use crate::cpu::error::VcpuError;
 use crate::virtualization::vcpu::HypervisorVcpu;
 
 pub struct Vcpu {
-    vcpu_id: usize,
     vcpu_instance: Box<dyn HypervisorVcpu>,
     booted: bool,
 }
 
 impl Vcpu {
-    pub fn new(vcpu_id: usize, vcpu_instance: Box<dyn HypervisorVcpu>) -> Self {
+    pub fn new(vcpu_instance: Box<dyn HypervisorVcpu>) -> Self {
         Vcpu {
-            vcpu_id,
             vcpu_instance,
             booted: false,
         }
+    }
+
+    pub fn vcpu_id(&self) -> usize {
+        self.vcpu_instance.vcpu_id()
     }
 
     pub async fn boot_vcpu(
@@ -30,7 +32,7 @@ impl Vcpu {
 
             let register = self.vcpu_instance.read_reigsters().await?;
             let registers =
-                AArch64Registers::boot_registers(self.vcpu_id, dtb_or_context_id, pc, register);
+                AArch64Registers::boot_registers(self.vcpu_id(), dtb_or_context_id, pc, register);
             self.vcpu_instance.write_registers(registers).await?;
         }
 

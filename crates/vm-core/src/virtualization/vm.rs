@@ -14,6 +14,9 @@ pub enum SetUserMemoryRegionFlags {
 
 #[derive(Error, Debug)]
 pub enum VmError {
+    #[error("Vcpu {0} is not exists")]
+    VcpuNotCreated(usize),
+
     #[error("Failed to create irq_chip: {0}")]
     CreateIrqChipError(String),
 
