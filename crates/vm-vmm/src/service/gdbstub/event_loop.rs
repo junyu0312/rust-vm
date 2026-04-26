@@ -1,3 +1,6 @@
+use std::thread::sleep;
+use std::time::Duration;
+
 use gdbstub::arch::Arch;
 use gdbstub::conn::ConnectionExt;
 use gdbstub::stub::MultiThreadStopReason;
@@ -23,7 +26,9 @@ impl BlockingEventLoop for VmEventLoop {
         Event<MultiThreadStopReason<<GdbStubArch as Arch>::Usize>>,
         WaitForStopReasonError<VmGdbStubError, std::io::Error>,
     > {
-        loop {}
+        loop {
+            sleep(Duration::from_secs(1));
+        }
     }
 
     fn on_interrupt(

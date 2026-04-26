@@ -5,6 +5,7 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::cpu::error::VcpuError;
 
+#[allow(clippy::too_many_arguments)]
 fn walk(
     mm: &MemoryAddressSpace,
     gva: u64,
