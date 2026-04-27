@@ -2,6 +2,7 @@ use tokio::sync::oneshot;
 
 use crate::arch::registers::ArchCoreRegisters;
 use crate::arch::registers::ArchRegisters;
+use crate::virtualization::vcpu::error::VcpuError;
 
 pub enum VcpuCommand {
     ReadRegisters,
@@ -18,6 +19,7 @@ pub enum VcpuCommandResponse {
     CoreRegisters(Box<ArchCoreRegisters>),
     Registers(Box<ArchRegisters>),
     TranslateGvaToGpa(Option<u64>),
+    Err(VcpuError),
 }
 
 pub struct VcpuCommandRequest {
