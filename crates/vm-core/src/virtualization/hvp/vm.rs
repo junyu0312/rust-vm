@@ -36,7 +36,7 @@ impl From<SetUserMemoryRegionFlags> for MemPerms {
 }
 
 #[derive(Default)]
-pub struct AppleHypervisorVm {}
+pub struct AppleHypervisorVm;
 
 impl HypervisorVm for AppleHypervisorVm {
     fn create_vcpu(
