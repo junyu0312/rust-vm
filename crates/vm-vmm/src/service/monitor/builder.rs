@@ -17,7 +17,7 @@ impl MonitorServerBuilder {
         let name = name.to_string();
 
         if self.components.contains_key(&name) {
-            return Err(MonitorError::CommandHandlerConflicat(name));
+            return Err(MonitorError::CommandHandlerConflict(name));
         }
 
         self.components.insert(name, handler);
