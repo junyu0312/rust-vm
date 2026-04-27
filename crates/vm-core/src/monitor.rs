@@ -7,7 +7,7 @@ pub enum MonitorError {
     Stream(#[from] std::io::Error),
 
     #[error("{0}")]
-    CommandHandlerConflicat(String),
+    CommandHandlerConflict(String),
 
     #[error("{0}")]
     Serde(#[from] serde_json::Error),

@@ -1,47 +1,12 @@
-use thiserror::Error;
-use tracing::error;
 use tracing::trace;
-use vm_core::cpu::error::CpuError;
 
 use crate::service::gdbstub::command::GdbStubCommand;
-use crate::service::gdbstub::command::GdbStubCommandError;
-use crate::service::gdbstub::command::GdbStubCommandRequest;
 use crate::service::gdbstub::command::GdbStubCommandResponse;
-use crate::vm::Vm;
 use crate::vmm::Vmm;
-
-pub enum VmmCommand {
-    GdbCommand(GdbStubCommandRequest),
-}
-
-#[derive(Error, Debug)]
-pub enum CommandError {
-    #[error("VM instance does not exist")]
-    VmNotExists,
-
-    #[error("vCPU with ID {vcpu_id} does not exist")]
-    VcpuNotExists { vcpu_id: usize },
-
-    #[error("Vm error: {0}")]
-    VmError(#[from] crate::error::Error),
-
-    #[error("Cpu error: {0}")]
-    CpuError(#[from] CpuError),
-
-    #[error("Failed to send response to command request")]
-    FailedToSendResponse,
-}
+use crate::vmm::handler::CommandError;
 
 impl Vmm {
-    fn try_get_vm(&self) -> Result<&Vm, CommandError> {
-        self.vm.as_ref().ok_or(CommandError::VmNotExists)
-    }
-
-    fn try_get_vm_mut(&mut self) -> Result<&mut Vm, CommandError> {
-        self.vm.as_mut().ok_or(CommandError::VmNotExists)
-    }
-
-    async fn handle_gdbstub_command(
+    pub async fn handle_gdbstub_command(
         &mut self,
         cmd: GdbStubCommand,
     ) -> Result<GdbStubCommandResponse, CommandError> {
@@ -128,33 +93,5 @@ impl Vmm {
                 Ok(GdbStubCommandResponse::Resume)
             }
         }
-    }
-
-    async fn handle_command(&mut self, command: VmmCommand) -> Result<(), CommandError> {
-        match command {
-            VmmCommand::GdbCommand(cmd) => {
-                let r = self
-                    .handle_gdbstub_command(cmd.command)
-                    .await
-                    .inspect_err(|err| {
-                        error!(?err, "Failed to handle GDB stub command");
-                    })
-                    .map_err(|_| GdbStubCommandError::Err);
-
-                cmd.response
-                    .send(r)
-                    .map_err(|_| CommandError::FailedToSendResponse)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    pub async fn run_monitor(&mut self) -> Result<(), CommandError> {
-        while let Some(command) = self.command_rx.recv().await {
-            self.handle_command(command).await?;
-        }
-
-        Ok(())
     }
 }
