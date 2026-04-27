@@ -42,9 +42,6 @@ pub enum Error {
     #[error("Failed to setup with bootloader, error: {0}")]
     Bootloader(#[from] vm_bootloader::boot_loader::Error),
 
-    #[error("gdb_stub failed, error: {0}")]
-    GdbStub(String),
-
     #[error("monitor error: {0}")]
     Monitor(#[from] MonitorError),
 }

@@ -47,7 +47,7 @@ use crate::vmm::handler::VmmCommand;
 
 pub mod config;
 
-pub(crate) mod vm_exit_handler;
+mod vm_exit_handler;
 
 const PAGE_SIZE: usize = 4 << 10;
 
@@ -113,11 +113,11 @@ impl Vm {
             vcpu_manager: vcpu_manager.clone(),
         };
 
-        let vm_exit_handler = Arc::new(VmExitHandler {
-            device_manager: device_manager.clone(),
+        let vm_exit_handler = Arc::new(VmExitHandler::new(
+            device_manager.clone(),
             #[cfg(target_arch = "aarch64")]
             psci,
-        });
+        ));
 
         {
             let mut vcpu_manager = vcpu_manager.lock().await;
