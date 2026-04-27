@@ -17,7 +17,7 @@ use crate::service::gdbstub::GdbStubArch;
 use crate::service::gdbstub::command::GdbStubCommand;
 use crate::service::gdbstub::command::GdbStubCommandResponse;
 use crate::service::gdbstub::error::VmGdbStubError;
-use crate::vmm::command::VmmCommand;
+use crate::vmm::handler::VmmCommand;
 
 fn vcpu_id_to_tid(vcpu_id: usize) -> Result<Tid, VmGdbStubError> {
     Tid::new(vcpu_id + 1).ok_or(VmGdbStubError::InvalidTid)
@@ -50,17 +50,17 @@ impl MultiThreadBase for VmGdbStubTarget {
             .map_err(|_| TargetError::NonFatal)?;
 
         match response {
-            Ok(GdbStubCommandResponse::ReadRegisters { registers }) => {
+            GdbStubCommandResponse::ReadRegisters { registers } => {
                 *regs = *registers;
 
                 Ok(())
             }
-            Ok(_) => {
-                error!("Unexpected response to ReadRegisters command");
+            GdbStubCommandResponse::Err => {
+                error!("Failed to handle ReadRegisters command");
                 Err(TargetError::NonFatal)
             }
-            Err(err) => {
-                error!(?err, "Failed to read registers");
+            _ => {
+                error!("Unexpected response to ReadRegisters command");
                 Err(TargetError::NonFatal)
             }
         }
@@ -81,13 +81,13 @@ impl MultiThreadBase for VmGdbStubTarget {
         .map_err(|_| TargetError::NonFatal)?;
 
         match response {
-            Ok(GdbStubCommandResponse::WriteRegisters) => Ok(()),
-            Ok(_) => {
-                error!("Unexpected response to WriteRegisters command");
+            GdbStubCommandResponse::WriteRegisters => Ok(()),
+            GdbStubCommandResponse::Err => {
+                error!("Failed to handle command");
                 Err(TargetError::NonFatal)
             }
-            Err(err) => {
-                error!(?err, "Failed to write registers");
+            _ => {
+                error!("Unexpected response to command");
                 Err(TargetError::NonFatal)
             }
         }
@@ -110,17 +110,16 @@ impl MultiThreadBase for VmGdbStubTarget {
         .map_err(|_| TargetError::NonFatal)?;
 
         match response {
-            Ok(GdbStubCommandResponse::ReadAddrs { buf }) => {
+            GdbStubCommandResponse::ReadAddrs { buf } => {
                 data[..buf.len()].copy_from_slice(&buf);
                 Ok(data.len())
             }
-            Ok(GdbStubCommandResponse::Err) => Err(TargetError::NonFatal),
-            Ok(_) => {
-                error!("Unexpected response to ReadAddrs command");
+            GdbStubCommandResponse::Err => {
+                error!("Failed to handle command");
                 Err(TargetError::NonFatal)
             }
-            Err(err) => {
-                error!(?err, "Failed to read addresses");
+            _ => {
+                error!("Unexpected response to command");
                 Err(TargetError::NonFatal)
             }
         }
@@ -143,13 +142,13 @@ impl MultiThreadBase for VmGdbStubTarget {
         .map_err(|_| TargetError::NonFatal)?;
 
         match response {
-            Ok(GdbStubCommandResponse::WriteAddrs) => Ok(()),
-            Ok(_) => {
-                error!("Unexpected response to WriteAddrs command");
+            GdbStubCommandResponse::WriteAddrs => Ok(()),
+            GdbStubCommandResponse::Err => {
+                error!("Failed to handle command");
                 Err(TargetError::NonFatal)
             }
-            Err(err) => {
-                error!(?err, "Failed to write addresses");
+            _ => {
+                error!("Unexpected response to command");
                 Err(TargetError::NonFatal)
             }
         }
@@ -160,7 +159,7 @@ impl MultiThreadBase for VmGdbStubTarget {
         thread_is_active: &mut dyn FnMut(Tid),
     ) -> Result<(), VmGdbStubError> {
         match GdbStubCommand::ListActiveThreads.send_and_then_wait(&self.tx)? {
-            Ok(GdbStubCommandResponse::ListActiveThreads(len)) => {
+            GdbStubCommandResponse::ListActiveThreads(len) => {
                 for vcpu_id in 0..len {
                     let tid = vcpu_id_to_tid(vcpu_id)?;
                     thread_is_active(tid);
@@ -168,10 +167,13 @@ impl MultiThreadBase for VmGdbStubTarget {
 
                 Ok(())
             }
-            Ok(_) => Err(VmGdbStubError::InvalidResponse),
-            Err(err) => {
-                error!(?err, "Failed to list active threads");
+            GdbStubCommandResponse::Err => {
+                error!("Failed to handle command");
                 Err(VmGdbStubError::ListActiveThreadsFailed)
+            }
+            _ => {
+                error!("Unexpected response to command");
+                Err(VmGdbStubError::InvalidResponse)
             }
         }
     }
@@ -185,11 +187,14 @@ impl MultiThreadBase for VmGdbStubTarget {
 impl MultiThreadResume for VmGdbStubTarget {
     fn resume(&mut self) -> Result<(), Self::Error> {
         match GdbStubCommand::Resume.send_and_then_wait(&self.tx)? {
-            Ok(GdbStubCommandResponse::Resume) => Ok(()),
-            Ok(_) => Err(VmGdbStubError::InvalidResponse),
-            Err(err) => {
-                error!(?err, "Failed to resume");
+            GdbStubCommandResponse::Resume => Ok(()),
+            GdbStubCommandResponse::Err => {
+                error!("Failed to handle command");
                 Err(VmGdbStubError::ResumeFailed)
+            }
+            _ => {
+                error!("Unexpected response to command");
+                Err(VmGdbStubError::InvalidResponse)
             }
         }
     }

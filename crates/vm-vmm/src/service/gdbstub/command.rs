@@ -2,12 +2,11 @@
 use gdbstub_arch::aarch64::reg::AArch64CoreRegs as ArchGdbRegs;
 #[cfg(target_arch = "x86_64")]
 use gdbstub_arch::x86::reg::X86_64CoreRegs as ArchGdbRegs;
-use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
 use crate::service::gdbstub::error::VmGdbStubError;
-use crate::vmm::command::VmmCommand;
+use crate::vmm::handler::VmmCommand;
 
 pub enum GdbStubCommand {
     ReadRegisters {
@@ -52,22 +51,16 @@ pub enum GdbStubCommandResponse {
     Err,
 }
 
-#[derive(Error, Debug)]
-pub enum GdbStubCommandError {
-    #[error("Err")]
-    Err,
-}
-
 pub struct GdbStubCommandRequest {
     pub command: GdbStubCommand,
-    pub response: oneshot::Sender<Result<GdbStubCommandResponse, GdbStubCommandError>>,
+    pub response: oneshot::Sender<GdbStubCommandResponse>,
 }
 
 impl GdbStubCommand {
     pub fn send_and_then_wait(
         self,
         tx: &mpsc::Sender<VmmCommand>,
-    ) -> Result<Result<GdbStubCommandResponse, GdbStubCommandError>, VmGdbStubError> {
+    ) -> Result<GdbStubCommandResponse, VmGdbStubError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         let request = VmmCommand::GdbCommand(GdbStubCommandRequest {

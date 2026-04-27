@@ -18,7 +18,7 @@ use vm_virtio::transport::pci::VirtioPciDevice;
 
 use crate::device::irq_allocation::IrqAllocation;
 use crate::error::Error;
-use crate::service::monitor::MonitorServerBuilder;
+use crate::service::monitor::builder::MonitorServerBuilder;
 
 mod irq_allocation;
 

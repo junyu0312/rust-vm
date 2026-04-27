@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 #[cfg(not(target_arch = "aarch64"))]
 use std::hint::black_box;
 use std::sync::Arc;
@@ -24,6 +25,7 @@ use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
+use vm_core::monitor::MonitorCommand;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
@@ -38,11 +40,10 @@ use crate::device::InitDevice;
 use crate::error::Error;
 use crate::error::Result;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
-use crate::service::monitor::MonitorServer;
-use crate::service::monitor::MonitorServerBuilder;
+use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::config::VmConfig;
 use crate::vm::vm_exit_handler::VmExitHandler;
-use crate::vmm::command::VmmCommand;
+use crate::vmm::handler::VmmCommand;
 
 pub mod config;
 
@@ -57,7 +58,7 @@ pub struct Vm {
     _irq_chip: Arc<dyn InterruptController>,
     _device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
-    monitor: MonitorServer,
+    monitor_handlers: HashMap<String, Box<dyn MonitorCommand>>,
     _vm_config: VmConfig,
     #[cfg(target_arch = "aarch64")]
     start_pc: u64,
@@ -162,7 +163,7 @@ impl Vm {
             gdb_stub: vm_config
                 .gdb_port
                 .map(|port| VmGdbStubConnector::new(vmm_tx, port)),
-            monitor: monitor_server_builder.build(),
+            monitor_handlers: monitor_server_builder.components,
             _vm_config: vm_config,
             #[cfg(target_arch = "aarch64")]
             start_pc,
@@ -179,10 +180,12 @@ impl Vm {
         self.memory_address_space.as_ref()
     }
 
+    pub fn monitor_handlers(&self) -> &HashMap<String, Box<dyn MonitorCommand>> {
+        &self.monitor_handlers
+    }
+
     pub async fn boot(&mut self) -> Result<()> {
         let mut stop_on_boot = false;
-
-        self.monitor.start();
 
         if let Some(gdb_stub) = &self.gdb_stub {
             stop_on_boot = true;

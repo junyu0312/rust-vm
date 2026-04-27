@@ -35,7 +35,6 @@ impl From<SetUserMemoryRegionFlags> for MemPerms {
     }
 }
 
-#[derive(Default)]
 pub struct AppleHypervisorVm;
 
 impl HypervisorVm for AppleHypervisorVm {

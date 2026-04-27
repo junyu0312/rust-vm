@@ -9,7 +9,7 @@ use tracing::error;
 use crate::service::gdbstub::error::VmGdbStubError;
 use crate::service::gdbstub::event_loop::VmEventLoop;
 use crate::service::gdbstub::target::VmGdbStubTarget;
-use crate::vmm::command::VmmCommand;
+use crate::vmm::handler::VmmCommand;
 
 pub struct VmGdbStubConnector {
     tx: Arc<mpsc::Sender<VmmCommand>>,
