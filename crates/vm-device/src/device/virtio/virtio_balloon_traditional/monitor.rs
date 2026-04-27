@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use serde::Serialize;
-use vm_core::monitor::MonitorCommand;
+use vm_core::monitor::MonitorCommandOps;
 use vm_core::monitor::MonitorError;
 use vm_virtio::transport::VirtioDev;
 
@@ -27,7 +27,7 @@ impl VirtioBalloonMonitor {
 }
 
 #[async_trait]
-impl MonitorCommand for VirtioBalloonMonitor {
+impl MonitorCommandOps for VirtioBalloonMonitor {
     async fn handle_command(&self, subcommands: &[&str]) -> Result<String, MonitorError> {
         match *subcommands {
             ["info"] => {

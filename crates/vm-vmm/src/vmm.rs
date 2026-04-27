@@ -11,7 +11,7 @@ use crate::vm::Vm;
 use crate::vm::config::VmConfig;
 use crate::vmm::handler::VmmCommand;
 
-pub mod handler;
+pub(crate) mod handler;
 
 mod service;
 

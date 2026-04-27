@@ -25,7 +25,7 @@ use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
-use vm_core::monitor::MonitorCommand;
+use vm_core::monitor::MonitorCommandOps;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
@@ -47,7 +47,7 @@ use crate::vmm::handler::VmmCommand;
 
 pub mod config;
 
-pub(crate) mod vm_exit_handler;
+mod vm_exit_handler;
 
 const PAGE_SIZE: usize = 4 << 10;
 
@@ -58,7 +58,7 @@ pub struct Vm {
     _irq_chip: Arc<dyn InterruptController>,
     _device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
-    monitor_handlers: HashMap<String, Box<dyn MonitorCommand>>,
+    monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
     _vm_config: VmConfig,
     #[cfg(target_arch = "aarch64")]
     start_pc: u64,
@@ -113,11 +113,11 @@ impl Vm {
             vcpu_manager: vcpu_manager.clone(),
         };
 
-        let vm_exit_handler = Arc::new(VmExitHandler {
-            device_manager: device_manager.clone(),
+        let vm_exit_handler = Arc::new(VmExitHandler::new(
+            device_manager.clone(),
             #[cfg(target_arch = "aarch64")]
             psci,
-        });
+        ));
 
         {
             let mut vcpu_manager = vcpu_manager.lock().await;
@@ -180,7 +180,7 @@ impl Vm {
         self.memory_address_space.as_ref()
     }
 
-    pub fn monitor_handlers(&self) -> &HashMap<String, Box<dyn MonitorCommand>> {
+    pub fn monitor_handlers(&self) -> &HashMap<String, Box<dyn MonitorCommandOps>> {
         &self.monitor_handlers
     }
 

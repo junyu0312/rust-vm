@@ -12,9 +12,6 @@ pub enum MonitorError {
     #[error("{0}")]
     Serde(#[from] serde_json::Error),
 
-    #[error("Unknown cmd {0}")]
-    UnknownCmd(String),
-
     #[error("unknown subcommand {0:?}")]
     UnknownSubcommand(Vec<String>),
 
@@ -23,6 +20,6 @@ pub enum MonitorError {
 }
 
 #[async_trait]
-pub trait MonitorCommand: Send + Sync {
+pub trait MonitorCommandOps: Send + Sync {
     async fn handle_command(&self, subcommands: &[&str]) -> Result<String, MonitorError>;
 }

@@ -11,9 +11,22 @@ use vm_core::cpu::vm_exit::VmExitHandlerError;
 use vm_core::device_manager::DeviceManager;
 
 pub struct VmExitHandler {
-    pub device_manager: Arc<DeviceManager>,
+    device_manager: Arc<DeviceManager>,
     #[cfg(target_arch = "aarch64")]
-    pub psci: Psci02,
+    psci: Psci02,
+}
+
+impl VmExitHandler {
+    pub fn new(
+        device_manager: Arc<DeviceManager>,
+        #[cfg(target_arch = "aarch64")] psci: Psci02,
+    ) -> Self {
+        VmExitHandler {
+            device_manager,
+            #[cfg(target_arch = "aarch64")]
+            psci,
+        }
+    }
 }
 
 impl VmExit for VmExitHandler {
