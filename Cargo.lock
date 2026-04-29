@@ -1169,6 +1169,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vm-snapshot"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "vm-virtio"
 version = "0.1.0"
 dependencies = [
