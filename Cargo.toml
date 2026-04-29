@@ -36,6 +36,7 @@ vm-device = { path = "crates/vm-device" }
 vm-fdt = "0.3.0"
 vm-mm = { path = "crates/vm-mm" }
 vm-pci = { path = "crates/vm-pci" }
+vm-snapshot = { path = "crates/vm-snapshot" }
 vm-virtio = { path = "crates/vm-virtio" }
 vm-vmm = { path = "crates/vm-vmm" }
 zerocopy = { version = "0.8.33", features = ["derive"] }

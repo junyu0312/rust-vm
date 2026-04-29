@@ -1106,6 +1106,7 @@ dependencies = [
  "vm-aarch64",
  "vm-fdt",
  "vm-mm",
+ "vm-snapshot",
 ]
 
 [[package]]

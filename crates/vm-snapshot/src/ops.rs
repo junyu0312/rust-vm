@@ -1,4 +1,5 @@
-use std::io::{Read, Write};
+use std::io::Read;
+use std::io::Write;
 
 use thiserror::Error;
 
@@ -9,19 +10,13 @@ pub enum Error {
 }
 
 pub trait Pausable {
-    fn is_running(&self) -> bool;
-
     fn pause(&mut self) -> Result<(), Error>;
 
     fn resume(&mut self) -> Result<(), Error>;
 }
 
 pub trait Snapshotable {
-    fn save<W>(&self, writer: &mut W) -> Result<Vec<u8>, Error>
-    where
-        W: Write;
+    fn save(&self, writer: &mut dyn Write) -> Result<Vec<u8>, Error>;
 
-    fn restore<R>(&mut self, reader: &mut R) -> Result<(), Error>
-    where
-        R: Read;
+    fn restore(&mut self, reader: &mut dyn Read) -> Result<(), Error>;
 }
