@@ -1106,6 +1106,7 @@ dependencies = [
  "vm-aarch64",
  "vm-fdt",
  "vm-mm",
+ "vm-snapshot",
 ]
 
 [[package]]
@@ -1166,6 +1167,13 @@ dependencies = [
  "vm-core",
  "vm-fdt",
  "zerocopy",
+]
+
+[[package]]
+name = "vm-snapshot"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
 ]
 
 [[package]]
