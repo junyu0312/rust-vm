@@ -30,12 +30,12 @@ impl MonitorCommand {
         });
 
         if let Err(_err) = tx.send(request).await {
-            return Err(MonitorServerError::FailedToSendRequest);
+            return Err(MonitorServerError::SendRequest);
         }
 
         let response = response_rx
             .await
-            .map_err(|_| MonitorServerError::FailedToReceiveResponse)?;
+            .map_err(|_| MonitorServerError::ReceiveResponse)?;
 
         Ok(response)
     }
