@@ -1,4 +1,5 @@
-use winnow::{Parser, combinator::alt};
+use winnow::Parser;
+use winnow::combinator::alt;
 
 use crate::service::monitor::command::MonitorCommand;
 
