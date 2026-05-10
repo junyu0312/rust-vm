@@ -284,6 +284,7 @@ impl HvpVcpu {
                         exit_reason,
                         vm_exit_handler.as_ref(),
                     )? {
+                        HandleVmExitResult::Canceled => (),
                         HandleVmExitResult::Continue => (),
                         HandleVmExitResult::NextInstruction => {
                             let pc = hvp_vcpu_handler.get_core_reg(CoreRegister::PC)?;

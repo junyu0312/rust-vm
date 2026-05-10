@@ -4,7 +4,11 @@ use tokio::sync::oneshot;
 use crate::service::monitor::error::MonitorServerError;
 use crate::vmm::handler::VmmCommand;
 
-pub struct MonitorCommand(pub String);
+#[derive(Debug, PartialEq, Eq)]
+pub enum MonitorCommand {
+    Pause,
+    Resume,
+}
 
 pub struct MonitorCommandRequest {
     pub command: MonitorCommand,
@@ -26,12 +30,12 @@ impl MonitorCommand {
         });
 
         if let Err(_err) = tx.send(request).await {
-            return Err(MonitorServerError::FailedToSendRequest);
+            return Err(MonitorServerError::SendRequest);
         }
 
         let response = response_rx
             .await
-            .map_err(|_| MonitorServerError::FailedToReceiveResponse)?;
+            .map_err(|_| MonitorServerError::ReceiveResponse)?;
 
         Ok(response)
     }

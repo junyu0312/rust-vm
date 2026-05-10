@@ -3,6 +3,8 @@
 set -e
 set -x
 
+rm -f /tmp/vm.sock
+
 cargo build --release --no-default-features --features hvp
 codesign --force --sign - \
   --entitlements entitlements.plist \

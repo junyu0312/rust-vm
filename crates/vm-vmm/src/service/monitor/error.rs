@@ -3,8 +3,11 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum MonitorServerError {
     #[error("Failed to send request")]
-    FailedToSendRequest,
+    SendRequest,
 
     #[error("Failed to receive response")]
-    FailedToReceiveResponse,
+    ReceiveResponse,
+
+    #[error("Failed to parse command, {0}")]
+    ParseCommand(winnow::error::ContextError),
 }
