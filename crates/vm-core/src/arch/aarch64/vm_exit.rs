@@ -9,6 +9,7 @@ use crate::virtualization::vcpu::error::VcpuError;
 #[derive(Debug)]
 pub enum VmExitReason {
     Unknown,
+    Canceled,
     Wf,
     MMRead {
         gpa: u64,
@@ -32,6 +33,7 @@ pub enum VmExitReason {
 }
 
 pub enum HandleVmExitResult {
+    Canceled,
     Continue,
     NextInstruction,
 }
@@ -45,6 +47,7 @@ pub fn handle_vm_exit(
 
     match exit_reason {
         VmExitReason::Unknown => Ok(HandleVmExitResult::Continue),
+        VmExitReason::Canceled => Ok(HandleVmExitResult::Canceled),
         VmExitReason::Wf => Ok(HandleVmExitResult::NextInstruction),
         VmExitReason::MMRead { gpa, srt, len } if vm_exit_handler.in_mmio_region(gpa) => {
             let mut buf = [0; 8];

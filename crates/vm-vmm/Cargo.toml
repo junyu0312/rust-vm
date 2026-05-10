@@ -20,3 +20,4 @@ vm-device = { workspace = true }
 vm-mm = { workspace = true }
 vm-pci = { workspace = true }
 vm-virtio = { workspace = true }
+winnow = { workspace = true }

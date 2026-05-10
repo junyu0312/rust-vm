@@ -42,7 +42,17 @@ impl MonitorConnection {
                                 continue;
                             }
 
-                            let cmd = MonitorCommand(line.to_string());
+                            let cmd = match MonitorCommand::try_from(line) {
+                                Ok(cmd) => cmd,
+                                Err(err) => {
+                                    stream
+                                        .write_all(
+                                            format!("ERR Invalid command: {err}\n").as_bytes(),
+                                        )
+                                        .await?;
+                                    continue;
+                                }
+                            };
                             match cmd.send_and_then_wait(&tx).await {
                                 Ok(resp) => {
                                     stream.writable().await?;

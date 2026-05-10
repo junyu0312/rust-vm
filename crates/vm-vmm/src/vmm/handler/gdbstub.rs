@@ -44,9 +44,9 @@ impl Vmm {
 
                 let vm = self.try_get_vm_mut()?;
                 let vcpu_manager = vm.vcpu_manager();
-                let vcpu_manager = vcpu_manager.lock().await;
+                let mut vcpu_manager = vcpu_manager.lock().await;
                 let vcpu = vcpu_manager
-                    .get_vcpu(vcpu_id)
+                    .get_vcpu_mut(vcpu_id)
                     .map_err(|_| CommandError::VcpuNotExists { vcpu_id })?;
 
                 let mut len = len;
@@ -69,9 +69,9 @@ impl Vmm {
 
                 let vm = self.try_get_vm_mut()?;
                 let vcpu_manager = vm.vcpu_manager();
-                let vcpu_manager = vcpu_manager.lock().await;
+                let mut vcpu_manager = vcpu_manager.lock().await;
                 let _vcpu = vcpu_manager
-                    .get_vcpu(vcpu_id)
+                    .get_vcpu_mut(vcpu_id)
                     .map_err(|_| CommandError::VcpuNotExists { vcpu_id })?;
 
                 let _buf = todo!();

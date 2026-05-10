@@ -8,22 +8,31 @@ impl Vmm {
         &mut self,
         cmd: MonitorCommand,
     ) -> Result<MonitorCommandResponse, CommandError> {
-        let mut tokens = cmd.0.split_whitespace();
+        match cmd {
+            MonitorCommand::Pause => {
+                self.pause().await?;
 
-        let Some(command) = tokens.next() else {
-            return Err(CommandError::InvalidCommand);
-        };
-
-        let subcommands: Vec<&str> = tokens.collect();
-
-        let vm = self.try_get_vm()?;
-        let Some(handler) = vm.monitor_handlers().get(command) else {
-            return Err(CommandError::InvalidCommand);
-        };
-
-        match handler.handle_command(&subcommands).await {
-            Ok(resp) => Ok(MonitorCommandResponse(resp)),
-            Err(err) => Ok(MonitorCommandResponse(err.to_string())),
+                Ok(MonitorCommandResponse("Paused".to_string()))
+            }
+            MonitorCommand::Resume => todo!(),
         }
+
+        /*
+                let Some(command) = tokens.next() else {
+                    return Err(CommandError::InvalidCommand);
+                };
+
+                let subcommands: Vec<&str> = tokens.collect();
+
+                let vm = self.try_get_vm()?;
+                let Some(handler) = vm.monitor_handlers().get(command) else {
+                    return Err(CommandError::InvalidCommand);
+                };
+
+                match handler.handle_command(&subcommands).await {
+                    Ok(resp) => Ok(MonitorCommandResponse(resp)),
+                    Err(err) => Ok(MonitorCommandResponse(err.to_string())),
+                }
+        */
     }
 }

@@ -4,7 +4,11 @@ use tokio::sync::oneshot;
 use crate::service::monitor::error::MonitorServerError;
 use crate::vmm::handler::VmmCommand;
 
-pub struct MonitorCommand(pub String);
+#[derive(Debug, PartialEq, Eq)]
+pub enum MonitorCommand {
+    Pause,
+    Resume,
+}
 
 pub struct MonitorCommandRequest {
     pub command: MonitorCommand,

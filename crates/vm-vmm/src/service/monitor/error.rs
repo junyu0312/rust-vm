@@ -7,4 +7,7 @@ pub enum MonitorServerError {
 
     #[error("Failed to receive response")]
     FailedToReceiveResponse,
+
+    #[error("Failed to parse command, {0}")]
+    FailedToParseCommand(winnow::error::ContextError),
 }

@@ -55,6 +55,14 @@ impl Vmm {
         Ok(())
     }
 
+    pub async fn pause(&mut self) -> Result<()> {
+        let vm = self.try_get_vm_mut()?;
+
+        vm.pause().await?;
+
+        Ok(())
+    }
+
     pub async fn run(&mut self) -> Result<()> {
         self.vm.as_mut().ok_or(Error::VmNotExists)?.boot().await?;
 

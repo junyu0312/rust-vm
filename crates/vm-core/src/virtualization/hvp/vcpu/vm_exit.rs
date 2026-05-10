@@ -13,7 +13,7 @@ use crate::virtualization::vcpu::error::VcpuError;
 
 pub fn to_vm_exit(vcpu: u64, exit_info: hv_vcpu_exit_t) -> Result<VmExitReason, VcpuError> {
     match exit_info.reason {
-        hv_exit_reason_t::CANCELED => todo!(),
+        hv_exit_reason_t::CANCELED => Ok(VmExitReason::Canceled),
         hv_exit_reason_t::EXCEPTION => {
             let esr_el2 = EsrEl2::from(exit_info.exception.syndrome);
             let iss = esr_el2.iss();

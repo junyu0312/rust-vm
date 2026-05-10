@@ -102,7 +102,7 @@ impl Vcpu {
         }
     }
 
-    pub async fn translate_gva_to_gpa(&self, gva: u64) -> Result<Option<u64>, CpuError> {
+    pub async fn translate_gva_to_gpa(&mut self, gva: u64) -> Result<Option<u64>, CpuError> {
         match self
             .send_command_and_then_wait(VcpuCommand::TranslateGvaToGpa(gva))
             .await?
@@ -135,7 +135,7 @@ impl Vcpu {
     }
 
     async fn send_command_and_then_wait(
-        &self,
+        &mut self,
         command: VcpuCommand,
     ) -> Result<VcpuCommandResponse, CpuError> {
         let (req, rx) = VcpuCommandRequest::new(command);
@@ -146,6 +146,8 @@ impl Vcpu {
             .send(req)
             .await
             .map_err(|_| CpuError::VcpuCommandDisconnected)?;
+
+        self.vcpu_instance.tick().unwrap();
 
         rx.await.map_err(|_| CpuError::VcpuCommandDisconnected)
     }
