@@ -11,7 +11,6 @@ pub enum VcpuCommand {
     WriteCoreRegisters(ArchCoreRegisters),
     TranslateGvaToGpa(u64),
     Resume,
-    Pause,
 }
 
 pub enum VcpuCommandResponse {

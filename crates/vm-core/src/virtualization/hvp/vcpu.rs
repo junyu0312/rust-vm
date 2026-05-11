@@ -1,6 +1,8 @@
 use std::ptr::null_mut;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::thread::JoinHandle;
 
 use applevisor_sys::hv_error_t;
@@ -188,7 +190,7 @@ impl AArch64Vcpu for HvpVcpuInternal {
 }
 
 fn handle_command(
-    running: &mut bool,
+    running: &AtomicBool,
     hvp_vcpu_handler: Arc<Mutex<HvpVcpuInternal>>,
     cmd: VcpuCommand,
 ) -> Result<VcpuCommandResponse, VcpuError> {
@@ -230,15 +232,23 @@ fn handle_command(
             Ok(VcpuCommandResponse::TranslateGvaToGpa(gpa))
         }
         VcpuCommand::Resume => {
-            *running = true;
+            running.store(true, Ordering::Release);
 
             Ok(VcpuCommandResponse::Empty)
         }
-        VcpuCommand::Pause => {
-            *running = false;
+    }
+}
 
-            Ok(VcpuCommandResponse::Empty)
-        }
+fn handle_command_and_send_response(
+    running: &AtomicBool,
+    hvp_vcpu_handler: Arc<Mutex<HvpVcpuInternal>>,
+    cmd: VcpuCommandRequest,
+) {
+    if let Err(_err) = match handle_command(running, hvp_vcpu_handler, cmd.cmd) {
+        Ok(resp) => cmd.response.send(resp),
+        Err(err) => cmd.response.send(VcpuCommandResponse::Err(err)),
+    } {
+        error!("Failed to send response of vcpu command");
     }
 }
 
@@ -246,6 +256,7 @@ pub struct HvpVcpu {
     vcpu_id: usize,
     handler: Arc<Mutex<HvpVcpuInternal>>,
     command_tx: Sender<VcpuCommandRequest>,
+    is_running: Arc<AtomicBool>,
     // TODO: handle gracefully shutdown
     #[allow(dead_code)]
     join_handler: JoinHandle<Result<(), VcpuError>>,
@@ -259,8 +270,12 @@ impl HvpVcpu {
     ) -> Result<Self, VcpuError> {
         let (handler_tx, handler_rx) = std::sync::mpsc::channel();
         let (command_tx, mut command_rx) = tokio::sync::mpsc::channel(8);
+        let is_running = Arc::new(AtomicBool::new(false));
 
+        let is_running_cloned = is_running.clone();
         let join_handler = std::thread::spawn(move || -> Result<(), VcpuError> {
+            let is_running = is_running_cloned;
+
             let mut vcpu = 0;
             let mut exit = null_mut() as *const hv_vcpu_exit_t;
             hv_unsafe_call!(hv_vcpu_create(&mut vcpu, &mut exit, null_mut()))?;
@@ -269,52 +284,64 @@ impl HvpVcpu {
 
             handler_tx.send(hvp_vcpu_handler.clone()).unwrap();
 
-            let mut running = false;
-
             loop {
-                if running {
-                    hv_unsafe_call!(hv_vcpu_run(vcpu))?;
-
-                    let exit_reason = to_vm_exit(vcpu, unsafe { *exit })?;
-
-                    let mut hvp_vcpu_handler = hvp_vcpu_handler.lock().unwrap();
-
-                    match handle_vm_exit(
-                        &mut *hvp_vcpu_handler,
-                        exit_reason,
-                        vm_exit_handler.as_ref(),
-                    )? {
-                        HandleVmExitResult::Canceled => (),
-                        HandleVmExitResult::Continue => (),
-                        HandleVmExitResult::NextInstruction => {
-                            let pc = hvp_vcpu_handler.get_core_reg(CoreRegister::PC)?;
-                            hvp_vcpu_handler.set_core_reg(CoreRegister::PC, pc + 4)?;
-                        }
-                    }
-                }
-
-                let cmd: VcpuCommandRequest;
-                if running {
+                {
+                    // If there is pending command, handle it first before running the vCPU.
                     match command_rx.try_recv() {
-                        Ok(command) => cmd = command,
-                        Err(TryRecvError::Empty) => continue,
+                        Ok(cmd) => {
+                            handle_command_and_send_response(
+                                &is_running,
+                                hvp_vcpu_handler.clone(),
+                                cmd,
+                            );
+                        }
+                        Err(TryRecvError::Empty) => (),
                         Err(TryRecvError::Disconnected) => {
                             return Err(VcpuError::VcpuCommandDisconnected);
                         }
                     }
-                } else {
-                    cmd = command_rx
-                        .blocking_recv()
-                        .ok_or(VcpuError::VcpuCommandDisconnected)?;
                 }
 
-                if let Err(_err) =
-                    match handle_command(&mut running, hvp_vcpu_handler.clone(), cmd.cmd) {
-                        Ok(resp) => cmd.response.send(resp),
-                        Err(err) => cmd.response.send(VcpuCommandResponse::Err(err)),
-                    }
                 {
-                    error!("Failed to send response of vcpu command");
+                    // If vcpu is running, run it and handle vm exit.
+                    if is_running.load(Ordering::Acquire) {
+                        hv_unsafe_call!(hv_vcpu_run(vcpu))?;
+
+                        let exit_reason = to_vm_exit(vcpu, unsafe { *exit })?;
+
+                        let mut hvp_vcpu_handler = hvp_vcpu_handler.lock().unwrap();
+
+                        match handle_vm_exit(
+                            &mut *hvp_vcpu_handler,
+                            exit_reason,
+                            vm_exit_handler.as_ref(),
+                        )? {
+                            HandleVmExitResult::Canceled => {
+                                is_running.store(false, Ordering::Release)
+                            }
+                            HandleVmExitResult::Continue => (),
+                            HandleVmExitResult::NextInstruction => {
+                                let pc = hvp_vcpu_handler.get_core_reg(CoreRegister::PC)?;
+                                hvp_vcpu_handler.set_core_reg(CoreRegister::PC, pc + 4)?;
+                            }
+                        }
+
+                        continue;
+                    }
+                }
+
+                {
+                    // Otherwise, just wait for command.
+                    command_rx
+                        .blocking_recv()
+                        .ok_or(VcpuError::VcpuCommandDisconnected)
+                        .map(|cmd| {
+                            handle_command_and_send_response(
+                                &is_running,
+                                hvp_vcpu_handler.clone(),
+                                cmd,
+                            )
+                        })?;
                 }
             }
         });
@@ -325,6 +352,7 @@ impl HvpVcpu {
             vcpu_id,
             handler,
             command_tx,
+            is_running,
             join_handler,
         })
     }
@@ -340,6 +368,10 @@ impl HypervisorVcpu for HvpVcpu {
     }
 
     fn tick(&mut self) -> Result<(), VcpuError> {
+        if !self.is_running.load(Ordering::Acquire) {
+            return Ok(());
+        }
+
         let handlers = [self.handler.lock().unwrap().vcpu];
 
         hv_unsafe_call!(hv_vcpus_exit(

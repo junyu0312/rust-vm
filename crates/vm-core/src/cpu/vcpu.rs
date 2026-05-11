@@ -128,10 +128,9 @@ impl Vcpu {
             return Ok(());
         }
 
-        match self.send_command_and_then_wait(VcpuCommand::Pause).await? {
-            VcpuCommandResponse::Empty => Ok(()),
-            _ => unreachable!(),
-        }
+        self.vcpu_instance.tick()?;
+
+        Ok(())
     }
 
     async fn send_command_and_then_wait(
@@ -140,14 +139,14 @@ impl Vcpu {
     ) -> Result<VcpuCommandResponse, CpuError> {
         let (req, rx) = VcpuCommandRequest::new(command);
 
+        self.pause().await?;
+
         self.command_tx
             .upgrade()
             .ok_or(CpuError::VcpuCommandDisconnected)?
             .send(req)
             .await
             .map_err(|_| CpuError::VcpuCommandDisconnected)?;
-
-        self.vcpu_instance.tick().unwrap();
 
         rx.await.map_err(|_| CpuError::VcpuCommandDisconnected)
     }
