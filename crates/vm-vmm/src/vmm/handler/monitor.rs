@@ -1,18 +1,18 @@
+use crate::error::Error;
 use crate::service::monitor::command::MonitorCommand;
 use crate::service::monitor::command::MonitorCommandResponse;
 use crate::vmm::Vmm;
-use crate::vmm::handler::CommandError;
 
 impl Vmm {
     pub async fn handle_monitor_client_command(
         &mut self,
         cmd: MonitorCommand,
-    ) -> Result<MonitorCommandResponse, CommandError> {
+    ) -> Result<MonitorCommandResponse, Error> {
         match cmd {
             MonitorCommand::Pause => {
                 self.pause().await?;
 
-                Ok(MonitorCommandResponse("Paused".to_string()))
+                Ok(MonitorCommandResponse::Ok("Paused".to_string()))
             }
             MonitorCommand::Resume => todo!(),
             MonitorCommand::Save(path) => {
@@ -21,7 +21,7 @@ impl Vmm {
                 // TODO: Refine error
                 vm.save(path).await.unwrap();
 
-                Ok(MonitorCommandResponse("Saved".to_string()))
+                Ok(MonitorCommandResponse::Ok("Saved".to_string()))
             }
         }
 

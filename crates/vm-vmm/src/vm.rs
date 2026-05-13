@@ -19,6 +19,7 @@ use vm_core::arch::aarch64::layout::MMIO_START;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
+use vm_core::arch::registers::ArchCoreRegisters;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::MMIO_LEN;
 #[cfg(target_arch = "x86_64")]
@@ -30,6 +31,7 @@ use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
 use vm_core::monitor::MonitorCommandOps;
 use vm_core::virtualization::hypervisor::Hypervisor;
+use vm_core::virtualization::vcpu::error::VcpuError;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
 use vm_core::virtualization::vm::error::VmError;
@@ -43,6 +45,7 @@ use vm_snapshot::ops::Snapshotable;
 
 use crate::device::InitDevice;
 use crate::error::Error;
+use crate::error::VmSnapshotError;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::config::VmConfig;
@@ -215,7 +218,75 @@ impl Vm {
         }
     }
 
-    pub async fn pause(&mut self) -> Result<(), Error> {
+    pub async fn read_core_registers(&self, vcpu_id: usize) -> Result<ArchCoreRegisters, VmError> {
+        let mut vcpu_manager = self.vcpu_manager.lock().await;
+        let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
+
+        let regs = vcpu.read_core_registers().await?;
+
+        Ok(regs)
+    }
+
+    pub async fn write_core_registers(
+        &self,
+        vcpu_id: usize,
+        registers: ArchCoreRegisters,
+    ) -> Result<(), VmError> {
+        let mut vcpu_manager = self.vcpu_manager.lock().await;
+        let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
+
+        vcpu.write_core_registers(registers).await?;
+
+        Ok(())
+    }
+
+    pub async fn read_addrs(
+        &self,
+        gva: u64,
+        len: usize,
+        vcpu_id: usize,
+    ) -> Result<Vec<u8>, VmError> {
+        let vcpu_manager = self.vcpu_manager();
+        let mut vcpu_manager = vcpu_manager.lock().await;
+        let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
+
+        let mut len = len;
+        let mut buf = Vec::with_capacity(len);
+        while len > 0 {
+            let Some(gpa) = vcpu.translate_gva_to_gpa(gva).await? else {
+                return Err(VmError::CpuError(VcpuError::TranslateErr.into()));
+            };
+
+            let hva = self.memory_address_space().gpa_to_hva(gpa).unwrap();
+            buf.push(unsafe { *hva });
+            // TODO: Opt
+            len -= 1;
+        }
+
+        Ok(buf)
+    }
+
+    pub async fn write_addrs(
+        &mut self,
+        _gpa: u64,
+        _data: &[u8],
+        vcpu_id: usize,
+    ) -> Result<(), VmError> {
+        let vcpu_manager = self.vcpu_manager();
+        let mut vcpu_manager = vcpu_manager.lock().await;
+        let _vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
+
+        let _buf = todo!();
+    }
+
+    pub async fn get_active_vcpus(&self) -> usize {
+        let vcpu_manager = self.vcpu_manager();
+        let vcpu_manager = vcpu_manager.lock().await;
+
+        vcpu_manager.get_active_vcpus()
+    }
+
+    pub async fn pause(&mut self) -> Result<(), VmError> {
         {
             let mut vcpu_manager = self.vcpu_manager.lock().await;
 
@@ -227,7 +298,7 @@ impl Vm {
         Ok(())
     }
 
-    pub async fn resume(&mut self) -> Result<(), Error> {
+    pub async fn resume(&mut self) -> Result<(), VmError> {
         {
             let mut vcpu_manager = self.vcpu_manager.lock().await;
 
@@ -239,26 +310,19 @@ impl Vm {
         Ok(())
     }
 
-    pub async fn save(&mut self, path: PathBuf) -> Result<(), VmError> {
-        let mut writer = fs::File::create(&path).map_err(|err| VmError::Save(Box::new(err)))?;
+    pub async fn save(&mut self, path: PathBuf) -> Result<(), VmSnapshotError> {
+        let mut writer = fs::File::create(&path)?;
 
         {
-            let vm_config_bytes =
-                serde_json::to_vec(&self.vm_config).map_err(|err| VmError::Save(Box::new(err)))?;
-            writer
-                .write_all(&vm_config_bytes)
-                .map_err(|err| VmError::Save(Box::new(err)))?;
+            let vm_config_bytes = serde_json::to_vec(&self.vm_config)?;
+            writer.write_all(&vm_config_bytes)?;
         }
 
-        self.memory_address_space()
-            .save(&mut writer)
-            .map_err(|err| VmError::Save(Box::new(err)))?;
+        self.memory_address_space().save(&mut writer)?;
 
         {
             let vcpu_manager = self.vcpu_manager.lock().await;
-            vcpu_manager
-                .save(&mut writer)
-                .map_err(|err| VmError::Save(Box::new(err)))?;
+            vcpu_manager.save(&mut writer)?;
         }
 
         Ok(())

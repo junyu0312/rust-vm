@@ -3,11 +3,12 @@ use std::io::Write;
 
 use vm_snapshot::ops::Snapshotable;
 
+use crate::cpu::error::CpuError;
 use crate::cpu::vcpu_manager::VcpuManager;
 use crate::virtualization::vcpu::error::VcpuError;
 
 impl Snapshotable for VcpuManager {
-    type Error = VcpuError;
+    type Error = CpuError;
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error> {
         let vcpu_count = self.vcpus.len() as u64;

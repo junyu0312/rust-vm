@@ -55,8 +55,8 @@ impl MultiThreadBase for VmGdbStubTarget {
 
                 Ok(())
             }
-            GdbStubCommandResponse::Err => {
-                error!("Failed to handle ReadRegisters command");
+            GdbStubCommandResponse::Err(err) => {
+                error!(err, "Failed to handle ReadRegisters command");
                 Err(TargetError::NonFatal)
             }
             _ => {
@@ -82,8 +82,8 @@ impl MultiThreadBase for VmGdbStubTarget {
 
         match response {
             GdbStubCommandResponse::WriteRegisters => Ok(()),
-            GdbStubCommandResponse::Err => {
-                error!("Failed to handle command");
+            GdbStubCommandResponse::Err(err) => {
+                error!(err, "Failed to handle command");
                 Err(TargetError::NonFatal)
             }
             _ => {
@@ -114,8 +114,8 @@ impl MultiThreadBase for VmGdbStubTarget {
                 data[..buf.len()].copy_from_slice(&buf);
                 Ok(data.len())
             }
-            GdbStubCommandResponse::Err => {
-                error!("Failed to handle command");
+            GdbStubCommandResponse::Err(err) => {
+                error!(err, "Failed to handle command");
                 Err(TargetError::NonFatal)
             }
             _ => {
@@ -143,8 +143,8 @@ impl MultiThreadBase for VmGdbStubTarget {
 
         match response {
             GdbStubCommandResponse::WriteAddrs => Ok(()),
-            GdbStubCommandResponse::Err => {
-                error!("Failed to handle command");
+            GdbStubCommandResponse::Err(err) => {
+                error!(err, "Failed to handle command");
                 Err(TargetError::NonFatal)
             }
             _ => {
@@ -167,8 +167,8 @@ impl MultiThreadBase for VmGdbStubTarget {
 
                 Ok(())
             }
-            GdbStubCommandResponse::Err => {
-                error!("Failed to handle command");
+            GdbStubCommandResponse::Err(err) => {
+                error!(err, "Failed to handle command");
                 Err(VmGdbStubError::ListActiveThreadsFailed)
             }
             _ => {
@@ -188,8 +188,8 @@ impl MultiThreadResume for VmGdbStubTarget {
     fn resume(&mut self) -> Result<(), Self::Error> {
         match GdbStubCommand::Resume.send_and_then_wait(&self.tx)? {
             GdbStubCommandResponse::Resume => Ok(()),
-            GdbStubCommandResponse::Err => {
-                error!("Failed to handle command");
+            GdbStubCommandResponse::Err(err) => {
+                error!(err, "Failed to handle command");
                 Err(VmGdbStubError::ResumeFailed)
             }
             _ => {

@@ -18,7 +18,12 @@ pub struct MonitorCommandRequest {
     pub response: oneshot::Sender<MonitorCommandResponse>,
 }
 
-pub struct MonitorCommandResponse(pub String);
+#[derive(Debug)]
+pub enum MonitorCommandResponse {
+    Ok(String),
+
+    Err(Box<dyn std::error::Error + Send + Sync>),
+}
 
 impl MonitorCommand {
     pub async fn send_and_then_wait(
