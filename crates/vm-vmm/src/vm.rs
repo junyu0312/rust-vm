@@ -32,6 +32,7 @@ use vm_core::monitor::MonitorCommandOps;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
+use vm_core::virtualization::vm::error::VmError;
 use vm_device::device::Device;
 use vm_mm::allocator::Allocator;
 use vm_mm::allocator::std_allocator::StdAllocator;
@@ -238,20 +239,26 @@ impl Vm {
         Ok(())
     }
 
-    pub async fn save(&mut self, path: PathBuf) -> Result<(), vm_snapshot::ops::Error> {
-        let mut writer = fs::File::create(&path)?;
+    pub async fn save(&mut self, path: PathBuf) -> Result<(), VmError> {
+        let mut writer = fs::File::create(&path).map_err(|err| VmError::Save(Box::new(err)))?;
 
         {
-            let vm_config_bytes = serde_json::to_vec(&self.vm_config)
-                .map_err(|err| vm_snapshot::ops::Error::VmError(err.to_string()))?;
-            writer.write_all(&vm_config_bytes)?;
+            let vm_config_bytes =
+                serde_json::to_vec(&self.vm_config).map_err(|err| VmError::Save(Box::new(err)))?;
+            writer
+                .write_all(&vm_config_bytes)
+                .map_err(|err| VmError::Save(Box::new(err)))?;
         }
 
-        self.memory_address_space().save(&mut writer)?;
+        self.memory_address_space()
+            .save(&mut writer)
+            .map_err(|err| VmError::Save(Box::new(err)))?;
 
         {
             let vcpu_manager = self.vcpu_manager.lock().await;
-            vcpu_manager.save(&mut writer)?;
+            vcpu_manager
+                .save(&mut writer)
+                .map_err(|err| VmError::Save(Box::new(err)))?;
         }
 
         Ok(())

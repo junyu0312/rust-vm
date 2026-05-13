@@ -10,4 +10,7 @@ pub enum Error {
 
     #[error("access memory overflow")]
     MemoryOverflow,
+
+    #[error("failed to save memory snapshot, error: {0}")]
+    Save(Box<dyn std::error::Error + Send + Sync>),
 }
