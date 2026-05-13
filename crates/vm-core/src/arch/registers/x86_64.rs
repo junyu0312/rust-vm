@@ -1,7 +1,10 @@
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
+use serde::Deserialize;
+use serde::Serialize;
 
 pub struct X86_64CoreRegisters;
 
+#[derive(Serialize, Deserialize)]
 pub struct X86_64Registers;
 
 impl From<X86_64CoreRegs> for X86_64CoreRegisters {

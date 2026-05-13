@@ -12,5 +12,5 @@ pub trait HypervisorVcpu: Send {
 
     fn command_tx(&self) -> WeakSender<VcpuCommandRequest>;
 
-    fn tick(&mut self) -> Result<(), VcpuError>;
+    fn tick(&self) -> Result<(), VcpuError>;
 }

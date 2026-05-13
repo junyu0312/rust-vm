@@ -7,6 +7,9 @@ use thiserror::Error;
 pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Vm error while saving snapshot: {0}")]
+    VmError(String),
 }
 
 pub trait Pausable {
@@ -16,7 +19,7 @@ pub trait Pausable {
 }
 
 pub trait Snapshotable {
-    fn save(&self, writer: &mut dyn Write) -> Result<Vec<u8>, Error>;
+    fn save(&self, writer: &mut dyn Write) -> Result<(), Error>;
 
     fn restore(&mut self, reader: &mut dyn Read) -> Result<(), Error>;
 }

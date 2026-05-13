@@ -1,3 +1,6 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 pub mod cmos;
 pub mod coprocessor;
 pub mod dummy;
@@ -12,6 +15,7 @@ pub mod virtio;
 #[cfg(target_arch = "aarch64")]
 pub mod pl011;
 
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Device {
     GicV3,
     VirtioMmioBalloon,

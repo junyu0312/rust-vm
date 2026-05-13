@@ -1,6 +1,9 @@
 use std::collections::HashMap;
+use std::fs;
 #[cfg(not(target_arch = "aarch64"))]
 use std::hint::black_box;
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -35,10 +38,10 @@ use vm_mm::allocator::std_allocator::StdAllocator;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::memory_container::MemoryContainer;
 use vm_mm::region::MemoryRegion;
+use vm_snapshot::ops::Snapshotable;
 
 use crate::device::InitDevice;
 use crate::error::Error;
-use crate::error::Result;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::config::VmConfig;
@@ -59,7 +62,7 @@ pub struct Vm {
     _device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
     monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
-    _vm_config: VmConfig,
+    vm_config: VmConfig,
     #[cfg(target_arch = "aarch64")]
     start_pc: u64,
 }
@@ -69,7 +72,7 @@ impl Vm {
         hypervisor: &dyn Hypervisor,
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
         vm_config: VmConfig,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let mut monitor_server_builder = MonitorServerBuilder::default();
 
         let vm_instance = hypervisor.create_vm()?;
@@ -164,7 +167,7 @@ impl Vm {
                 .gdb_port
                 .map(|port| VmGdbStubConnector::new(vmm_tx, port)),
             monitor_handlers: monitor_server_builder.components,
-            _vm_config: vm_config,
+            vm_config,
             #[cfg(target_arch = "aarch64")]
             start_pc,
         };
@@ -184,7 +187,7 @@ impl Vm {
         &self.monitor_handlers
     }
 
-    pub async fn boot(&mut self) -> Result<()> {
+    pub async fn boot(&mut self) -> Result<(), Error> {
         let mut stop_on_boot = false;
 
         if let Some(gdb_stub) = &self.gdb_stub {
@@ -211,7 +214,7 @@ impl Vm {
         }
     }
 
-    pub async fn pause(&mut self) -> Result<()> {
+    pub async fn pause(&mut self) -> Result<(), Error> {
         {
             let mut vcpu_manager = self.vcpu_manager.lock().await;
 
@@ -223,7 +226,7 @@ impl Vm {
         Ok(())
     }
 
-    pub async fn resume(&mut self) -> Result<()> {
+    pub async fn resume(&mut self) -> Result<(), Error> {
         {
             let mut vcpu_manager = self.vcpu_manager.lock().await;
 
@@ -231,6 +234,25 @@ impl Vm {
         }
 
         // TODO: resume devices
+
+        Ok(())
+    }
+
+    pub async fn save(&mut self, path: PathBuf) -> Result<(), vm_snapshot::ops::Error> {
+        let mut writer = fs::File::create(&path)?;
+
+        {
+            let vm_config_bytes = serde_json::to_vec(&self.vm_config)
+                .map_err(|err| vm_snapshot::ops::Error::VmError(err.to_string()))?;
+            writer.write_all(&vm_config_bytes)?;
+        }
+
+        self.memory_address_space().save(&mut writer)?;
+
+        {
+            let vcpu_manager = self.vcpu_manager.lock().await;
+            vcpu_manager.save(&mut writer)?;
+        }
 
         Ok(())
     }
