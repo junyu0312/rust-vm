@@ -8,6 +8,7 @@ use tokio::sync::mpsc::Sender;
 use vm_core::monitor::MonitorError;
 
 use crate::service::monitor::command::MonitorCommand;
+use crate::service::monitor::command::MonitorCommandResponse;
 use crate::vmm::Vmm;
 use crate::vmm::handler::VmmCommand;
 
@@ -57,7 +58,11 @@ impl MonitorConnection {
                                 Ok(resp) => {
                                     stream.writable().await?;
 
-                                    stream.write_all(resp.0.as_bytes()).await?;
+                                    let resp = match resp {
+                                        MonitorCommandResponse::Ok(resp) => resp,
+                                        MonitorCommandResponse::Err(err) => format!("ERR {err}"),
+                                    };
+                                    stream.write_all(resp.as_bytes()).await?;
                                 }
                                 Err(err) => {
                                     stream.write_all(format!("ERR {err}\n").as_bytes()).await?;

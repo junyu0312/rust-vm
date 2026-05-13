@@ -23,4 +23,7 @@ pub enum VcpuError {
 
     #[error("Failed to translate gpa")]
     TranslateErr,
+
+    #[error("Failed to save vCPU, error: {0}")]
+    Save(Box<dyn std::error::Error + Send + Sync>),
 }

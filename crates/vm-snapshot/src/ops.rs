@@ -1,25 +1,18 @@
 use std::io::Read;
 use std::io::Write;
 
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Vm error while saving snapshot: {0}")]
-    VmError(String),
-}
-
 pub trait Pausable {
-    fn pause(&mut self) -> Result<(), Error>;
+    type Error;
 
-    fn resume(&mut self) -> Result<(), Error>;
+    fn pause(&mut self) -> Result<(), Self::Error>;
+
+    fn resume(&mut self) -> Result<(), Self::Error>;
 }
 
 pub trait Snapshotable {
-    fn save(&self, writer: &mut dyn Write) -> Result<(), Error>;
+    type Error;
 
-    fn restore(&mut self, reader: &mut dyn Read) -> Result<(), Error>;
+    fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error>;
+
+    fn restore(&mut self, reader: &mut dyn Read) -> Result<(), Self::Error>;
 }

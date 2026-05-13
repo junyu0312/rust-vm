@@ -48,7 +48,7 @@ pub enum GdbStubCommandResponse {
 
     Resume,
 
-    Err,
+    Err(Box<dyn std::error::Error + Send + Sync>),
 }
 
 pub struct GdbStubCommandRequest {

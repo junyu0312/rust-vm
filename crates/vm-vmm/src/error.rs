@@ -8,6 +8,21 @@ use vm_core::virtualization::vm::error::VmError;
 use crate::service::gdbstub::error::VmGdbStubError;
 
 #[derive(Error, Debug)]
+pub enum VmSnapshotError {
+    #[error("Failed to save vm due to io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Failed to save vm due to serde error: {0}")]
+    Serde(#[from] serde_json::Error),
+
+    #[error("Failed to save vm due to memory error: {0}")]
+    Memory(#[from] vm_mm::error::Error),
+
+    #[error("Failed to save vm due to cpu error: {0}")]
+    Cpu(#[from] CpuError),
+}
+
+#[derive(Error, Debug)]
 pub enum Error {
     #[error("Vm already exists")]
     VmAlreadyExists,

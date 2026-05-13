@@ -3,12 +3,18 @@ use std::io::Write;
 
 use vm_snapshot::ops::Snapshotable;
 
+use crate::cpu::error::CpuError;
 use crate::cpu::vcpu_manager::VcpuManager;
+use crate::virtualization::vcpu::error::VcpuError;
 
 impl Snapshotable for VcpuManager {
-    fn save(&self, writer: &mut dyn Write) -> Result<(), vm_snapshot::ops::Error> {
+    type Error = CpuError;
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error> {
         let vcpu_count = self.vcpus.len() as u64;
-        writer.write_all(&vcpu_count.to_le_bytes())?;
+        writer
+            .write_all(&vcpu_count.to_le_bytes())
+            .map_err(|err| VcpuError::Save(Box::new(err)))?;
 
         for vcpu in &self.vcpus {
             vcpu.save(writer)?;
@@ -17,7 +23,7 @@ impl Snapshotable for VcpuManager {
         Ok(())
     }
 
-    fn restore(&mut self, _reader: &mut dyn Read) -> Result<(), vm_snapshot::ops::Error> {
+    fn restore(&mut self, _reader: &mut dyn Read) -> Result<(), Self::Error> {
         todo!()
     }
 }

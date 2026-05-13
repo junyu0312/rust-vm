@@ -1,7 +1,8 @@
 use tracing::error;
 
+use crate::service::gdbstub::command::GdbStubCommandResponse;
+use crate::service::monitor::command::MonitorCommandResponse;
 use crate::vmm::Vmm;
-use crate::vmm::handler::CommandError;
 use crate::vmm::handler::VmmCommand;
 
 mod monitor;
@@ -11,30 +12,38 @@ impl Vmm {
         self.listen_for_monitor_client();
 
         while let Some(command) = self.command_rx.recv().await {
-            if let Err(err) = self.handle_command(command).await {
-                error!(?err, "Failed to handle command");
-            }
+            self.handle_command(command).await;
         }
     }
 
-    async fn handle_command(&mut self, command: VmmCommand) -> Result<(), CommandError> {
+    async fn handle_command(&mut self, command: VmmCommand) {
         match command {
             VmmCommand::GdbCommand(cmd) => {
-                let r = self.handle_gdbstub_command(cmd.command).await?;
+                let response = match self.handle_gdbstub_command(cmd.command).await {
+                    Ok(response) => response,
+                    Err(err) => {
+                        error!(?err, "Failed to handle gdbstub command");
+                        GdbStubCommandResponse::Err(Box::new(err))
+                    }
+                };
 
-                cmd.response
-                    .send(r)
-                    .map_err(|_| CommandError::FailedToSendResponse)?;
+                if cmd.response.send(response).is_err() {
+                    error!("Failed to send gdbstub command response");
+                }
             }
             VmmCommand::MonitorCommand(cmd) => {
-                let r = self.handle_monitor_client_command(cmd.command).await?;
+                let response = match self.handle_monitor_client_command(cmd.command).await {
+                    Ok(response) => response,
+                    Err(err) => {
+                        error!(?err, "Failed to handle monitor command");
+                        MonitorCommandResponse::Err(Box::new(err))
+                    }
+                };
 
-                cmd.response
-                    .send(r)
-                    .map_err(|_| CommandError::FailedToSendResponse)?;
+                if cmd.response.send(response).is_err() {
+                    error!("Failed to send monitor command response");
+                }
             }
         }
-
-        Ok(())
     }
 }

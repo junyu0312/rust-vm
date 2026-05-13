@@ -22,4 +22,7 @@ pub enum VmError {
 
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
+
+    #[error("Failed to save vm snapshot, error: {0}")]
+    Save(Box<dyn std::error::Error + Send + Sync>),
 }
