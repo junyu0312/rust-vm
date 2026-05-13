@@ -11,6 +11,8 @@ kvm-bindings = { workspace = true, optional = true }
 kvm-ioctls = { workspace = true, optional = true }
 lazy_static = { workspace = true }
 maplit = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -19,5 +21,6 @@ vm-core = { workspace = true }
 vm-device = { workspace = true }
 vm-mm = { workspace = true }
 vm-pci = { workspace = true }
+vm-snapshot = { workspace = true }
 vm-virtio = { workspace = true }
 winnow = { workspace = true }

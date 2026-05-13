@@ -8,6 +8,8 @@ use crate::virtualization::vcpu::command::VcpuCommand;
 use crate::virtualization::vcpu::command::VcpuCommandRequest;
 use crate::virtualization::vcpu::command::VcpuCommandResponse;
 
+mod snapshot;
+
 pub struct Vcpu {
     command_tx: WeakSender<VcpuCommandRequest>,
     vcpu_instance: Box<dyn HypervisorVcpu>,
@@ -123,7 +125,7 @@ impl Vcpu {
         }
     }
 
-    pub async fn pause(&mut self) -> Result<(), CpuError> {
+    pub async fn pause(&self) -> Result<(), CpuError> {
         if !self.booted {
             return Ok(());
         }
@@ -134,7 +136,7 @@ impl Vcpu {
     }
 
     async fn send_command_and_then_wait(
-        &mut self,
+        &self,
         command: VcpuCommand,
     ) -> Result<VcpuCommandResponse, CpuError> {
         let (req, rx) = VcpuCommandRequest::new(command);

@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
+use serde::Deserialize;
+use serde::Serialize;
 use vm_device::device::Device;
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct VmConfig {
     pub memory_size: usize,
     pub vcpus: usize,

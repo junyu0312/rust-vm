@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
@@ -8,6 +10,7 @@ use crate::vmm::handler::VmmCommand;
 pub enum MonitorCommand {
     Pause,
     Resume,
+    Save(PathBuf),
 }
 
 pub struct MonitorCommandRequest {

@@ -1,7 +1,10 @@
 use gdbstub_arch::aarch64::reg::AArch64CoreRegs;
+use serde::Deserialize;
+use serde::Serialize;
 use vm_aarch64::register::cnthctl_el2::CnthctlEl2;
 use vm_aarch64::register::sctlr_el1::SctlrEl1;
 
+#[derive(Serialize, Deserialize)]
 pub struct AArch64CoreRegisters {
     pub general_purpose: [u64; 31],
     pub sp: u64,
@@ -12,12 +15,14 @@ pub struct AArch64CoreRegisters {
     pub fpsr: u64,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AArch64SysRegisters {
     pub mpidr_el1: u64,
     pub sctlr_el1: u64,
     pub cnthctl_el2: u64,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AArch64Registers {
     pub core: AArch64CoreRegisters,
     pub sys: AArch64SysRegisters,

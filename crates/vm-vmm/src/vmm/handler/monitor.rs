@@ -15,6 +15,14 @@ impl Vmm {
                 Ok(MonitorCommandResponse("Paused".to_string()))
             }
             MonitorCommand::Resume => todo!(),
+            MonitorCommand::Save(path) => {
+                let vm = self.try_get_vm_mut()?;
+
+                // TODO: Refine error
+                vm.save(path).await.unwrap();
+
+                Ok(MonitorCommandResponse("Saved".to_string()))
+            }
         }
 
         /*

@@ -1097,6 +1097,7 @@ dependencies = [
  "gdbstub_arch",
  "kvm-bindings",
  "kvm-ioctls",
+ "serde",
  "serde_json",
  "static_assertions",
  "strum_macros",
@@ -1144,8 +1145,10 @@ name = "vm-mm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "memmap2",
  "thiserror",
+ "vm-snapshot",
 ]
 
 [[package]]
@@ -1203,6 +1206,8 @@ dependencies = [
  "kvm-ioctls",
  "lazy_static",
  "maplit",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",
@@ -1211,6 +1216,7 @@ dependencies = [
  "vm-device",
  "vm-mm",
  "vm-pci",
+ "vm-snapshot",
  "vm-virtio",
  "winnow",
 ]

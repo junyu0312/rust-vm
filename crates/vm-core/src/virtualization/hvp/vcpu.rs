@@ -367,7 +367,7 @@ impl HypervisorVcpu for HvpVcpu {
         self.command_tx.downgrade()
     }
 
-    fn tick(&mut self) -> Result<(), VcpuError> {
+    fn tick(&self) -> Result<(), VcpuError> {
         if !self.is_running.load(Ordering::Acquire) {
             return Ok(());
         }
