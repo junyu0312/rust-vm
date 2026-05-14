@@ -16,9 +16,11 @@ use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
+use crate::device::error::InitDeviceError;
 use crate::device::irq_allocation::IrqAllocation;
 use crate::service::monitor::builder::MonitorServerBuilder;
-use crate::vmm::error::VmmError;
+
+pub(crate) mod error;
 
 mod irq_allocation;
 
@@ -29,7 +31,7 @@ pub trait InitDevice {
         mm: Arc<MemoryAddressSpace>,
         devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
-    ) -> Result<(), VmmError>;
+    ) -> Result<(), InitDeviceError>;
 }
 
 impl InitDevice for DeviceManager {
@@ -39,7 +41,7 @@ impl InitDevice for DeviceManager {
         mm: Arc<MemoryAddressSpace>,
         devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
-    ) -> Result<(), VmmError> {
+    ) -> Result<(), InitDeviceError> {
         let mut irq_allocation = IrqAllocation::new(0);
 
         let pci_rc = PciRootComplexMmio::new(
@@ -78,7 +80,10 @@ impl InitDevice for DeviceManager {
 
                     let monitor = VirtioBalloonMonitor::new(dev.clone());
                     monitor_server_builder
-                        .register_command_handler("balloon", Box::new(monitor))?;
+                        .register_command_handler("balloon", Box::new(monitor))
+                        .map_err(|_| InitDeviceError::RegisterMonitorCommand {
+                            device: "balloon".to_string(),
+                        })?;
 
                     // TODO: use mmio allocator?
                     let virtio_mmio_balloon = VirtioMmioBalloonDevice::new(

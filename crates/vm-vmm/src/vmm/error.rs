@@ -1,10 +1,10 @@
 use thiserror::Error;
 use vm_core::cpu::error::CpuError;
 use vm_core::monitor::MonitorError;
-use vm_core::utils::address_space::AddressSpaceError;
 use vm_core::virtualization::hypervisor::error::HypervisorError;
 use vm_core::virtualization::vm::error::VmError;
 
+use crate::device::error::InitDeviceError;
 use crate::service::gdbstub::error::VmGdbStubError;
 
 #[derive(Error, Debug)]
@@ -39,14 +39,11 @@ pub enum VmmError {
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
 
+    #[error("Failed to init device: {0}")]
+    InitDevice(#[from] InitDeviceError),
+
     #[error("Gdb error: {0}")]
     GdbError(#[from] VmGdbStubError),
-
-    #[error("Device address space error: {0}")]
-    DeviceAddressSpace(#[from] AddressSpaceError),
-
-    #[error("Pci device error: {0}")]
-    PciDevice(#[from] vm_pci::error::Error),
 
     #[error("{0}")]
     Memory(#[from] vm_mm::error::Error),
