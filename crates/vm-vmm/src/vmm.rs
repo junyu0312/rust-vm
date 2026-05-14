@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::mpsc;
@@ -60,6 +61,14 @@ impl Vmm {
         let vm = self.try_get_vm_mut()?;
 
         vm.pause().await?;
+
+        Ok(())
+    }
+
+    pub async fn save(&mut self, path: PathBuf) -> Result<(), VmmError> {
+        let vm = self.try_get_vm_mut()?;
+
+        vm.save(path).await?;
 
         Ok(())
     }

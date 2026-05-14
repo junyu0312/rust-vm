@@ -4,8 +4,8 @@ use crate::utils::address_space::AddressSpaceError;
 
 #[derive(Default)]
 pub struct PioAddressSpaceManager {
-    device: Vec<Box<dyn PioDevice>>,
-    address_space: AddressSpace<u16, usize>,
+    pub(crate) device: Vec<Box<dyn PioDevice>>,
+    pub(crate) address_space: AddressSpace<u16, usize>,
 }
 
 impl PioAddressSpaceManager {

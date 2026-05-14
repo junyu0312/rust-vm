@@ -1,5 +1,6 @@
 use thiserror::Error;
 use vm_core::cpu::error::CpuError;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_core::monitor::MonitorError;
 use vm_core::virtualization::hypervisor::error::HypervisorError;
 use vm_core::virtualization::vm::error::VmError;
@@ -9,17 +10,20 @@ use crate::service::gdbstub::error::VmGdbStubError;
 
 #[derive(Error, Debug)]
 pub enum VmSnapshotError {
-    #[error("Failed to save vm due to io error: {0}")]
+    #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Failed to save vm due to serde error: {0}")]
+    #[error("serde error: {0}")]
     Serde(#[from] serde_json::Error),
 
-    #[error("Failed to save vm due to memory error: {0}")]
+    #[error("memory error: {0}")]
     Memory(#[from] vm_mm::error::Error),
 
-    #[error("Failed to save vm due to cpu error: {0}")]
+    #[error("cpu error: {0}")]
     Cpu(#[from] CpuError),
+
+    #[error("device error: {0}")]
+    Device(#[from] DeviceSnapshotError),
 }
 
 #[derive(Error, Debug)]
@@ -53,4 +57,7 @@ pub enum VmmError {
 
     #[error("monitor error: {0}")]
     Monitor(#[from] MonitorError),
+
+    #[error("Save vm error: {0}")]
+    SnapshotError(#[from] VmSnapshotError),
 }

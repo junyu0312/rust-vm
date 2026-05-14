@@ -1,5 +1,4 @@
 use crate::service::monitor::command::MonitorCommand;
-use crate::service::monitor::command::MonitorCommandResponse;
 use crate::vmm::Vmm;
 use crate::vmm::error::VmmError;
 
@@ -7,21 +6,18 @@ impl Vmm {
     pub async fn handle_monitor_client_command(
         &mut self,
         cmd: MonitorCommand,
-    ) -> Result<MonitorCommandResponse, VmmError> {
+    ) -> Result<String, VmmError> {
         match cmd {
             MonitorCommand::Pause => {
                 self.pause().await?;
 
-                Ok(MonitorCommandResponse::Ok("Paused".to_string()))
+                Ok("Paused".to_string())
             }
             MonitorCommand::Resume => todo!(),
             MonitorCommand::Save(path) => {
-                let vm = self.try_get_vm_mut()?;
+                self.save(path).await?;
 
-                // TODO: Refine error
-                vm.save(path).await.unwrap();
-
-                Ok(MonitorCommandResponse::Ok("Saved".to_string()))
+                Ok("Saved".to_string())
             }
         }
 

@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use std::fs;
 #[cfg(not(target_arch = "aarch64"))]
 use std::hint::black_box;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use tempfile::NamedTempFile;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 #[cfg(target_arch = "aarch64")]
@@ -63,7 +63,7 @@ pub struct Vm {
     vcpu_manager: Arc<Mutex<VcpuManager>>,
     memory_address_space: Arc<MemoryAddressSpace>,
     _irq_chip: Arc<dyn InterruptController>,
-    _device_manager: Arc<DeviceManager>,
+    device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
     monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
     vm_config: VmConfig,
@@ -166,7 +166,7 @@ impl Vm {
             vcpu_manager,
             memory_address_space,
             _irq_chip: irq_chip,
-            _device_manager: device_manager,
+            device_manager,
             gdb_stub: vm_config
                 .gdb_port
                 .map(|port| VmGdbStubConnector::new(vmm_tx, port)),
@@ -311,19 +311,23 @@ impl Vm {
     }
 
     pub async fn save(&mut self, path: PathBuf) -> Result<(), VmSnapshotError> {
-        let mut writer = fs::File::create(&path)?;
+        let mut tmp = NamedTempFile::new()?;
 
         {
             let vm_config_bytes = serde_json::to_vec(&self.vm_config)?;
-            writer.write_all(&vm_config_bytes)?;
+            tmp.write_all(&vm_config_bytes)?;
         }
 
-        self.memory_address_space().save(&mut writer)?;
+        self.memory_address_space().save(&mut tmp)?;
 
         {
             let vcpu_manager = self.vcpu_manager.lock().await;
-            vcpu_manager.save(&mut writer)?;
+            vcpu_manager.save(&mut tmp)?;
         }
+
+        self.device_manager.save(&mut tmp)?;
+
+        tmp.persist(&path).map_err(|e| e.error)?;
 
         Ok(())
     }
