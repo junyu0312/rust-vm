@@ -7,6 +7,8 @@ use crate::device::pio::pio_as_manager::PioAddressSpaceManager;
 use crate::device::pio::pio_device::PioDevice;
 use crate::utils::address_space::AddressSpaceError;
 
+mod snapshot;
+
 pub struct DeviceManager {
     pub pio_manager: PioAddressSpaceManager,
     pub mmio_manager: MmioAddressSpaceManager,

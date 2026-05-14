@@ -1,7 +1,10 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum DeviceError {
-    #[error("Failed to save device snapshot, error: {0}")]
-    Save(Box<dyn std::error::Error + Send + Sync>),
+pub enum DeviceSnapshotError {
+    #[error("save device snapshot io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("device {0} does not support snapshot")]
+    DeviceNotSupportSnapshot(String),
 }

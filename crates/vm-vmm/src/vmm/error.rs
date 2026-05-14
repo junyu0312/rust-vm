@@ -1,29 +1,33 @@
 use thiserror::Error;
 use vm_core::cpu::error::CpuError;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_core::monitor::MonitorError;
-use vm_core::utils::address_space::AddressSpaceError;
 use vm_core::virtualization::hypervisor::error::HypervisorError;
 use vm_core::virtualization::vm::error::VmError;
 
+use crate::device::error::InitDeviceError;
 use crate::service::gdbstub::error::VmGdbStubError;
 
 #[derive(Error, Debug)]
 pub enum VmSnapshotError {
-    #[error("Failed to save vm due to io error: {0}")]
+    #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Failed to save vm due to serde error: {0}")]
+    #[error("serde error: {0}")]
     Serde(#[from] serde_json::Error),
 
-    #[error("Failed to save vm due to memory error: {0}")]
+    #[error("memory error: {0}")]
     Memory(#[from] vm_mm::error::Error),
 
-    #[error("Failed to save vm due to cpu error: {0}")]
+    #[error("cpu error: {0}")]
     Cpu(#[from] CpuError),
+
+    #[error("device error: {0}")]
+    Device(#[from] DeviceSnapshotError),
 }
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum VmmError {
     #[error("Vm already exists")]
     VmAlreadyExists,
 
@@ -39,26 +43,21 @@ pub enum Error {
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
 
+    #[error("Failed to init device: {0}")]
+    InitDevice(#[from] InitDeviceError),
+
     #[error("Gdb error: {0}")]
     GdbError(#[from] VmGdbStubError),
 
-    #[error("Device address space error: {0}")]
-    DeviceAddressSpace(#[from] AddressSpaceError),
-
-    #[error("Pci device error: {0}")]
-    PciDevice(#[from] vm_pci::error::Error),
-
     #[error("{0}")]
     Memory(#[from] vm_mm::error::Error),
-
-    #[error("Failed to init memory, error: {0}")]
-    InitMemory(String),
 
     #[error("Failed to setup with bootloader, error: {0}")]
     Bootloader(#[from] vm_bootloader::boot_loader::Error),
 
     #[error("monitor error: {0}")]
     Monitor(#[from] MonitorError),
-}
 
-pub type Result<T> = core::result::Result<T, Error>;
+    #[error("Save vm error: {0}")]
+    SnapshotError(#[from] VmSnapshotError),
+}

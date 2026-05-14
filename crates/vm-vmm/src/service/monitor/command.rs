@@ -15,21 +15,14 @@ pub enum MonitorCommand {
 
 pub struct MonitorCommandRequest {
     pub command: MonitorCommand,
-    pub response: oneshot::Sender<MonitorCommandResponse>,
-}
-
-#[derive(Debug)]
-pub enum MonitorCommandResponse {
-    Ok(String),
-
-    Err(Box<dyn std::error::Error + Send + Sync>),
+    pub response: oneshot::Sender<String>,
 }
 
 impl MonitorCommand {
     pub async fn send_and_then_wait(
         self,
         tx: &mpsc::Sender<VmmCommand>,
-    ) -> Result<MonitorCommandResponse, MonitorServerError> {
+    ) -> Result<String, MonitorServerError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         let request = VmmCommand::MonitorCommand(MonitorCommandRequest {

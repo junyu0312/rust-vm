@@ -9,7 +9,7 @@ use crate::utils::address_space::AddressSpaceError;
 
 pub struct MmioAddressSpaceManager {
     mmio_layout: MmioLayout,
-    devices: Vec<Box<dyn MmioDevice>>,
+    pub(crate) devices: Vec<Box<dyn MmioDevice>>,
     address_space: AddressSpace<u64, Box<dyn MmioHandler>>,
 }
 

@@ -16,13 +16,13 @@ pub enum VmError {
     #[error("Failed to set_user_memory_region: {0}")]
     SetUserMemoryRegionError(String),
 
+    #[error("Failed to create memory region")]
+    MemoryRegionOverlap,
+
     #[cfg(feature = "hvp")]
     #[error("Applevisor error: {0}")]
     ApplevisorError(#[from] applevisor::error::HypervisorError),
 
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
-
-    #[error("Failed to save vm snapshot, error: {0}")]
-    Save(Box<dyn std::error::Error + Send + Sync>),
 }

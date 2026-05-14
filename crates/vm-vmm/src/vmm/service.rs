@@ -1,7 +1,6 @@
 use tracing::error;
 
 use crate::service::gdbstub::command::GdbStubCommandResponse;
-use crate::service::monitor::command::MonitorCommandResponse;
 use crate::vmm::Vmm;
 use crate::vmm::handler::VmmCommand;
 
@@ -36,7 +35,7 @@ impl Vmm {
                     Ok(response) => response,
                     Err(err) => {
                         error!(?err, "Failed to handle monitor command");
-                        MonitorCommandResponse::Err(Box::new(err))
+                        format!("ERR {err}")
                     }
                 };
 
