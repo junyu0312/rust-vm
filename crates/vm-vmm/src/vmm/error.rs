@@ -23,7 +23,7 @@ pub enum VmSnapshotError {
 }
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum VmmError {
     #[error("Vm already exists")]
     VmAlreadyExists,
 
@@ -51,14 +51,9 @@ pub enum Error {
     #[error("{0}")]
     Memory(#[from] vm_mm::error::Error),
 
-    #[error("Failed to init memory, error: {0}")]
-    InitMemory(String),
-
     #[error("Failed to setup with bootloader, error: {0}")]
     Bootloader(#[from] vm_bootloader::boot_loader::Error),
 
     #[error("monitor error: {0}")]
     Monitor(#[from] MonitorError),
 }
-
-pub type Result<T> = core::result::Result<T, Error>;

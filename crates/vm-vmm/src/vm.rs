@@ -44,12 +44,12 @@ use vm_mm::region::MemoryRegion;
 use vm_snapshot::ops::Snapshotable;
 
 use crate::device::InitDevice;
-use crate::error::Error;
-use crate::error::VmSnapshotError;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::config::VmConfig;
 use crate::vm::vm_exit_handler::VmExitHandler;
+use crate::vmm::error::VmSnapshotError;
+use crate::vmm::error::VmmError;
 use crate::vmm::handler::VmmCommand;
 
 pub mod config;
@@ -76,7 +76,7 @@ impl Vm {
         hypervisor: &dyn Hypervisor,
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
         vm_config: VmConfig,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, VmmError> {
         let mut monitor_server_builder = MonitorServerBuilder::default();
 
         let vm_instance = hypervisor.create_vm()?;
@@ -93,7 +93,7 @@ impl Vm {
             )?;
             memory_address_space
                 .try_insert(MemoryRegion::new(RAM_BASE, Box::new(memory_region)))
-                .map_err(|_| Error::InitMemory("Failed to initialize memory".to_string()))?;
+                .map_err(|_| VmError::MemoryRegionOverlap)?;
         }
 
         let memory_address_space = Arc::new(memory_address_space);
@@ -191,7 +191,7 @@ impl Vm {
         &self.monitor_handlers
     }
 
-    pub async fn boot(&mut self) -> Result<(), Error> {
+    pub async fn boot(&mut self) -> Result<(), VmmError> {
         let mut stop_on_boot = false;
 
         if let Some(gdb_stub) = &self.gdb_stub {

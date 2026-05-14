@@ -1,15 +1,15 @@
 use tracing::trace;
 
-use crate::error::Error;
 use crate::service::gdbstub::command::GdbStubCommand;
 use crate::service::gdbstub::command::GdbStubCommandResponse;
 use crate::vmm::Vmm;
+use crate::vmm::error::VmmError;
 
 impl Vmm {
     pub async fn handle_gdbstub_command(
         &mut self,
         cmd: GdbStubCommand,
-    ) -> Result<GdbStubCommandResponse, Error> {
+    ) -> Result<GdbStubCommandResponse, VmmError> {
         match cmd {
             GdbStubCommand::ReadRegisters { vcpu_id } => {
                 trace!(vcpu_id, "ReadRegisters");

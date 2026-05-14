@@ -17,8 +17,8 @@ use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
 use crate::device::irq_allocation::IrqAllocation;
-use crate::error::Error;
 use crate::service::monitor::builder::MonitorServerBuilder;
+use crate::vmm::error::VmmError;
 
 mod irq_allocation;
 
@@ -29,7 +29,7 @@ pub trait InitDevice {
         mm: Arc<MemoryAddressSpace>,
         devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), VmmError>;
 }
 
 impl InitDevice for DeviceManager {
@@ -39,7 +39,7 @@ impl InitDevice for DeviceManager {
         mm: Arc<MemoryAddressSpace>,
         devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), VmmError> {
         let mut irq_allocation = IrqAllocation::new(0);
 
         let pci_rc = PciRootComplexMmio::new(

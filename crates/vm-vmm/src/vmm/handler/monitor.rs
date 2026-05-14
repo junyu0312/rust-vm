@@ -1,13 +1,13 @@
-use crate::error::Error;
 use crate::service::monitor::command::MonitorCommand;
 use crate::service::monitor::command::MonitorCommandResponse;
 use crate::vmm::Vmm;
+use crate::vmm::error::VmmError;
 
 impl Vmm {
     pub async fn handle_monitor_client_command(
         &mut self,
         cmd: MonitorCommand,
-    ) -> Result<MonitorCommandResponse, Error> {
+    ) -> Result<MonitorCommandResponse, VmmError> {
         match cmd {
             MonitorCommand::Pause => {
                 self.pause().await?;

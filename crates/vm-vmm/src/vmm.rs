@@ -5,11 +5,12 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use vm_core::virtualization::hypervisor::Hypervisor;
 
-use crate::error::Error;
-use crate::error::Result;
 use crate::vm::Vm;
 use crate::vm::config::VmConfig;
+use crate::vmm::error::VmmError;
 use crate::vmm::handler::VmmCommand;
+
+pub mod error;
 
 pub(crate) mod handler;
 
@@ -34,17 +35,17 @@ impl Vmm {
         }
     }
 
-    pub fn try_get_vm(&self) -> Result<&Vm> {
-        self.vm.as_ref().ok_or(Error::VmNotExists)
+    pub fn try_get_vm(&self) -> Result<&Vm, VmmError> {
+        self.vm.as_ref().ok_or(VmmError::VmNotExists)
     }
 
-    pub fn try_get_vm_mut(&mut self) -> Result<&mut Vm> {
-        self.vm.as_mut().ok_or(Error::VmNotExists)
+    pub fn try_get_vm_mut(&mut self) -> Result<&mut Vm, VmmError> {
+        self.vm.as_mut().ok_or(VmmError::VmNotExists)
     }
 
-    pub async fn create_vm_from_config(&mut self, vm_config: VmConfig) -> Result<()> {
+    pub async fn create_vm_from_config(&mut self, vm_config: VmConfig) -> Result<(), VmmError> {
         if self.vm.is_some() {
-            return Err(Error::VmAlreadyExists);
+            return Err(VmmError::VmAlreadyExists);
         }
 
         let vm =
@@ -55,7 +56,7 @@ impl Vmm {
         Ok(())
     }
 
-    pub async fn pause(&mut self) -> Result<()> {
+    pub async fn pause(&mut self) -> Result<(), VmmError> {
         let vm = self.try_get_vm_mut()?;
 
         vm.pause().await?;
@@ -63,8 +64,12 @@ impl Vmm {
         Ok(())
     }
 
-    pub async fn run(&mut self) -> Result<()> {
-        self.vm.as_mut().ok_or(Error::VmNotExists)?.boot().await?;
+    pub async fn run(&mut self) -> Result<(), VmmError> {
+        self.vm
+            .as_mut()
+            .ok_or(VmmError::VmNotExists)?
+            .boot()
+            .await?;
 
         self.run_monitor().await;
 
