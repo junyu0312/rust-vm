@@ -15,14 +15,20 @@ pub enum MonitorCommand {
 
 pub struct MonitorCommandRequest {
     pub command: MonitorCommand,
-    pub response: oneshot::Sender<String>,
+    pub response: oneshot::Sender<MonitorCommandResponse>,
+}
+
+#[derive(Debug)]
+pub enum MonitorCommandResponse {
+    Ok,
+    Err(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl MonitorCommand {
     pub async fn send_and_then_wait(
         self,
         tx: &mpsc::Sender<VmmCommand>,
-    ) -> Result<String, MonitorServerError> {
+    ) -> Result<MonitorCommandResponse, MonitorServerError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         let request = VmmCommand::MonitorCommand(MonitorCommandRequest {
@@ -30,13 +36,9 @@ impl MonitorCommand {
             response: response_tx,
         });
 
-        if let Err(_err) = tx.send(request).await {
-            return Err(MonitorServerError::SendRequest);
-        }
+        tx.send(request).await?;
 
-        let response = response_rx
-            .await
-            .map_err(|_| MonitorServerError::ReceiveResponse)?;
+        let response = response_rx.await?;
 
         Ok(response)
     }

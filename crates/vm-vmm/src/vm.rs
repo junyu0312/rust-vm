@@ -191,12 +191,14 @@ impl Vm {
         &self.monitor_handlers
     }
 
-    pub async fn boot(&mut self) -> Result<(), VmmError> {
+    pub async fn boot(&mut self) -> Result<(), VmError> {
         let mut stop_on_boot = false;
 
         if let Some(gdb_stub) = &self.gdb_stub {
             stop_on_boot = true;
-            gdb_stub.wait_for_connection()?;
+            gdb_stub
+                .spawn_listener()
+                .map_err(|_| VmError::GdbListenerCreation)?;
         }
 
         #[cfg(target_arch = "aarch64")]

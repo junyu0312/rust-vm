@@ -59,10 +59,7 @@ impl MultiThreadBase for VmGdbStubTarget {
                 error!(err, "Failed to handle ReadRegisters command");
                 Err(TargetError::NonFatal)
             }
-            _ => {
-                error!("Unexpected response to ReadRegisters command");
-                Err(TargetError::NonFatal)
-            }
+            _ => unreachable!(),
         }
     }
 
@@ -86,10 +83,7 @@ impl MultiThreadBase for VmGdbStubTarget {
                 error!(err, "Failed to handle command");
                 Err(TargetError::NonFatal)
             }
-            _ => {
-                error!("Unexpected response to command");
-                Err(TargetError::NonFatal)
-            }
+            _ => unreachable!(),
         }
     }
 
@@ -118,10 +112,7 @@ impl MultiThreadBase for VmGdbStubTarget {
                 error!(err, "Failed to handle command");
                 Err(TargetError::NonFatal)
             }
-            _ => {
-                error!("Unexpected response to command");
-                Err(TargetError::NonFatal)
-            }
+            _ => unreachable!(),
         }
     }
 
@@ -147,10 +138,7 @@ impl MultiThreadBase for VmGdbStubTarget {
                 error!(err, "Failed to handle command");
                 Err(TargetError::NonFatal)
             }
-            _ => {
-                error!("Unexpected response to command");
-                Err(TargetError::NonFatal)
-            }
+            _ => unreachable!(),
         }
     }
 
@@ -171,10 +159,7 @@ impl MultiThreadBase for VmGdbStubTarget {
                 error!(err, "Failed to handle command");
                 Err(VmGdbStubError::ListActiveThreadsFailed)
             }
-            _ => {
-                error!("Unexpected response to command");
-                Err(VmGdbStubError::InvalidResponse)
-            }
+            _ => unreachable!(),
         }
     }
 
@@ -192,10 +177,7 @@ impl MultiThreadResume for VmGdbStubTarget {
                 error!(err, "Failed to handle command");
                 Err(VmGdbStubError::ResumeFailed)
             }
-            _ => {
-                error!("Unexpected response to command");
-                Err(VmGdbStubError::InvalidResponse)
-            }
+            _ => unreachable!(),
         }
     }
 

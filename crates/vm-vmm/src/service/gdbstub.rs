@@ -5,7 +5,7 @@ use gdbstub_arch::x86::X86_64_SSE as GdbStubArch;
 
 pub(crate) mod command;
 pub(crate) mod connection;
-pub(crate) mod error;
 
+mod error;
 mod event_loop;
 mod target;
