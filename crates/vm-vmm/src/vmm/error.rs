@@ -6,7 +6,6 @@ use vm_core::virtualization::hypervisor::error::HypervisorError;
 use vm_core::virtualization::vm::error::VmError;
 
 use crate::device::error::InitDeviceError;
-use crate::service::gdbstub::error::VmGdbStubError;
 
 #[derive(Error, Debug)]
 pub enum VmSnapshotError {
@@ -45,9 +44,6 @@ pub enum VmmError {
 
     #[error("Failed to init device: {0}")]
     InitDevice(#[from] InitDeviceError),
-
-    #[error("Gdb error: {0}")]
-    GdbError(#[from] VmGdbStubError),
 
     #[error("{0}")]
     Memory(#[from] vm_mm::error::Error),

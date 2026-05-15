@@ -25,4 +25,7 @@ pub enum VmError {
 
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
+
+    #[error("Failed to create listener for gdbstub")]
+    GdbListenerCreation,
 }

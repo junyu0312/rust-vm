@@ -57,7 +57,7 @@ impl MonitorConnection {
                                 Ok(resp) => {
                                     stream.writable().await?;
 
-                                    stream.write_all(resp.as_bytes()).await?;
+                                    stream.write_all(format!("{resp:?}").as_bytes()).await?;
                                 }
                                 Err(err) => {
                                     stream.write_all(format!("ERR {err}\n").as_bytes()).await?;

@@ -1,4 +1,5 @@
 pub(crate) mod builder;
 pub(crate) mod command;
-pub(crate) mod error;
-pub(crate) mod parser;
+
+mod error;
+mod parser;

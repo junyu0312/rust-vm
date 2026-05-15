@@ -68,14 +68,9 @@ impl GdbStubCommand {
             response: response_tx,
         });
 
-        if let Err(err) = tx.blocking_send(request) {
-            eprintln!("Failed to send GDB stub command request: {err}");
-            return Err(VmGdbStubError::FailedToSendCommand);
-        }
+        tx.blocking_send(request)?;
 
-        let response = response_rx
-            .blocking_recv()
-            .map_err(|_| VmGdbStubError::FailedToReceiveCommandResponse)?;
+        let response = response_rx.blocking_recv()?;
 
         Ok(response)
     }

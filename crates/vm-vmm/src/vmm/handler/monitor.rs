@@ -1,25 +1,35 @@
+use tracing::error;
+
 use crate::service::monitor::command::MonitorCommand;
+use crate::service::monitor::command::MonitorCommandResponse;
 use crate::vmm::Vmm;
-use crate::vmm::error::VmmError;
 
 impl Vmm {
     pub async fn handle_monitor_client_command(
         &mut self,
         cmd: MonitorCommand,
-    ) -> Result<String, VmmError> {
-        match cmd {
-            MonitorCommand::Pause => {
-                self.pause().await?;
+    ) -> MonitorCommandResponse {
+        async {
+            match cmd {
+                MonitorCommand::Pause => {
+                    self.pause().await?;
 
-                Ok("Paused".to_string())
-            }
-            MonitorCommand::Resume => todo!(),
-            MonitorCommand::Save(path) => {
-                self.save(path).await?;
+                    Ok(MonitorCommandResponse::Ok)
+                }
+                MonitorCommand::Resume => todo!(),
+                MonitorCommand::Save(path) => {
+                    self.save(path).await?;
 
-                Ok("Saved".to_string())
+                    Ok(MonitorCommandResponse::Ok)
+                }
             }
         }
+        .await
+        .unwrap_or_else(|err| {
+            error!(?err, "Failed to handle monitor command");
+
+            MonitorCommandResponse::Err(err)
+        })
 
         /*
                 let Some(command) = tokens.next() else {

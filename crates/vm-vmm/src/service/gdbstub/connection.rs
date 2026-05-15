@@ -23,7 +23,7 @@ impl VmGdbStubConnector {
 }
 
 impl VmGdbStubConnector {
-    pub fn wait_for_connection(&self) -> Result<(), VmGdbStubError> {
+    pub fn spawn_listener(&self) -> Result<(), VmGdbStubError> {
         let sockaddr = format!("localhost:{}", self.port);
         let listener = TcpListener::bind(&sockaddr)?;
 
