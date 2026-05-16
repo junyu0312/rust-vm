@@ -56,6 +56,7 @@ mod vm_exit_handler;
 const PAGE_SIZE: usize = 4 << 10;
 
 pub struct Vm {
+    vm_config: VmConfig,
     _vm_instance: Arc<dyn HypervisorVm>,
     vcpu_manager: Arc<Mutex<VcpuManager>>,
     memory_address_space: Arc<MemoryAddressSpace>,
@@ -63,7 +64,6 @@ pub struct Vm {
     device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
     monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
-    vm_config: VmConfig,
 }
 
 impl Vm {

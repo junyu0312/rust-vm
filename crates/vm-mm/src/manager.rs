@@ -12,6 +12,10 @@ pub struct MemoryAddressSpace {
 }
 
 impl MemoryAddressSpace {
+    pub fn regions(&self) -> &BTreeMap<u64, MemoryRegion> {
+        &self.regions
+    }
+
     pub fn try_insert(&mut self, region: MemoryRegion) -> Result<(), MemoryRegion> {
         if self.is_overlapping(&region) {
             return Err(region);
