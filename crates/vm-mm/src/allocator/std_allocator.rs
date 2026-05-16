@@ -2,12 +2,14 @@ use std::alloc::Layout;
 use std::alloc::alloc_zeroed;
 
 use crate::allocator::Allocator;
+use crate::allocator::AllocatorKind;
 use crate::error::Error;
 use crate::memory_container::MemoryContainer;
 
 pub struct StdMemoryRegion {
     addr: *mut u8,
     len: usize,
+    align: Option<usize>,
     layout: Layout,
 }
 
@@ -21,6 +23,14 @@ impl Drop for StdMemoryRegion {
 }
 
 impl MemoryContainer for StdMemoryRegion {
+    fn kind(&self) -> AllocatorKind {
+        AllocatorKind::Std
+    }
+
+    fn align(&self) -> Option<usize> {
+        self.align
+    }
+
     fn hva(&self) -> *mut u8 {
         self.addr
     }
@@ -35,6 +45,8 @@ pub struct StdAllocator;
 impl Allocator for StdAllocator {
     type Container = StdMemoryRegion;
 
+    const KIND: AllocatorKind = AllocatorKind::Std;
+
     fn alloc(&self, len: usize, align: Option<usize>) -> Result<StdMemoryRegion, Error> {
         let layout = if let Some(align) = align {
             Layout::from_size_align(len, align)
@@ -45,6 +57,11 @@ impl Allocator for StdAllocator {
 
         let addr = unsafe { alloc_zeroed(layout) };
 
-        Ok(StdMemoryRegion { addr, len, layout })
+        Ok(StdMemoryRegion {
+            addr,
+            len,
+            align,
+            layout,
+        })
     }
 }

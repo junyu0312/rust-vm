@@ -54,6 +54,7 @@ use crate::vmm::handler::VmmCommand;
 
 pub mod config;
 
+mod snapshot;
 mod vm_exit_handler;
 
 const PAGE_SIZE: usize = 4 << 10;
