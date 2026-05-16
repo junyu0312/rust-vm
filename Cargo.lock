@@ -1078,6 +1078,7 @@ name = "vm-bootloader"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "thiserror",
  "tracing",
  "vm-core",

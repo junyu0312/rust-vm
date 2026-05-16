@@ -1,9 +1,12 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
+use async_trait::async_trait;
 use thiserror::Error;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::layout;
+use vm_core::cpu::error::CpuError;
+use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_mm::manager::MemoryAddressSpace;
 
@@ -17,10 +20,10 @@ pub enum Error {
     LoadKernelFailed(String),
     #[error("Load initd failed, reason: {0}")]
     LoadInitrdFailed(String),
-    #[error("Setup Boot cpu failed, reason: {0}")]
-    SetupBootCpuFailed(String),
     #[error("Memory overlap")]
     MemoryOverlap,
+    #[error("Setup boot cpu error: {0}")]
+    SetupBootCpuError(CpuError),
     #[error("Layout error, reason: {0}")]
     LayoutError(#[from] layout::Error),
     #[error("{0}")]
@@ -36,13 +39,15 @@ where
     fn new(kernel: PathBuf, initramfs: Option<PathBuf>, cmdline: Option<String>) -> Self;
 }
 
+#[async_trait]
 pub trait BootLoader {
-    fn load(
+    async fn load(
         &self,
         ram_size: u64,
         vcpus: usize,
+        boot_vcpu: &mut Vcpu,
         memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
-    ) -> Result<u64>;
+    ) -> Result<()>;
 }

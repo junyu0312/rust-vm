@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
+use async_trait::async_trait;
 use vm_core::arch::aarch64::layout::DTB_START;
 use vm_core::arch::aarch64::layout::INITRD_START;
 use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
+use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_fdt::FdtWriter;
 use vm_mm::manager::MemoryAddressSpace;
@@ -222,15 +224,17 @@ impl BootLoaderBuilder for AArch64BootLoader {
     }
 }
 
+#[async_trait]
 impl BootLoader for AArch64BootLoader {
-    fn load(
+    async fn load(
         &self,
         ram_size: u64,
         vcpus: usize,
+        boot_vcpu: &mut Vcpu,
         memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
-    ) -> Result<u64> {
+    ) -> Result<()> {
         let kernel_loader;
         let initrd_loader;
         {
@@ -243,9 +247,16 @@ impl BootLoader for AArch64BootLoader {
             self.load_dtb(memory, dtb)?;
         }
 
+        {
+            boot_vcpu
+                .setup_vcpu(kernel_loader.start_pc, DTB_START)
+                .await
+                .map_err(Error::SetupBootCpuError)?;
+        }
+
         // let layout = virt.get_layout();
         // layout.validate()?;
 
-        Ok(kernel_loader.start_pc)
+        Ok(())
     }
 }

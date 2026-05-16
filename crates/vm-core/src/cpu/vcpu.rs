@@ -29,12 +29,7 @@ impl Vcpu {
         self.vcpu_instance.vcpu_id()
     }
 
-    pub async fn boot_vcpu(
-        &mut self,
-        pc: u64,
-        dtb_or_context_id: u64,
-        stop_on_boot: bool,
-    ) -> Result<(), CpuError> {
+    pub async fn setup_vcpu(&mut self, pc: u64, dtb_or_context_id: u64) -> Result<(), CpuError> {
         #[cfg(target_arch = "aarch64")]
         {
             use crate::arch::registers::aarch64::AArch64Registers;
@@ -52,13 +47,22 @@ impl Vcpu {
             black_box((pc, dtb_or_context_id));
         }
 
-        self.booted = true;
+        Ok(())
+    }
 
-        if !stop_on_boot {
-            self.resume().await?;
+    pub async fn boot(&mut self) -> Result<(), CpuError> {
+        if self.booted {
+            return Err(CpuError::CpuAlreadyBooted(self.vcpu_id()));
         }
 
-        Ok(())
+        match self.send_command_and_then_wait(VcpuCommand::Resume).await? {
+            VcpuCommandResponse::Empty => {
+                self.booted = true;
+
+                Ok(())
+            }
+            _ => Err(CpuError::BootVcpu(self.vcpu_id())),
+        }
     }
 
     pub async fn read_registers(&mut self) -> Result<ArchRegisters, CpuError> {

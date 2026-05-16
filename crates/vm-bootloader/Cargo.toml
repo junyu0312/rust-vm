@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+async-trait.workspace = true
 thiserror.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true

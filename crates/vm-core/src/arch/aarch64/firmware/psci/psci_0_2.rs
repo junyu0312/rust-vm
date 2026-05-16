@@ -53,7 +53,8 @@ impl Psci for Psci02 {
 
                     let mut vcpu_manager = self.vcpu_manager.blocking_lock();
                     let vcpu = vcpu_manager.get_vcpu_mut(target_cpu as usize).unwrap();
-                    block_on(vcpu.boot_vcpu(entry_point_address, context_id, false)).unwrap();
+                    block_on(vcpu.setup_vcpu(entry_point_address, context_id)).unwrap();
+                    block_on(vcpu.boot()).unwrap();
 
                     PsciRet::SUCCESS as u32
                 }
