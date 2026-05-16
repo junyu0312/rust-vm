@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::error::Error;
 use crate::region::MemoryRegion;
 
-mod snapshot;
+pub mod snapshot;
 
 #[derive(Default)]
 pub struct MemoryAddressSpace {

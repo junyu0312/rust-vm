@@ -1166,6 +1166,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "memmap2",
+ "serde",
  "thiserror",
  "vm-snapshot",
 ]
