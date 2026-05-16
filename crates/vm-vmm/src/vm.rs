@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-#[cfg(not(target_arch = "aarch64"))]
-use std::hint::black_box;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,8 +8,6 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
-#[cfg(target_arch = "aarch64")]
-use vm_core::arch::aarch64::layout::DTB_START;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::MMIO_LEN;
 #[cfg(target_arch = "aarch64")]
@@ -68,8 +64,6 @@ pub struct Vm {
     gdb_stub: Option<VmGdbStubConnector>,
     monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
     vm_config: VmConfig,
-    #[cfg(target_arch = "aarch64")]
-    start_pc: u64,
 }
 
 impl Vm {
@@ -140,8 +134,6 @@ impl Vm {
         }
 
         #[cfg(target_arch = "aarch64")]
-        let start_pc;
-        #[cfg(target_arch = "aarch64")]
         {
             use vm_bootloader::boot_loader::BootLoader;
             use vm_bootloader::boot_loader::BootLoaderBuilder;
@@ -153,13 +145,19 @@ impl Vm {
                 vm_config.cmdline.clone(),
             );
 
-            start_pc = bootloader.load(
-                vm_config.memory_size as u64,
-                vm_config.vcpus,
-                &memory_address_space,
-                irq_chip.as_ref(),
-                device_manager.mmio_devices(),
-            )?;
+            let mut vcpu_manager = vcpu_manager.lock().await;
+
+            let boot_vcpu = vcpu_manager.get_vcpu_mut(0)?;
+            bootloader
+                .load(
+                    vm_config.memory_size as u64,
+                    vm_config.vcpus,
+                    boot_vcpu,
+                    &memory_address_space,
+                    irq_chip.as_ref(),
+                    device_manager.mmio_devices(),
+                )
+                .await?;
         }
 
         let vm = Vm {
@@ -173,8 +171,6 @@ impl Vm {
                 .map(|port| VmGdbStubConnector::new(vmm_tx, port)),
             monitor_handlers: monitor_server_builder.components,
             vm_config,
-            #[cfg(target_arch = "aarch64")]
-            start_pc,
         };
 
         Ok(vm)
@@ -202,23 +198,13 @@ impl Vm {
                 .map_err(|_| VmError::GdbListenerCreation)?;
         }
 
-        #[cfg(target_arch = "aarch64")]
-        {
-            let mut vcpu_manager = self.vcpu_manager.lock().await;
+        let mut vcpu_manager = self.vcpu_manager.lock().await;
 
-            vcpu_manager
-                .get_vcpu_mut(0)?
-                .boot_vcpu(self.start_pc, DTB_START, stop_on_boot)
-                .await?;
-
-            Ok(())
+        if !stop_on_boot {
+            vcpu_manager.get_vcpu_mut(0)?.boot().await?;
         }
 
-        #[cfg(not(target_arch = "aarch64"))]
-        {
-            black_box(stop_on_boot);
-            todo!();
-        }
+        Ok(())
     }
 
     pub async fn read_core_registers(&self, vcpu_id: usize) -> Result<ArchCoreRegisters, VmError> {
