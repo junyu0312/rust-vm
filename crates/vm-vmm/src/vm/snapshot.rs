@@ -25,6 +25,7 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::manager::snapshot::MemoryAddressSpaceSnapshot;
 
 use crate::device::InitDevice;
+use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::Vm;
 use crate::vm::config::VmConfig;
@@ -104,7 +105,6 @@ impl Vm {
 
         let vcpu_manager = Arc::new(Mutex::new(VcpuManager::new(vm_instance.clone())));
 
-        // TODO: recover psci02?
         #[cfg(target_arch = "aarch64")]
         let psci = Psci02 {
             vcpu_manager: vcpu_manager.clone(),
@@ -116,6 +116,23 @@ impl Vm {
             psci,
         ));
 
+        {
+            let vcpu_manager = vcpu_manager.lock().await;
+
+            vcpu_manager
+                .install_snapshot(
+                    memory_address_space.clone(),
+                    vm_exit_handler.clone(),
+                    snap.vcpus,
+                )
+                .await?;
+        }
+
+        let gdb_stub = snap
+            .vm_config
+            .gdb_port
+            .map(|port| VmGdbStubConnector::new(vmm_tx, port));
+
         let vm = Vm {
             vm_config: snap.vm_config,
             _vm_instance: vm_instance,
@@ -123,8 +140,8 @@ impl Vm {
             memory_address_space,
             _irq_chip: irq_chip,
             _device_manager: device_manager,
-            gdb_stub: todo!(),
-            monitor_handlers: todo!(),
+            gdb_stub,
+            monitor_handlers: monitor_server_builder.components,
         };
 
         Ok(vm)
