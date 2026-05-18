@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -14,7 +13,6 @@ use vm_core::virtualization::vcpu::error::VcpuError;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_core::virtualization::vm::error::VmError;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_snapshot::ops::Snapshotable;
 
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::vm::config::VmConfig;
@@ -33,7 +31,7 @@ pub struct Vm {
     vcpu_manager: Arc<Mutex<VcpuManager>>,
     memory_address_space: Arc<MemoryAddressSpace>,
     _irq_chip: Arc<dyn InterruptController>,
-    device_manager: Arc<DeviceManager>,
+    _device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
     monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
 }
@@ -165,19 +163,9 @@ impl Vm {
     pub async fn save(&mut self, path: PathBuf) -> Result<(), VmSnapshotError> {
         let mut tmp = NamedTempFile::new()?;
 
-        {
-            let vm_config_bytes = serde_json::to_vec(&self.vm_config)?;
-            tmp.write_all(&vm_config_bytes)?;
-        }
+        let snap = self.build_snapshot().await?;
 
-        self.memory_address_space().save(&mut tmp)?;
-
-        {
-            let vcpu_manager = self.vcpu_manager.lock().await;
-            vcpu_manager.save(&mut tmp)?;
-        }
-
-        self.device_manager.save(&mut tmp)?;
+        serde_json::to_writer(&mut tmp, &snap)?;
 
         tmp.persist(&path).map_err(|e| e.error)?;
 

@@ -1,29 +1,51 @@
-use std::io::Read;
-use std::io::Write;
+use std::sync::Arc;
 
-use vm_snapshot::ops::Snapshotable;
+use serde::Deserialize;
+use serde::Serialize;
+use vm_mm::manager::MemoryAddressSpace;
 
-use crate::cpu::error::CpuError;
+use crate::arch::registers::ArchRegisters;
 use crate::cpu::vcpu_manager::VcpuManager;
-use crate::virtualization::vcpu::error::VcpuError;
+use crate::cpu::vm_exit::VmExit;
+use crate::virtualization::vm::error::VmError;
 
-impl Snapshotable for VcpuManager {
-    type Error = CpuError;
+#[derive(Serialize, Deserialize)]
+pub struct VcpuManagerSnapshot {
+    vcpus: Vec<ArchRegisters>,
+}
 
-    fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error> {
-        let vcpu_count = self.vcpus.len() as u64;
-        writer
-            .write_all(&vcpu_count.to_le_bytes())
-            .map_err(|err| VcpuError::Save(Box::new(err)))?;
+impl VcpuManager {
+    pub async fn build_snapshot(&mut self) -> Result<VcpuManagerSnapshot, VmError> {
+        let mut vcpus = Vec::with_capacity(self.get_active_vcpus());
 
-        for vcpu in &self.vcpus {
-            vcpu.save(writer)?;
+        for vcpu_id in 0..self.get_active_vcpus() {
+            let regs = self.get_vcpu_mut(vcpu_id)?.read_registers().await?;
+
+            vcpus.push(regs);
+        }
+
+        let snap = VcpuManagerSnapshot { vcpus };
+
+        Ok(snap)
+    }
+
+    pub async fn install_snapshot(
+        &mut self,
+        memory_address_space: Arc<MemoryAddressSpace>,
+        vm_exit_handler: Arc<dyn VmExit>,
+        snap: VcpuManagerSnapshot,
+    ) -> Result<(), VmError> {
+        for (vcpu_id, vcpu_snap) in snap.vcpus.into_iter().enumerate() {
+            self.create_vcpu(
+                vcpu_id,
+                memory_address_space.clone(),
+                vm_exit_handler.clone(),
+            )?;
+
+            let vcpu = self.get_vcpu_mut(vcpu_id)?;
+            vcpu.write_registers(vcpu_snap).await?;
         }
 
         Ok(())
-    }
-
-    fn restore(&mut self, _reader: &mut dyn Read) -> Result<(), Self::Error> {
-        todo!()
     }
 }

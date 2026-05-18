@@ -146,17 +146,19 @@ impl Vm {
                 .await?;
         }
 
+        let gdb_stub = vm_config
+            .gdb_port
+            .map(|port| VmGdbStubConnector::new(vmm_tx, port));
+
         let vm = Vm {
+            vm_config,
             _vm_instance: vm_instance,
             vcpu_manager,
             memory_address_space,
             _irq_chip: irq_chip,
-            device_manager,
-            gdb_stub: vm_config
-                .gdb_port
-                .map(|port| VmGdbStubConnector::new(vmm_tx, port)),
+            _device_manager: device_manager,
+            gdb_stub,
             monitor_handlers: monitor_server_builder.components,
-            vm_config,
         };
 
         Ok(vm)
