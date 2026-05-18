@@ -156,7 +156,7 @@ impl Vm {
             vcpu_manager,
             memory_address_space,
             _irq_chip: irq_chip,
-            _device_manager: device_manager,
+            device_manager,
             gdb_stub,
             monitor_handlers: monitor_server_builder.components,
         };

@@ -18,6 +18,7 @@ use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::cpu::vcpu_manager::snapshot::VcpuManagerSnapshot;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
+use vm_core::device_manager::snapshot::DeviceSnapshot;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
 use vm_device::device::Device;
@@ -39,6 +40,7 @@ pub struct VmSnapshot {
     vm_config: VmConfig,
     memory_address_space: MemoryAddressSpaceSnapshot,
     vcpus: VcpuManagerSnapshot,
+    devices: DeviceSnapshot,
 }
 
 impl Vm {
@@ -54,13 +56,12 @@ impl Vm {
             vm_config: self.vm_config.clone(),
             memory_address_space: self.memory_address_space().build_snapshot()?,
             vcpus,
+            devices: self.device_manager.build_snapshot()?,
         };
 
         Ok(snap)
     }
 
-    // TODO
-    #[allow(warnings)]
     pub async fn from_snapshot(
         hypervisor: &dyn Hypervisor,
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
@@ -98,8 +99,11 @@ impl Vm {
                 &mut monitor_server_builder,
                 memory_address_space.clone(),
                 &snap.vm_config.devices,
-                todo!(),
+                irq_chip.clone(),
             )?;
+            device_manager
+                .install_snapshot(snap.devices)
+                .map_err(|err| VmmError::SnapshotError(VmSnapshotError::Device(err)))?;
             Arc::new(device_manager)
         };
 
@@ -117,7 +121,7 @@ impl Vm {
         ));
 
         {
-            let vcpu_manager = vcpu_manager.lock().await;
+            let mut vcpu_manager = vcpu_manager.lock().await;
 
             vcpu_manager
                 .install_snapshot(
@@ -139,7 +143,7 @@ impl Vm {
             vcpu_manager,
             memory_address_space,
             _irq_chip: irq_chip,
-            _device_manager: device_manager,
+            device_manager,
             gdb_stub,
             monitor_handlers: monitor_server_builder.components,
         };

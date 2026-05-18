@@ -1,49 +1,83 @@
-use std::io::Read;
-use std::io::Write;
+use std::collections::BTreeMap;
+use std::io::Cursor;
 
-use vm_snapshot::ops::Snapshotable;
+use serde::Deserialize;
+use serde::Serialize;
+use tracing::warn;
 
 use crate::device::error::DeviceSnapshotError;
 use crate::device_manager::DeviceManager;
 
-impl Snapshotable for DeviceManager {
-    type Error = DeviceSnapshotError;
+#[derive(Serialize, Deserialize)]
+pub struct DeviceSnapshot {
+    // TODO: use name is not elegant
+    devices: BTreeMap<String, Vec<u8>>,
+}
 
-    fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error> {
+impl DeviceManager {
+    pub fn build_snapshot(&self) -> Result<DeviceSnapshot, DeviceSnapshotError> {
+        let mut devices = BTreeMap::default();
+
         {
-            let it = self.pio_manager.address_space.iter();
-            writer.write_all(&(it.len() as u64).to_le_bytes())?;
-
-            for (port, (len, idx)) in it {
-                writer.write_all(&(port).to_le_bytes())?;
-                writer.write_all(&(*len as u64).to_le_bytes())?;
-
-                let device = self.pio_manager.device.get(*idx).unwrap();
-                let Some(device_snapshot) = device.support_snapshot() else {
+            for device in &self.pio_manager.device {
+                let Some(snapshot_cap) = device.support_snapshot() else {
                     return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(device.name()));
                 };
 
-                device_snapshot.save(writer)?;
+                let mut buf = vec![];
+                snapshot_cap.save(&mut buf)?;
+                let old = devices.insert(device.name(), buf);
+
+                assert!(old.is_none());
             }
         }
 
         {
-            let it = self.mmio_manager.devices.iter();
-            writer.write_all(&(it.len() as u64).to_le_bytes())?;
-
-            for device in it {
-                let Some(device_snapshot) = device.support_snapshot() else {
+            for device in self.mmio_devices() {
+                let Some(snapshot_cap) = device.support_snapshot() else {
                     return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(device.name()));
                 };
 
-                device_snapshot.save(writer)?;
+                let mut buf = vec![];
+                snapshot_cap.save(&mut buf)?;
+                let old = devices.insert(device.name(), buf);
+
+                assert!(old.is_none());
             }
+        }
+
+        let snap = DeviceSnapshot { devices };
+
+        Ok(snap)
+    }
+
+    pub fn install_snapshot(&mut self, snap: DeviceSnapshot) -> Result<(), DeviceSnapshotError> {
+        for device in &mut self.pio_manager.device {
+            let Some(snapshot_cap) = device.support_snapshot() else {
+                return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(device.name()));
+            };
+
+            let Some(buf) = snap.devices.get(&device.name()) else {
+                warn!(name = device.name(), "device snapshot not found, skipped");
+                continue;
+            };
+
+            snapshot_cap.restore(&mut Cursor::new(buf))?;
+        }
+
+        for device in self.mmio_devices() {
+            let Some(snapshot_cap) = device.support_snapshot() else {
+                return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(device.name()));
+            };
+
+            let Some(buf) = snap.devices.get(&device.name()) else {
+                warn!(name = device.name(), "device snapshot not found, skipped");
+                continue;
+            };
+
+            snapshot_cap.restore(&mut Cursor::new(buf))?;
         }
 
         Ok(())
-    }
-
-    fn restore(&mut self, _reader: &mut dyn Read) -> Result<(), Self::Error> {
-        todo!()
     }
 }

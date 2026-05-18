@@ -31,7 +31,7 @@ pub struct Vm {
     vcpu_manager: Arc<Mutex<VcpuManager>>,
     memory_address_space: Arc<MemoryAddressSpace>,
     _irq_chip: Arc<dyn InterruptController>,
-    _device_manager: Arc<DeviceManager>,
+    device_manager: Arc<DeviceManager>,
     gdb_stub: Option<VmGdbStubConnector>,
     monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
 }
