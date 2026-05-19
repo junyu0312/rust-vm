@@ -1,12 +1,22 @@
+use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use bitflags::Flags;
 use tokio::sync::Notify;
 use tracing::warn;
+use vm_core::device::error::DeviceSnapshotError;
+use vm_snapshot::helper::read_option_u32;
+use vm_snapshot::helper::read_u8;
+use vm_snapshot::helper::read_u32;
+use vm_snapshot::helper::read_u64;
+use vm_snapshot::helper::write_option_u32;
+use vm_snapshot::helper::write_u8;
+use vm_snapshot::helper::write_u32;
 
 use crate::device::VirtioDevice;
-use crate::result::Result;
+use crate::result::VirtioError;
 use crate::transport::control_register::ControlRegister;
 use crate::types::interrupt_status::InterruptStatus;
 use crate::types::status::Status;
@@ -183,7 +193,7 @@ where
         }
     }
 
-    pub fn write_reg(&mut self, reg: ControlRegister, val: u32) -> Result<()> {
+    pub fn write_reg(&mut self, reg: ControlRegister, val: u32) -> Result<(), VirtioError> {
         match reg {
             ControlRegister::DeviceFeatures => {
                 warn!(?reg, "try to write a RO register");
@@ -291,11 +301,11 @@ where
         Ok(())
     }
 
-    pub fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+    pub fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<(), VirtioError> {
         self.device.read_config(offset, buf)
     }
 
-    pub fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+    pub fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<(), VirtioError> {
         self.device.write_config(offset, buf)
     }
 
@@ -323,5 +333,65 @@ where
         let mut is = self.get_interrupt_status();
         is.insert(InterruptStatus::VIRTIO_MMIO_INT_CONFIG);
         self.update_interrupt_status(is);
+    }
+
+    pub fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    pub fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    pub fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        self.device.save(writer)?;
+        write_option_u32(writer, &self.device_feature_sel)?;
+        writer.write_all(&self.driver_features.to_le_bytes())?;
+        write_option_u32(writer, &self.driver_feature_sel)?;
+        write_option_u32(writer, &self.queue_sel)?;
+
+        for virtqueue in &self.virtqueues {
+            match virtqueue {
+                Some(q) => {
+                    writer.write_all(&[1])?;
+                    q.save(writer)?;
+                }
+                None => {
+                    writer.write_all(&[0])?;
+                }
+            }
+        }
+
+        write_u32(writer, self.interrupt_status.bits())?;
+        write_u8(writer, self.status.bits())?;
+        write_u32(writer, self.config_generation)?;
+
+        Ok(())
+    }
+
+    pub fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        self.device.load(reader)?;
+        self.device_feature_sel = read_option_u32(reader)?;
+        self.driver_features = read_u64(reader)?;
+        self.driver_feature_sel = read_option_u32(reader)?;
+        self.queue_sel = read_option_u32(reader)?;
+
+        for virtqueue in &mut self.virtqueues {
+            match virtqueue {
+                Some(virtqueue) => {
+                    assert_eq!(read_u8(reader)?, 1);
+                    virtqueue.load(reader)?;
+                }
+                None => {
+                    assert_eq!(read_u8(reader)?, 0);
+                }
+            }
+        }
+
+        self.interrupt_status = InterruptStatus::from_bits_retain(read_u32(reader)?);
+        self.status = Status::from_bits_retain(read_u8(reader)?);
+        self.config_generation = read_u32(reader)?;
+
+        Ok(())
     }
 }

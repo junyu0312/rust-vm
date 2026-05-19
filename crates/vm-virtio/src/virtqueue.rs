@@ -1,6 +1,15 @@
-use vm_mm::manager::MemoryAddressSpace;
+use std::io::Read;
+use std::io::Write;
 
-use crate::result::Result;
+use vm_core::device::error::DeviceSnapshotError;
+use vm_mm::manager::MemoryAddressSpace;
+use vm_snapshot::helper::read_option_u32;
+use vm_snapshot::helper::read_u8;
+use vm_snapshot::helper::read_u16;
+use vm_snapshot::helper::write_bool;
+use vm_snapshot::helper::write_option_u32;
+use vm_snapshot::helper::write_u16;
+
 use crate::result::VirtioError;
 use crate::virtqueue::virtq_avail_ring::VirtqAvail;
 use crate::virtqueue::virtq_desc_table::VirtqDescTableRef;
@@ -105,7 +114,10 @@ impl Virtqueue {
         self.queue_used_high = Some(addr);
     }
 
-    pub fn desc_table_ref(&self, mm: &MemoryAddressSpace) -> Result<VirtqDescTableRef> {
+    pub fn desc_table_ref(
+        &self,
+        mm: &MemoryAddressSpace,
+    ) -> Result<VirtqDescTableRef, VirtioError> {
         let gpa = self
             .queue_desc_table_gpa()
             .ok_or(VirtioError::AccessVirtqueueNotReady)?;
@@ -116,7 +128,7 @@ impl Virtqueue {
         Ok(VirtqDescTableRef::new(self.queue_size, hva))
     }
 
-    pub fn avail_ring(&self, mm: &MemoryAddressSpace) -> Result<VirtqAvail> {
+    pub fn avail_ring(&self, mm: &MemoryAddressSpace) -> Result<VirtqAvail, VirtioError> {
         let gpa = self
             .queue_available_ring_gpa()
             .ok_or(VirtioError::AccessVirtqueueNotReady)?;
@@ -127,7 +139,7 @@ impl Virtqueue {
         Ok(VirtqAvail::new(self.queue_size, hva as *const u16))
     }
 
-    pub fn used_ring(&self, mm: &MemoryAddressSpace) -> Result<VirtqUsed> {
+    pub fn used_ring(&self, mm: &MemoryAddressSpace) -> Result<VirtqUsed, VirtioError> {
         let gpa = self
             .queue_used_ring_gpa()
             .ok_or(VirtioError::AccessVirtqueueNotReady)?;
@@ -159,5 +171,33 @@ impl Virtqueue {
 
     fn queue_used_ring_gpa(&self) -> Option<u64> {
         to_gpa(self.queue_used_high.as_ref(), self.queue_used_low.as_ref())
+    }
+
+    pub fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        write_u16(writer, self.queue_size)?;
+        write_bool(writer, self.queue_ready)?;
+        write_option_u32(writer, &self.queue_desc_low)?;
+        write_option_u32(writer, &self.queue_desc_high)?;
+        write_option_u32(writer, &self.queue_available_low)?;
+        write_option_u32(writer, &self.queue_available_high)?;
+        write_option_u32(writer, &self.queue_used_low)?;
+        write_option_u32(writer, &self.queue_used_high)?;
+        write_u16(writer, self.last_available_idx)?;
+
+        Ok(())
+    }
+
+    pub fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        self.queue_size = read_u16(reader)?;
+        self.queue_ready = read_u8(reader)? == 1;
+        self.queue_desc_low = read_option_u32(reader)?;
+        self.queue_desc_high = read_option_u32(reader)?;
+        self.queue_available_low = read_option_u32(reader)?;
+        self.queue_available_high = read_option_u32(reader)?;
+        self.queue_used_low = read_option_u32(reader)?;
+        self.queue_used_high = read_option_u32(reader)?;
+        self.last_available_idx = read_u16(reader)?;
+
+        Ok(())
     }
 }

@@ -18,6 +18,7 @@ use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::cpu::vcpu_manager::snapshot::VcpuManagerSnapshot;
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
+use vm_core::device_manager::snapshot::DeviceSnapshot;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
 use vm_device::device::Device;
@@ -25,6 +26,7 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::manager::snapshot::MemoryAddressSpaceSnapshot;
 
 use crate::device::InitDevice;
+use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::Vm;
 use crate::vm::config::VmConfig;
@@ -38,6 +40,7 @@ pub struct VmSnapshot {
     vm_config: VmConfig,
     memory_address_space: MemoryAddressSpaceSnapshot,
     vcpus: VcpuManagerSnapshot,
+    devices: DeviceSnapshot,
 }
 
 impl Vm {
@@ -53,13 +56,12 @@ impl Vm {
             vm_config: self.vm_config.clone(),
             memory_address_space: self.memory_address_space().build_snapshot()?,
             vcpus,
+            devices: self.device_manager.build_snapshot()?,
         };
 
         Ok(snap)
     }
 
-    // TODO
-    #[allow(warnings)]
     pub async fn from_snapshot(
         hypervisor: &dyn Hypervisor,
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
@@ -97,14 +99,16 @@ impl Vm {
                 &mut monitor_server_builder,
                 memory_address_space.clone(),
                 &snap.vm_config.devices,
-                todo!(),
+                irq_chip.clone(),
             )?;
+            device_manager
+                .install_snapshot(snap.devices)
+                .map_err(|err| VmmError::SnapshotError(VmSnapshotError::Device(err)))?;
             Arc::new(device_manager)
         };
 
         let vcpu_manager = Arc::new(Mutex::new(VcpuManager::new(vm_instance.clone())));
 
-        // TODO: recover psci02?
         #[cfg(target_arch = "aarch64")]
         let psci = Psci02 {
             vcpu_manager: vcpu_manager.clone(),
@@ -116,15 +120,32 @@ impl Vm {
             psci,
         ));
 
+        {
+            let mut vcpu_manager = vcpu_manager.lock().await;
+
+            vcpu_manager
+                .install_snapshot(
+                    memory_address_space.clone(),
+                    vm_exit_handler.clone(),
+                    snap.vcpus,
+                )
+                .await?;
+        }
+
+        let gdb_stub = snap
+            .vm_config
+            .gdb_port
+            .map(|port| VmGdbStubConnector::new(vmm_tx, port));
+
         let vm = Vm {
             vm_config: snap.vm_config,
             _vm_instance: vm_instance,
             vcpu_manager,
             memory_address_space,
             _irq_chip: irq_chip,
-            _device_manager: device_manager,
-            gdb_stub: todo!(),
-            monitor_handlers: todo!(),
+            device_manager,
+            gdb_stub,
+            monitor_handlers: monitor_server_builder.components,
         };
 
         Ok(vm)

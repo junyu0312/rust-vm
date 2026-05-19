@@ -1,4 +1,5 @@
 use std::slice::Iter;
+use std::slice::IterMut;
 
 use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::mmio_as_manager::MmioAddressSpaceManager;
@@ -7,7 +8,7 @@ use crate::device::pio::pio_as_manager::PioAddressSpaceManager;
 use crate::device::pio::pio_device::PioDevice;
 use crate::utils::address_space::AddressSpaceError;
 
-mod snapshot;
+pub mod snapshot;
 
 pub struct DeviceManager {
     pub pio_manager: PioAddressSpaceManager,
@@ -38,5 +39,9 @@ impl DeviceManager {
 
     pub fn mmio_devices(&self) -> Iter<'_, Box<dyn MmioDevice>> {
         self.mmio_manager.devices()
+    }
+
+    pub fn mmio_devices_mut(&mut self) -> IterMut<'_, Box<dyn MmioDevice>> {
+        self.mmio_manager.devices_mut()
     }
 }

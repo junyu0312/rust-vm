@@ -10,10 +10,19 @@ use vm_core::arch::aarch64::irq::GIC_SPI;
 use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
+use vm_snapshot::helper::read_option_u16;
+use vm_snapshot::helper::read_u8;
+use vm_snapshot::helper::read_u16;
+use vm_snapshot::helper::read_usize;
+use vm_snapshot::helper::write_option_u16;
+use vm_snapshot::helper::write_u8;
+use vm_snapshot::helper::write_u16;
+use vm_snapshot::helper::write_usize;
 
 use crate::device::pl011::cr::Cr;
 use crate::device::pl011::fbrd::Fbrd;
@@ -603,6 +612,54 @@ impl Pl011 {
 impl Device for Pl011 {
     fn name(&self) -> String {
         "pl011".to_string()
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        let pl011 = self.pl011.lock().unwrap();
+
+        write_u16(writer, pl011.fr.bits())?;
+        write_u16(writer, pl011.ibrd.read())?;
+        write_u8(writer, pl011.fbrd.read())?;
+        write_u16(writer, pl011.lcr_h.read())?;
+        write_u16(writer, pl011.cr.bits())?;
+        write_u16(writer, pl011.ifls.read())?;
+        write_u16(writer, pl011.imsc.bits())?;
+        write_u16(writer, pl011.ris.bits())?;
+
+        for rx in pl011.rx_fifo {
+            write_option_u16(writer, &rx)?;
+        }
+
+        write_usize(writer, pl011.rx_r_cursor)?;
+        write_usize(writer, pl011.rx_w_cursor)?;
+
+        Ok(())
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        let mut pl011 = self.pl011.lock().unwrap();
+
+        pl011.fr = Fr::from_bits_retain(read_u16(reader)?);
+        pl011.ibrd.write(read_u16(reader)?);
+        pl011.fbrd.write(read_u8(reader)?);
+        pl011.lcr_h.write(read_u16(reader)?);
+        pl011.cr = Cr::from_bits_retain(read_u16(reader)?);
+        pl011.ifls.write(read_u16(reader)?);
+        pl011.imsc = Imsc::from_bits_retain(read_u16(reader)?);
+        pl011.ris = Ris::from_bits_retain(read_u16(reader)?);
+
+        for slot in pl011.rx_fifo.iter_mut() {
+            *slot = read_option_u16(reader)?;
+        }
+
+        pl011.rx_r_cursor = read_usize(reader)?;
+        pl011.rx_w_cursor = read_usize(reader)?;
+
+        Ok(())
     }
 }
 

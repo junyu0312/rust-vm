@@ -1,10 +1,13 @@
+use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use tokio::sync::Notify;
+use vm_core::device::error::DeviceSnapshotError;
 
 use crate::device::virtqueue::VirtqueueHandler;
-use crate::result::Result;
+use crate::result::VirtioError;
 use crate::transport::VirtioDev;
 
 pub mod transport;
@@ -39,7 +42,31 @@ pub trait VirtioDevice: Sized + Send + Sync + 'static {
         dev: Arc<Mutex<VirtioDev<Self>>>,
     ) -> Option<VirtqueueHandler<Self>>;
 
-    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()>;
+    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<(), VirtioError>;
 
-    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()>;
+    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<(), VirtioError>;
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
+            Self::NAME.to_string(),
+        ))
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
+            Self::NAME.to_string(),
+        ))
+    }
+
+    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
+            Self::NAME.to_string(),
+        ))
+    }
+
+    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
+            Self::NAME.to_string(),
+        ))
+    }
 }

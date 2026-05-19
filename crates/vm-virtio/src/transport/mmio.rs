@@ -1,7 +1,10 @@
+use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use vm_core::device::Device;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
@@ -46,6 +49,18 @@ where
 {
     fn name(&self) -> String {
         D::NAME.to_string()
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        self.dev.lock().unwrap().pause()
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        self.dev.lock().unwrap().save(writer)
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        self.dev.lock().unwrap().load(reader)
     }
 }
 

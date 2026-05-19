@@ -1127,7 +1127,6 @@ dependencies = [
  "vm-aarch64",
  "vm-fdt",
  "vm-mm",
- "vm-snapshot",
 ]
 
 [[package]]
@@ -1150,6 +1149,7 @@ dependencies = [
  "vm-fdt",
  "vm-mm",
  "vm-pci",
+ "vm-snapshot",
  "vm-virtio",
  "zerocopy",
 ]
@@ -1165,11 +1165,9 @@ name = "vm-mm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "memmap2",
  "serde",
  "thiserror",
- "vm-snapshot",
 ]
 
 [[package]]
@@ -1210,6 +1208,7 @@ dependencies = [
  "vm-fdt",
  "vm-mm",
  "vm-pci",
+ "vm-snapshot",
  "zerocopy",
 ]
 

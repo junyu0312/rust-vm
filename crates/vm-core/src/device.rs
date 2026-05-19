@@ -1,5 +1,5 @@
-use vm_snapshot::ops::Pausable;
-use vm_snapshot::ops::Snapshotable;
+use std::io::Read;
+use std::io::Write;
 
 use crate::device::error::DeviceSnapshotError;
 
@@ -10,11 +10,19 @@ pub mod pio;
 pub trait Device: Send + Sync {
     fn name(&self) -> String;
 
-    fn support_pause(&self) -> Option<&mut dyn Pausable<Error = DeviceSnapshotError>> {
-        None
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(self.name()))
     }
 
-    fn support_snapshot(&self) -> Option<&mut dyn Snapshotable<Error = DeviceSnapshotError>> {
-        None
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(self.name()))
+    }
+
+    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(self.name()))
+    }
+
+    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(self.name()))
     }
 }
