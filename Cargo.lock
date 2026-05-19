@@ -1166,11 +1166,9 @@ name = "vm-mm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "memmap2",
  "serde",
  "thiserror",
- "vm-snapshot",
 ]
 
 [[package]]
