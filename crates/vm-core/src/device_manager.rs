@@ -1,4 +1,5 @@
-use std::slice::{Iter, IterMut};
+use std::slice::Iter;
+use std::slice::IterMut;
 
 use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::mmio_as_manager::MmioAddressSpaceManager;

@@ -20,12 +20,8 @@ impl DeviceManager {
 
         {
             for device in &self.pio_manager.device {
-                let Some(snapshot_cap) = device.support_save_snapshot() else {
-                    return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(device.name()));
-                };
-
                 let mut buf = vec![];
-                snapshot_cap.save(&mut buf)?;
+                device.save(&mut buf)?;
                 let old = devices.insert(device.name(), buf);
 
                 assert!(old.is_none());
@@ -34,12 +30,8 @@ impl DeviceManager {
 
         {
             for device in self.mmio_devices() {
-                let Some(snapshot_cap) = device.support_save_snapshot() else {
-                    return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(device.name()));
-                };
-
                 let mut buf = vec![];
-                snapshot_cap.save(&mut buf)?;
+                device.save(&mut buf)?;
                 let old = devices.insert(device.name(), buf);
 
                 assert!(old.is_none());
@@ -53,33 +45,21 @@ impl DeviceManager {
 
     pub fn install_snapshot(&mut self, snap: DeviceSnapshot) -> Result<(), DeviceSnapshotError> {
         for device in &mut self.pio_manager.device {
-            let name = device.name();
-
-            let Some(snapshot_cap) = device.support_load_snapshot() else {
-                return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(name.clone()));
-            };
-
-            let Some(buf) = snap.devices.get(&name) else {
+            let Some(buf) = snap.devices.get(&device.name()) else {
                 warn!(name = device.name(), "device snapshot not found, skipped");
                 continue;
             };
 
-            snapshot_cap.load(&mut Cursor::new(buf))?;
+            device.load(&mut Cursor::new(buf))?;
         }
 
         for device in self.mmio_devices_mut() {
-            let name = device.name();
-
-            let Some(snapshot_cap) = device.support_load_snapshot() else {
-                return Err(DeviceSnapshotError::DeviceNotSupportSnapshot(name.clone()));
-            };
-
-            let Some(buf) = snap.devices.get(&name) else {
+            let Some(buf) = snap.devices.get(&device.name()) else {
                 warn!(name = device.name(), "device snapshot not found, skipped");
                 continue;
             };
 
-            snapshot_cap.load(&mut Cursor::new(buf))?;
+            device.load(&mut Cursor::new(buf))?;
         }
 
         Ok(())

@@ -15,9 +15,14 @@ use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
-use vm_snapshot::ops::LoadSnapshot;
-use vm_snapshot::ops::Pausable;
-use vm_snapshot::ops::SaveSnapshot;
+use vm_snapshot::helper::read_option_u16;
+use vm_snapshot::helper::read_u8;
+use vm_snapshot::helper::read_u16;
+use vm_snapshot::helper::read_usize;
+use vm_snapshot::helper::write_option_u16;
+use vm_snapshot::helper::write_u8;
+use vm_snapshot::helper::write_u16;
+use vm_snapshot::helper::write_usize;
 
 use crate::device::pl011::cr::Cr;
 use crate::device::pl011::fbrd::Fbrd;
@@ -604,73 +609,39 @@ impl Pl011 {
     }
 }
 
-impl Pausable for Pl011 {
-    type Error = DeviceSnapshotError;
+impl Device for Pl011 {
+    fn name(&self) -> String {
+        "pl011".to_string()
+    }
 
-    fn pause(&mut self) -> Result<(), Self::Error> {
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
         Ok(())
     }
 
-    fn resume(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-}
-
-impl SaveSnapshot for Pl011 {
-    type Error = DeviceSnapshotError;
-
-    fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error> {
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
         let pl011 = self.pl011.lock().unwrap();
 
-        writer.write_all(&pl011.fr.bits().to_le_bytes())?;
-        writer.write_all(&pl011.ibrd.read().to_le_bytes())?;
-        writer.write_all(&pl011.fbrd.read().to_le_bytes())?;
-        writer.write_all(&pl011.lcr_h.read().to_le_bytes())?;
-        writer.write_all(&pl011.cr.bits().to_le_bytes())?;
-        writer.write_all(&pl011.ifls.read().to_le_bytes())?;
-        writer.write_all(&pl011.imsc.bits().to_le_bytes())?;
-        writer.write_all(&pl011.ris.bits().to_le_bytes())?;
+        write_u16(writer, pl011.fr.bits())?;
+        write_u16(writer, pl011.ibrd.read())?;
+        write_u8(writer, pl011.fbrd.read())?;
+        write_u16(writer, pl011.lcr_h.read())?;
+        write_u16(writer, pl011.cr.bits())?;
+        write_u16(writer, pl011.ifls.read())?;
+        write_u16(writer, pl011.imsc.bits())?;
+        write_u16(writer, pl011.ris.bits())?;
 
         for rx in pl011.rx_fifo {
-            match rx {
-                Some(rx) => {
-                    writer.write_all(&[1])?;
-                    writer.write_all(&rx.to_le_bytes())?;
-                }
-                None => writer.write_all(&[0])?,
-            }
+            write_option_u16(writer, &rx)?;
         }
 
-        writer.write_all(&pl011.rx_r_cursor.to_le_bytes())?;
-        writer.write_all(&pl011.rx_w_cursor.to_le_bytes())?;
+        write_usize(writer, pl011.rx_r_cursor)?;
+        write_usize(writer, pl011.rx_w_cursor)?;
 
         Ok(())
     }
-}
 
-impl LoadSnapshot for Pl011 {
-    type Error = DeviceSnapshotError;
-
-    fn load(&mut self, reader: &mut dyn Read) -> Result<(), Self::Error> {
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
         let mut pl011 = self.pl011.lock().unwrap();
-
-        fn read_usize(reader: &mut dyn Read) -> std::io::Result<usize> {
-            let mut buf = [0u8; size_of::<usize>()];
-            reader.read_exact(&mut buf)?;
-            Ok(usize::from_le_bytes(buf))
-        }
-
-        fn read_u16(reader: &mut dyn Read) -> std::io::Result<u16> {
-            let mut buf = [0u8; 2];
-            reader.read_exact(&mut buf)?;
-            Ok(u16::from_le_bytes(buf))
-        }
-
-        fn read_u8(reader: &mut dyn Read) -> std::io::Result<u8> {
-            let mut buf = [0u8; 1];
-            reader.read_exact(&mut buf)?;
-            Ok(buf[0])
-        }
 
         pl011.fr = Fr::from_bits_retain(read_u16(reader)?);
         pl011.ibrd.write(read_u16(reader)?);
@@ -682,39 +653,13 @@ impl LoadSnapshot for Pl011 {
         pl011.ris = Ris::from_bits_retain(read_u16(reader)?);
 
         for slot in pl011.rx_fifo.iter_mut() {
-            if read_u8(reader)? == 1 {
-                let value = read_u16(reader)?;
-
-                *slot = Some(value);
-            } else {
-                *slot = None;
-            }
+            *slot = read_option_u16(reader)?;
         }
 
         pl011.rx_r_cursor = read_usize(reader)?;
         pl011.rx_w_cursor = read_usize(reader)?;
 
         Ok(())
-    }
-}
-
-impl Device for Pl011 {
-    fn name(&self) -> String {
-        "pl011".to_string()
-    }
-
-    fn support_pause(&self) -> Option<&dyn Pausable<Error = DeviceSnapshotError>> {
-        Some(self)
-    }
-
-    fn support_save_snapshot(&self) -> Option<&dyn SaveSnapshot<Error = DeviceSnapshotError>> {
-        Some(self)
-    }
-
-    fn support_load_snapshot(
-        &mut self,
-    ) -> Option<&mut dyn LoadSnapshot<Error = DeviceSnapshotError>> {
-        Some(self)
     }
 }
 

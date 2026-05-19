@@ -19,7 +19,6 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 vm-fdt = { workspace = true }
 vm-mm = { workspace = true }
-vm-snapshot = { workspace = true }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 futures = { workspace = true }
