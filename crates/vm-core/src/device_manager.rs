@@ -1,4 +1,4 @@
-use std::slice::Iter;
+use std::slice::{Iter, IterMut};
 
 use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::mmio_as_manager::MmioAddressSpaceManager;
@@ -38,5 +38,9 @@ impl DeviceManager {
 
     pub fn mmio_devices(&self) -> Iter<'_, Box<dyn MmioDevice>> {
         self.mmio_manager.devices()
+    }
+
+    pub fn mmio_devices_mut(&mut self) -> IterMut<'_, Box<dyn MmioDevice>> {
+        self.mmio_manager.devices_mut()
     }
 }

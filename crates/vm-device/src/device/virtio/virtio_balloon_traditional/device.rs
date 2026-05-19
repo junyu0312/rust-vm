@@ -8,7 +8,7 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
-use vm_virtio::result::Result;
+use vm_virtio::result::VirtioError;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalConfig;
@@ -141,12 +141,12 @@ impl VirtioDevice for VirtioBalloonTranditional {
         }
     }
 
-    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<(), VirtioError> {
         buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + buf.len()]);
         Ok(())
     }
 
-    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<(), VirtioError> {
         self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
         Ok(())
     }

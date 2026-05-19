@@ -1,5 +1,4 @@
-use vm_snapshot::ops::Pausable;
-use vm_snapshot::ops::Snapshotable;
+use vm_snapshot::ops::{LoadSnapshot, Pausable, SaveSnapshot};
 
 use crate::device::error::DeviceSnapshotError;
 
@@ -14,7 +13,13 @@ pub trait Device: Send + Sync {
         None
     }
 
-    fn support_snapshot(&self) -> Option<&dyn Snapshotable<Error = DeviceSnapshotError>> {
+    fn support_save_snapshot(&self) -> Option<&dyn SaveSnapshot<Error = DeviceSnapshotError>> {
+        None
+    }
+
+    fn support_load_snapshot(
+        &mut self,
+    ) -> Option<&mut dyn LoadSnapshot<Error = DeviceSnapshotError>> {
         None
     }
 }

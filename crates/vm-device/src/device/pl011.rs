@@ -15,8 +15,9 @@ use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_fdt::FdtWriter;
+use vm_snapshot::ops::LoadSnapshot;
 use vm_snapshot::ops::Pausable;
-use vm_snapshot::ops::Snapshotable;
+use vm_snapshot::ops::SaveSnapshot;
 
 use crate::device::pl011::cr::Cr;
 use crate::device::pl011::fbrd::Fbrd;
@@ -615,7 +616,7 @@ impl Pausable for Pl011 {
     }
 }
 
-impl Snapshotable for Pl011 {
+impl SaveSnapshot for Pl011 {
     type Error = DeviceSnapshotError;
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error> {
@@ -645,8 +646,12 @@ impl Snapshotable for Pl011 {
 
         Ok(())
     }
+}
 
-    fn restore(&self, reader: &mut dyn Read) -> Result<(), Self::Error> {
+impl LoadSnapshot for Pl011 {
+    type Error = DeviceSnapshotError;
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), Self::Error> {
         let mut pl011 = self.pl011.lock().unwrap();
 
         fn read_usize(reader: &mut dyn Read) -> std::io::Result<usize> {
@@ -702,7 +707,13 @@ impl Device for Pl011 {
         Some(self)
     }
 
-    fn support_snapshot(&self) -> Option<&dyn Snapshotable<Error = DeviceSnapshotError>> {
+    fn support_save_snapshot(&self) -> Option<&dyn SaveSnapshot<Error = DeviceSnapshotError>> {
+        Some(self)
+    }
+
+    fn support_load_snapshot(
+        &mut self,
+    ) -> Option<&mut dyn LoadSnapshot<Error = DeviceSnapshotError>> {
         Some(self)
     }
 }

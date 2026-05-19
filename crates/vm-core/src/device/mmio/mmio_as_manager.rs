@@ -1,4 +1,5 @@
 use std::slice::Iter;
+use std::slice::IterMut;
 
 use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::layout::MmioRange;
@@ -69,5 +70,9 @@ impl MmioAddressSpaceManager {
 
     pub fn devices(&self) -> Iter<'_, Box<dyn MmioDevice>> {
         self.devices.iter()
+    }
+
+    pub fn devices_mut(&mut self) -> IterMut<'_, Box<dyn MmioDevice>> {
+        self.devices.iter_mut()
     }
 }

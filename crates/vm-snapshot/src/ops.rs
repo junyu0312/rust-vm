@@ -9,10 +9,14 @@ pub trait Pausable {
     fn resume(&mut self) -> Result<(), Self::Error>;
 }
 
-pub trait Snapshotable {
+pub trait SaveSnapshot {
     type Error;
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error>;
+}
 
-    fn restore(&self, reader: &mut dyn Read) -> Result<(), Self::Error>;
+pub trait LoadSnapshot {
+    type Error;
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), Self::Error>;
 }
