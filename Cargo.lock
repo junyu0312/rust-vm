@@ -1150,6 +1150,7 @@ dependencies = [
  "vm-fdt",
  "vm-mm",
  "vm-pci",
+ "vm-snapshot",
  "vm-virtio",
  "zerocopy",
 ]

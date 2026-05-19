@@ -14,5 +14,5 @@ pub trait Snapshotable {
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), Self::Error>;
 
-    fn restore(&mut self, reader: &mut dyn Read) -> Result<(), Self::Error>;
+    fn restore(&self, reader: &mut dyn Read) -> Result<(), Self::Error>;
 }

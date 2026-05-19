@@ -8,8 +8,6 @@ use crate::virtualization::vcpu::command::VcpuCommand;
 use crate::virtualization::vcpu::command::VcpuCommandRequest;
 use crate::virtualization::vcpu::command::VcpuCommandResponse;
 
-mod snapshot;
-
 pub struct Vcpu {
     command_tx: WeakSender<VcpuCommandRequest>,
     vcpu_instance: Box<dyn HypervisorVcpu>,
