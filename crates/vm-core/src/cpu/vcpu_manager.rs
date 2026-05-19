@@ -7,7 +7,7 @@ use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vm::HypervisorVm;
 use crate::virtualization::vm::error::VmError;
 
-mod snapshot;
+pub mod snapshot;
 
 pub struct VcpuManager {
     vm_instance: Arc<dyn HypervisorVm>,

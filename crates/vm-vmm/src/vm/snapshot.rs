@@ -2,14 +2,33 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 use serde::Serialize;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::layout::MMIO_LEN;
+#[cfg(target_arch = "aarch64")]
+use vm_core::arch::aarch64::layout::MMIO_START;
+#[cfg(target_arch = "x86_64")]
+use vm_core::arch::x86_64::layout::MMIO_LEN;
+#[cfg(target_arch = "x86_64")]
+use vm_core::arch::x86_64::layout::MMIO_START;
+use vm_core::cpu::vcpu_manager::VcpuManager;
+use vm_core::cpu::vcpu_manager::snapshot::VcpuManagerSnapshot;
+use vm_core::device::mmio::layout::MmioLayout;
+use vm_core::device_manager::DeviceManager;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
+use vm_device::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::manager::snapshot::MemoryAddressSpaceSnapshot;
 
+use crate::device::InitDevice;
+use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::Vm;
 use crate::vm::config::VmConfig;
+use crate::vm::vm_exit_handler::VmExitHandler;
 use crate::vmm::error::VmSnapshotError;
 use crate::vmm::error::VmmError;
 use crate::vmm::handler::VmmCommand;
@@ -18,13 +37,22 @@ use crate::vmm::handler::VmmCommand;
 pub struct VmSnapshot {
     vm_config: VmConfig,
     memory_address_space: MemoryAddressSpaceSnapshot,
+    vcpus: VcpuManagerSnapshot,
 }
 
 impl Vm {
-    pub fn build_snapshot(&self) -> Result<VmSnapshot, VmSnapshotError> {
+    pub async fn build_snapshot(&self) -> Result<VmSnapshot, VmSnapshotError> {
+        let vcpus = {
+            let vcpu_manager = self.vcpu_manager();
+            let mut vcpu_manager = vcpu_manager.lock().await;
+
+            vcpu_manager.build_snapshot().await?
+        };
+
         let snap = VmSnapshot {
             vm_config: self.vm_config.clone(),
             memory_address_space: self.memory_address_space().build_snapshot()?,
+            vcpus,
         };
 
         Ok(snap)
@@ -32,11 +60,13 @@ impl Vm {
 
     // TODO
     #[allow(warnings)]
-    pub fn from_snapshot(
+    pub async fn from_snapshot(
         hypervisor: &dyn Hypervisor,
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
         snap: VmSnapshot,
     ) -> Result<Self, VmmError> {
+        let mut monitor_server_builder = MonitorServerBuilder::default();
+
         let vm_instance = hypervisor.create_vm()?;
 
         let memory_address_space = {
@@ -55,13 +85,44 @@ impl Vm {
             Arc::new(memory_address_space)
         };
 
+        let irq_chip = if !snap.vm_config.devices.iter().any(Device::is_irq_chip) {
+            vm_instance.create_irq_chip()?
+        } else {
+            todo!()
+        };
+
+        let device_manager = {
+            let mut device_manager = DeviceManager::new(MmioLayout::new(MMIO_START, MMIO_LEN));
+            device_manager.init_devices(
+                &mut monitor_server_builder,
+                memory_address_space.clone(),
+                &snap.vm_config.devices,
+                todo!(),
+            )?;
+            Arc::new(device_manager)
+        };
+
+        let vcpu_manager = Arc::new(Mutex::new(VcpuManager::new(vm_instance.clone())));
+
+        // TODO: recover psci02?
+        #[cfg(target_arch = "aarch64")]
+        let psci = Psci02 {
+            vcpu_manager: vcpu_manager.clone(),
+        };
+
+        let vm_exit_handler = Arc::new(VmExitHandler::new(
+            device_manager.clone(),
+            #[cfg(target_arch = "aarch64")]
+            psci,
+        ));
+
         let vm = Vm {
             vm_config: snap.vm_config,
             _vm_instance: vm_instance,
-            vcpu_manager: todo!(),
+            vcpu_manager,
             memory_address_space,
-            _irq_chip: todo!(),
-            device_manager: todo!(),
+            _irq_chip: irq_chip,
+            _device_manager: device_manager,
             gdb_stub: todo!(),
             monitor_handlers: todo!(),
         };

@@ -23,6 +23,9 @@ pub enum VmSnapshotError {
 
     #[error("device error: {0}")]
     Device(#[from] DeviceSnapshotError),
+
+    #[error("vm error: {0}")]
+    Vm(#[from] VmError),
 }
 
 #[derive(Error, Debug)]
