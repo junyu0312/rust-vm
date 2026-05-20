@@ -8,6 +8,9 @@ pub enum DeviceSnapshotError {
     #[error("failed to serde: {0}")]
     Serde(String),
 
+    #[error("failed to deserde: {0}")]
+    Deserde(String),
+
     #[error("device {0} does not support snapshot")]
     DeviceNotSupportSnapshot(String),
 }
