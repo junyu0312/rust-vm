@@ -1,6 +1,9 @@
+use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use vm_core::device::error::DeviceSnapshotError;
 use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
@@ -160,6 +163,30 @@ where
             })),
             _ => None,
         }
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        let dev = self.dev.lock().unwrap();
+
+        dev.save(writer)?;
+
+        Ok(())
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        let mut dev = self.dev.lock().unwrap();
+
+        dev.load(reader)?;
+
+        Ok(())
     }
 }
 

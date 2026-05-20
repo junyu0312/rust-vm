@@ -1,7 +1,10 @@
+use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use vm_core::device::Device;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_core::device::mmio::mmio_device::MmioHandler;
@@ -77,6 +80,30 @@ impl PciRootComplexMmio {
 impl Device for PciRootComplexMmio {
     fn name(&self) -> String {
         "pci-root-complex".to_string()
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        let internal = self.internal.lock().unwrap();
+
+        internal.save(writer)?;
+
+        Ok(())
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        let mut internal = self.internal.lock().unwrap();
+
+        internal.load(reader)?;
+
+        Ok(())
     }
 }
 

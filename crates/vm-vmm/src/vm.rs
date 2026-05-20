@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -165,8 +166,8 @@ impl Vm {
 
         let snap = self.build_snapshot().await?;
 
-        serde_json::to_writer(&mut tmp, &snap)?;
-
+        let bytes = postcard::to_stdvec(&snap)?;
+        tmp.write_all(&bytes)?;
         tmp.persist(&path).map_err(|e| e.error)?;
 
         Ok(())

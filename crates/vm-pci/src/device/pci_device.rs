@@ -1,4 +1,8 @@
+use std::io::Read;
+use std::io::Write;
 use std::slice::Iter;
+
+use vm_core::device::error::DeviceSnapshotError;
 
 use crate::types::function::PciFunction;
 
@@ -27,5 +31,21 @@ impl PciDevice {
 
     pub(crate) fn functions(&self) -> Iter<'_, Box<dyn PciFunction>> {
         self.functions.iter()
+    }
+
+    pub(crate) fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        for function in &self.functions {
+            function.save(writer)?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        for function in &mut self.functions {
+            function.load(reader)?;
+        }
+
+        Ok(())
     }
 }

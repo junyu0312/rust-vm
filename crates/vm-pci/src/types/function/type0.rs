@@ -1,4 +1,8 @@
+use std::io::Read;
+use std::io::Write;
+
 use strum_macros::FromRepr;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_core::device::mmio::layout::MmioRange;
 
 use crate::device::function::type0::Bar;
@@ -97,5 +101,23 @@ where
                 None
             }
         }
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        let internal = self.internal.lock().unwrap();
+
+        writer.write_all(&internal.configuration_space.buf)?;
+        internal.function.save(writer)?;
+
+        Ok(())
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        let mut internal = self.internal.lock().unwrap();
+
+        reader.read_exact(&mut internal.configuration_space.buf)?;
+        internal.function.load(reader)?;
+
+        Ok(())
     }
 }

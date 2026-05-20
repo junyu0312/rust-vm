@@ -1,4 +1,8 @@
+use std::io::Read;
+use std::io::Write;
+
 use tracing::debug;
+use vm_core::device::error::DeviceSnapshotError;
 
 use crate::bus::PciBus;
 use crate::device::pci_device::PciDevice;
@@ -101,5 +105,25 @@ impl PciRootComplex {
                 ),
             }
         }
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        for bus in &self.bus {
+            for (_, device) in bus.devices() {
+                device.save(writer)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        for bus in &mut self.bus {
+            for (_, device) in bus.devices_mut() {
+                device.load(reader)?;
+            }
+        }
+
+        Ok(())
     }
 }
