@@ -28,25 +28,13 @@ pub trait PciType0Function: PciTypeFunctionCommon {
 
     fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>>;
 
-    fn pause(&self) -> Result<(), DeviceSnapshotError> {
-        todo!()
-    }
+    fn pause(&self) -> Result<(), DeviceSnapshotError>;
 
-    fn resume(&self) -> Result<(), DeviceSnapshotError> {
-        todo!()
-    }
+    fn resume(&self) -> Result<(), DeviceSnapshotError>;
 
-    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
-        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
-            "unknown pci type 0 device".to_string(),
-        ))
-    }
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError>;
 
-    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
-        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
-            "unknown pci type 0 device".to_string(),
-        ))
-    }
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError>;
 }
 
 pub(crate) struct Type0FunctionInternal<T> {
@@ -84,5 +72,31 @@ where
         };
 
         Ok(function)
+    }
+
+    pub fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    pub fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    pub fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        let dev = self.internal.lock().unwrap();
+
+        writer.write_all(&dev.configuration_space.buf)?;
+        dev.function.save(writer)?;
+
+        Ok(())
+    }
+
+    pub fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        let mut dev = self.internal.lock().unwrap();
+
+        reader.read_exact(&mut dev.configuration_space.buf)?;
+        dev.function.load(reader)?;
+
+        Ok(())
     }
 }

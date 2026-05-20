@@ -1,6 +1,8 @@
 use std::io::Read;
 use std::io::Write;
+use std::iter;
 
+use vm_core::device::Device;
 use vm_core::device::error::DeviceSnapshotError;
 
 use crate::device::function::BarHandler;
@@ -8,9 +10,10 @@ use crate::device::function::PciTypeFunctionCommon;
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
 use crate::device::function::type0::Type0Function;
-use crate::device::pci_device::PciDevice;
 use crate::error::Error;
 use crate::types::configuration_space::ConfigurationSpace;
+use crate::types::device::PciDevice;
+use crate::types::function::PciFunction;
 
 struct HostBridgeFunction;
 
@@ -35,6 +38,14 @@ impl PciType0Function for HostBridgeFunction {
         None
     }
 
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
     fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
         Ok(())
     }
@@ -44,7 +55,56 @@ impl PciType0Function for HostBridgeFunction {
     }
 }
 
-pub fn new_host_bridge() -> Result<PciDevice, Error> {
+pub struct HostBridgeDevice {
+    function: Type0Function<HostBridgeFunction>,
+}
+
+impl Device for HostBridgeDevice {
+    fn name(&self) -> String {
+        "host bridge".to_string()
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
+    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
+    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+}
+
+impl PciDevice for HostBridgeDevice {
+    fn get_function(&self, function: u8) -> Option<&dyn PciFunction> {
+        if function == 0 {
+            return Some(&self.function);
+        }
+
+        None
+    }
+
+    fn get_function_mut(&mut self, function: u8) -> Option<&mut dyn PciFunction> {
+        if function == 0 {
+            return Some(&mut self.function);
+        }
+
+        None
+    }
+
+    fn functions(&self) -> Box<dyn Iterator<Item = &(dyn PciFunction + '_)> + '_> {
+        Box::new(iter::once(&self.function as &dyn PciFunction))
+    }
+}
+
+pub fn new_host_bridge() -> Result<HostBridgeDevice, Error> {
     let function = Type0Function::new(HostBridgeFunction)?;
-    Ok(PciDevice::from_single_function(Box::new(function)))
+
+    Ok(HostBridgeDevice { function })
 }

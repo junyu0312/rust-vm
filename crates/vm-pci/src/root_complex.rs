@@ -5,9 +5,9 @@ use tracing::debug;
 use vm_core::device::error::DeviceSnapshotError;
 
 use crate::bus::PciBus;
-use crate::device::pci_device::PciDevice;
 use crate::host_bridge::new_host_bridge;
 use crate::root_complex::mmio_router::MmioRouter;
+use crate::types::device::PciDevice;
 use crate::types::function::EcamUpdateCallback;
 
 mod mmio_router;
@@ -29,7 +29,7 @@ impl Default for PciRootComplex {
             allocation: 0,
         };
 
-        rc.register_device(new_host_bridge().unwrap())
+        rc.register_device(Box::new(new_host_bridge().unwrap()))
             .map_err(|_| "failed to register host bridge")
             .unwrap();
 
@@ -38,7 +38,10 @@ impl Default for PciRootComplex {
 }
 
 impl PciRootComplex {
-    pub fn register_device(&mut self, device: PciDevice) -> Result<(), PciDevice> {
+    pub fn register_device(
+        &mut self,
+        device: Box<dyn PciDevice>,
+    ) -> Result<(), Box<dyn PciDevice>> {
         let bus_number = self.allocation / 32;
         let device_number = self.allocation % 32;
         self.allocation += 1;
@@ -50,13 +53,17 @@ impl PciRootComplex {
         Ok(())
     }
 
-    fn get_device(&self, bus_number: u8, device_number: u8) -> Option<&PciDevice> {
+    fn get_device(&self, bus_number: u8, device_number: u8) -> Option<&dyn PciDevice> {
         self.bus
             .get(bus_number as usize)
             .and_then(|bus| bus.get_device(device_number))
     }
 
-    fn get_device_mut(&mut self, bus_number: u8, device_number: u8) -> Option<&mut PciDevice> {
+    fn get_device_mut(
+        &mut self,
+        bus_number: u8,
+        device_number: u8,
+    ) -> Option<&mut (dyn PciDevice + 'static)> {
         self.bus
             .get_mut(bus_number as usize)
             .and_then(|bus| bus.get_device_mut(device_number))
@@ -65,7 +72,7 @@ impl PciRootComplex {
     fn handle_ecam_read(&self, bus: u8, device: u8, func: u8, offset: u16, data: &mut [u8]) {
         let Some(function) = self
             .get_device(bus, device)
-            .and_then(|dev| dev.get_func(func))
+            .and_then(|dev| dev.get_function(func))
         else {
             // When a configuration access attempts to select a device that does not exist,
             // the host bridge will complete the access without error, dropping all data on
@@ -84,7 +91,7 @@ impl PciRootComplex {
 
         let Some(function) = self
             .get_device_mut(bus, device)
-            .and_then(|dev| dev.get_func_mut(func))
+            .and_then(|dev| dev.get_function_mut(func))
         else {
             return;
         };
