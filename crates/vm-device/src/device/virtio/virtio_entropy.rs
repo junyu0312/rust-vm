@@ -1,3 +1,5 @@
+use std::io::Read;
+use std::io::Write;
 use std::slice;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -5,12 +7,13 @@ use std::sync::Mutex;
 use rand::Rng;
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
-use vm_virtio::result::Result;
+use vm_virtio::result::VirtioError;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::transport::pci::VirtioPciDevice;
@@ -96,12 +99,28 @@ impl VirtioDevice for VirtioEntropy {
         })
     }
 
-    fn read_config(&self, _offset: usize, _buf: &mut [u8]) -> Result<()> {
+    fn read_config(&self, _offset: usize, _buf: &mut [u8]) -> Result<(), VirtioError> {
         Ok(()) // no cfg for entropy device
     }
 
-    fn write_config(&mut self, _offset: usize, _buf: &[u8]) -> Result<()> {
+    fn write_config(&mut self, _offset: usize, _buf: &[u8]) -> Result<(), VirtioError> {
         Ok(()) // no cfg for entropy device
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
+    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        Ok(())
     }
 }
 

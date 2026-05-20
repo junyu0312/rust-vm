@@ -1,3 +1,8 @@
+use std::io::Read;
+use std::io::Write;
+
+use vm_core::device::error::DeviceSnapshotError;
+
 use crate::device::function::BarHandler;
 use crate::device::function::PciTypeFunctionCommon;
 use crate::device::function::type0::Bar;
@@ -28,6 +33,14 @@ impl PciType0Function for HostBridgeFunction {
 
     fn bar_handler(&self, _bar: Bar) -> Option<Box<dyn BarHandler>> {
         None
+    }
+
+    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        Ok(())
+    }
+
+    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        Ok(())
     }
 }
 

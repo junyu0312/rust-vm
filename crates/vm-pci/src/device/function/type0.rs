@@ -1,7 +1,10 @@
+use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use strum_macros::FromRepr;
+use vm_core::device::error::DeviceSnapshotError;
 
 use crate::device::function::BarHandler;
 use crate::device::function::PciTypeFunctionCommon;
@@ -24,6 +27,26 @@ pub trait PciType0Function: PciTypeFunctionCommon {
     const BAR_SIZE: [Option<u32>; 6];
 
     fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>>;
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
+            "unknown pci type 0 device".to_string(),
+        ))
+    }
+
+    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        Err(DeviceSnapshotError::DeviceNotSupportSnapshot(
+            "unknown pci type 0 device".to_string(),
+        ))
+    }
 }
 
 pub(crate) struct Type0FunctionInternal<T> {

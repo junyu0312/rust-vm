@@ -1,14 +1,17 @@
+use std::io::Read;
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
+use vm_core::device::error::DeviceSnapshotError;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
-use vm_virtio::result::Result;
+use vm_virtio::result::VirtioError;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::transport::pci::VirtioPciDevice;
@@ -118,13 +121,33 @@ impl VirtioDevice for VirtioBlkDevice {
         })
     }
 
-    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+    fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<(), VirtioError> {
         buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + buf.len()]);
         Ok(())
     }
 
-    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+    fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<(), VirtioError> {
         self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
+        Ok(())
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        todo!()
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        writer.write_all(self.cfg.as_bytes())?;
+
+        Ok(())
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        reader.read_exact(self.cfg.as_mut_bytes())?;
+
         Ok(())
     }
 }

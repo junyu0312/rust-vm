@@ -13,7 +13,7 @@ pub enum VmSnapshotError {
     Io(#[from] std::io::Error),
 
     #[error("serde error: {0}")]
-    Serde(#[from] serde_json::Error),
+    Postcard(#[from] postcard::Error),
 
     #[error("memory error: {0}")]
     Memory(#[from] vm_mm::error::Error),

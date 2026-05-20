@@ -17,7 +17,7 @@ pub(crate) mod header;
 mod status;
 
 pub struct ConfigurationSpace {
-    buf: [u8; 4096],
+    pub(crate) buf: [u8; 4096],
     last_capability_next_pointer: u8,
     next_available_capability_pointer: u16, // use u16 to check availability, otherwise `offset + cap_len` will overflow
     last_ext_capability_next_pointer: Option<u16>,

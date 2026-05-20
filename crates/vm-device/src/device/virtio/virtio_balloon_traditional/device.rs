@@ -8,8 +8,6 @@ use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::error::DeviceSnapshotError;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_snapshot::helper::read_u32;
-use vm_snapshot::helper::write_u32;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
@@ -165,8 +163,7 @@ impl VirtioDevice for VirtioBalloonTranditional {
     }
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
-        write_u32(writer, self.cfg.num_pages)?;
-        write_u32(writer, self.cfg.actual)?;
+        writer.write_all(self.cfg.as_bytes())?;
         serde_json::to_writer(writer, &self.balloon)
             .map_err(|err| DeviceSnapshotError::Serde(err.to_string()))?;
 
@@ -174,8 +171,7 @@ impl VirtioDevice for VirtioBalloonTranditional {
     }
 
     fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
-        self.cfg.num_pages = read_u32(reader)?;
-        self.cfg.actual = read_u32(reader)?;
+        reader.read_exact(self.cfg.as_mut_bytes())?;
         self.balloon = serde_json::from_reader(reader)
             .map_err(|err| DeviceSnapshotError::Serde(err.to_string()))?;
 
