@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
+use clap::Args;
 use clap::Parser;
+use clap::Subcommand;
 use clap::ValueEnum;
 use thiserror::Error;
 
@@ -31,24 +33,26 @@ impl From<Device> for vm_device::device::Device {
     }
 }
 
-#[derive(Debug, Clone, ValueEnum)]
-pub enum Accel {
-    #[cfg(feature = "kvm")]
-    Kvm,
-    #[cfg(feature = "hvp")]
-    Hvp,
+#[derive(Debug, Parser)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
 }
 
-#[derive(Debug, Parser)]
-pub struct Command {
+#[derive(Debug, Subcommand)]
+
+pub enum Command {
+    Create(CreateArgs),
+    Snapshot(SnapshotArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct CreateArgs {
     #[arg(short, long)]
     pub cpus: usize,
 
     #[arg(short, long)]
     pub memory: String,
-
-    #[arg(short, long)]
-    pub accel: Accel,
 
     #[arg(long)]
     pub device: Vec<Device>,
@@ -64,6 +68,12 @@ pub struct Command {
 
     #[arg(long)]
     pub gdb: Option<u16>,
+}
+
+#[derive(Debug, Args)]
+pub struct SnapshotArgs {
+    #[arg(long)]
+    pub path: PathBuf,
 }
 
 pub fn parse_memory(s: &str) -> Result<usize, Error> {

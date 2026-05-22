@@ -26,7 +26,6 @@ macro_rules! hv_unsafe_call {
 
 use hv_unsafe_call;
 
-#[derive(Default)]
 pub struct AppleHypervisor;
 
 impl Hypervisor for AppleHypervisor {

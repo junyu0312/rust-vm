@@ -1,7 +1,9 @@
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::Deserialize;
 use serde::Serialize;
+use tokio::fs::read;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 #[cfg(target_arch = "aarch64")]
@@ -65,8 +67,16 @@ impl Vm {
     pub async fn from_snapshot(
         hypervisor: &dyn Hypervisor,
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
-        snap: VmSnapshot,
+        path: &Path,
     ) -> Result<Self, VmmError> {
+        let snap = {
+            let buf = read(path)
+                .await
+                .map_err(|err| VmmError::SnapshotError(VmSnapshotError::Io(err)))?;
+            postcard::from_bytes::<VmSnapshot>(&buf)
+                .map_err(|err| VmmError::SnapshotError(VmSnapshotError::Postcard(err)))?
+        };
+
         let mut monitor_server_builder = MonitorServerBuilder::default();
 
         let vm_instance = hypervisor.create_vm()?;

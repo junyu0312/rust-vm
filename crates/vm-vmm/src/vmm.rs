@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -51,6 +52,18 @@ impl Vmm {
 
         let vm =
             Vm::from_config(self.hypervisor.as_ref(), self.command_tx.clone(), vm_config).await?;
+
+        self.vm = Some(vm);
+
+        Ok(())
+    }
+
+    pub async fn create_vm_from_snapshot(&mut self, path: &Path) -> Result<(), VmmError> {
+        if self.vm.is_some() {
+            return Err(VmmError::VmAlreadyExists);
+        }
+
+        let vm = Vm::from_snapshot(self.hypervisor.as_ref(), self.command_tx.clone(), path).await?;
 
         self.vm = Some(vm);
 
