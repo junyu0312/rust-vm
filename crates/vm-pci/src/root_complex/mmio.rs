@@ -11,10 +11,10 @@ use vm_core::device::mmio::mmio_device::MmioHandler;
 use vm_core::utils::address_space::AddressSpace;
 use vm_fdt::FdtWriter;
 
-use crate::device::pci_device::PciDevice;
 use crate::root_complex::PciRootComplex;
 use crate::root_complex::mmio::bar_handler::DeviceMmioHandler;
 use crate::root_complex::mmio::ecam_handler::EcamHandler;
+use crate::types::device::PciDevice;
 
 mod arch;
 mod bar_handler;
@@ -71,7 +71,7 @@ impl PciRootComplexMmio {
         }
     }
 
-    pub fn register_device(&self, device: PciDevice) -> Result<(), PciDevice> {
+    pub fn register_device(&self, device: Box<dyn PciDevice>) -> Result<(), Box<dyn PciDevice>> {
         let mut rc = self.internal.lock().unwrap();
         rc.register_device(device)
     }

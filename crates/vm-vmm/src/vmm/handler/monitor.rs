@@ -16,7 +16,11 @@ impl Vmm {
 
                     Ok(MonitorCommandResponse::Ok)
                 }
-                MonitorCommand::Resume => todo!(),
+                MonitorCommand::Resume => {
+                    self.resume().await?;
+
+                    Ok(MonitorCommandResponse::Ok)
+                }
                 MonitorCommand::Save(path) => {
                     self.save(path).await?;
 

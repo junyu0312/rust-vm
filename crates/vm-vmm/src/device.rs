@@ -116,7 +116,7 @@ impl InitDevice for DeviceManager {
                             .into_pci_device();
 
                     pci_rc
-                        .register_device(virtio_entropy)
+                        .register_device(Box::new(virtio_entropy))
                         .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
                 }
             }
@@ -129,7 +129,7 @@ impl InitDevice for DeviceManager {
                     .into_pci_device();
 
             pci_rc
-                .register_device(virtio_pci_blk)
+                .register_device(Box::new(virtio_pci_blk))
                 .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
         }
 

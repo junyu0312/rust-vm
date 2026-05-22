@@ -65,6 +65,14 @@ impl Vmm {
         Ok(())
     }
 
+    pub async fn resume(&mut self) -> Result<(), VmmError> {
+        let vm = self.try_get_vm_mut()?;
+
+        vm.resume().await?;
+
+        Ok(())
+    }
+
     pub async fn save(&mut self, path: PathBuf) -> Result<(), VmmError> {
         let vm = self.try_get_vm_mut()?;
 

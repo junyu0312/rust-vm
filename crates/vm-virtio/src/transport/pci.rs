@@ -1,17 +1,20 @@
 use std::io::Read;
 use std::io::Write;
+use std::iter;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use vm_core::device::Device;
 use vm_core::device::error::DeviceSnapshotError;
 use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
 use vm_pci::device::function::type0::PciType0Function;
 use vm_pci::device::function::type0::Type0Function;
-use vm_pci::device::pci_device::PciDevice;
 use vm_pci::error::Error;
 use vm_pci::types::configuration_space::ConfigurationSpace;
+use vm_pci::types::device::PciDevice;
+use vm_pci::types::function::PciFunction;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
@@ -166,27 +169,76 @@ where
     }
 
     fn pause(&self) -> Result<(), DeviceSnapshotError> {
-        todo!()
+        self.dev.lock().unwrap().pause()
     }
 
     fn resume(&self) -> Result<(), DeviceSnapshotError> {
-        todo!()
+        self.dev.lock().unwrap().resume()
     }
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
-        let dev = self.dev.lock().unwrap();
-
-        dev.save(writer)?;
-
-        Ok(())
+        self.dev.lock().unwrap().save(writer)
     }
 
     fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
-        let mut dev = self.dev.lock().unwrap();
+        self.dev.lock().unwrap().load(reader)
+    }
+}
 
-        dev.load(reader)?;
+pub struct VirtioPciDev<D>
+where
+    D: VirtioPciDevice,
+{
+    function: Type0Function<VirtioPciTransport<D>>,
+}
 
-        Ok(())
+impl<D> Device for VirtioPciDev<D>
+where
+    D: VirtioPciDevice,
+{
+    fn name(&self) -> String {
+        "virtio pci dev".to_string()
+    }
+
+    fn pause(&self) -> Result<(), DeviceSnapshotError> {
+        self.function.pause()
+    }
+
+    fn resume(&self) -> Result<(), DeviceSnapshotError> {
+        self.function.resume()
+    }
+
+    fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
+        self.function.save(writer)
+    }
+
+    fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
+        self.function.load(reader)
+    }
+}
+
+impl<D> PciDevice for VirtioPciDev<D>
+where
+    D: VirtioPciDevice,
+{
+    fn get_function(&self, function: u8) -> Option<&dyn PciFunction> {
+        if function == 0 {
+            return Some(&self.function);
+        }
+
+        None
+    }
+
+    fn get_function_mut(&mut self, function: u8) -> Option<&mut dyn PciFunction> {
+        if function == 0 {
+            return Some(&mut self.function);
+        }
+
+        None
+    }
+
+    fn functions(&self) -> Box<dyn Iterator<Item = &(dyn PciFunction + '_)> + '_> {
+        Box::new(iter::once(&self.function as &dyn PciFunction))
     }
 }
 
@@ -195,11 +247,11 @@ pub trait VirtioPciDevice: VirtioDevice {
     const CLASS_CODE: u32;
     const IRQ_PIN: u8;
 
-    fn into_pci_device(self) -> PciDevice {
+    fn into_pci_device(self) -> VirtioPciDev<Self> {
         let virtio_function = VirtioPciTransport::<_> {
             dev: VirtioDev::new(self),
         };
         let function = Type0Function::new(virtio_function).unwrap();
-        PciDevice::from_single_function(Box::new(function))
+        VirtioPciDev { function }
     }
 }
