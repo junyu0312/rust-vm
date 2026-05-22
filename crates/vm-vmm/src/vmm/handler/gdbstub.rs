@@ -53,7 +53,7 @@ impl Vmm {
                 GdbStubCommand::Resume => {
                     trace!("Resume");
 
-                    self.try_get_vm_mut()?.resume().await?;
+                    self.resume().await?;
 
                     Ok(GdbStubCommandResponse::Resume)
                 }
