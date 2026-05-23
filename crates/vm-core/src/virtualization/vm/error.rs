@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::cpu::error::CpuError;
+use crate::virtualization::vm::state::VmState;
 
 #[derive(Error, Debug)]
 pub enum VmError {
@@ -25,6 +26,9 @@ pub enum VmError {
 
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
+
+    #[error("vm state is not satisfied, current: {current:?}")]
+    VmState { current: VmState },
 
     #[error("Failed to create listener for gdbstub")]
     GdbListenerCreation,

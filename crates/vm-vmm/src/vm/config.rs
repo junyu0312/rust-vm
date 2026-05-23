@@ -25,6 +25,7 @@ use vm_core::device_manager::DeviceManager;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
 use vm_core::virtualization::vm::error::VmError;
+use vm_core::virtualization::vm::state::VmState;
 use vm_device::device::Device;
 use vm_mm::allocator::Allocator;
 use vm_mm::allocator::std_allocator::StdAllocator;
@@ -153,6 +154,7 @@ impl Vm {
         let vm = Vm {
             vm_config,
             _vm_instance: vm_instance,
+            vm_state: VmState::Created,
             vcpu_manager,
             memory_address_space,
             _irq_chip: irq_chip,

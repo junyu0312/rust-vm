@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use vm_core::virtualization::hypervisor::Hypervisor;
+use vm_core::virtualization::vm::state::VmState;
 
 use crate::vm::Vm;
 use crate::vm::config::VmConfig;
@@ -70,6 +71,16 @@ impl Vmm {
         Ok(())
     }
 
+    pub async fn try_boot(&mut self) -> Result<(), VmmError> {
+        let vm = self.vm.as_mut().ok_or(VmmError::VmNotExists)?;
+
+        if vm.state() == VmState::Created {
+            vm.boot().await?;
+        }
+
+        Ok(())
+    }
+
     pub async fn pause(&mut self) -> Result<(), VmmError> {
         let vm = self.try_get_vm_mut()?;
 
@@ -95,12 +106,6 @@ impl Vmm {
     }
 
     pub async fn run(&mut self) -> Result<(), VmmError> {
-        self.vm
-            .as_mut()
-            .ok_or(VmmError::VmNotExists)?
-            .boot()
-            .await?;
-
         self.run_monitor().await;
 
         Ok(())

@@ -8,6 +8,7 @@ use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vm::error::VmError;
 
 pub mod error;
+pub mod state;
 
 pub enum SetUserMemoryRegionFlags {
     ReadWriteExec,
