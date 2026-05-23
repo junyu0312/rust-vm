@@ -8,6 +8,10 @@ use tokio::sync::Notify;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::error::DeviceSnapshotError;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_snapshot::helper::read_u32;
+use vm_snapshot::helper::read_usize;
+use vm_snapshot::helper::write_u32;
+use vm_snapshot::helper::write_usize;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
@@ -164,16 +168,24 @@ impl VirtioDevice for VirtioBalloonTranditional {
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
         writer.write_all(self.cfg.as_bytes())?;
-        serde_json::to_writer(writer, &self.balloon)
-            .map_err(|err| DeviceSnapshotError::Serde(err.to_string()))?;
+
+        write_usize(writer, self.balloon.len())?;
+        for v in &self.balloon {
+            write_u32(writer, *v)?;
+        }
 
         Ok(())
     }
 
     fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
         reader.read_exact(self.cfg.as_mut_bytes())?;
-        self.balloon = serde_json::from_reader(reader)
-            .map_err(|err| DeviceSnapshotError::Serde(err.to_string()))?;
+
+        let len = read_usize(reader)?;
+        let mut balloon = HashSet::with_capacity(len);
+        for _ in 0..len {
+            balloon.insert(read_u32(reader)?);
+        }
+        self.balloon = balloon;
 
         Ok(())
     }
