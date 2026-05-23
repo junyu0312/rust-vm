@@ -35,8 +35,14 @@ async fn build_and_run_vm(args: Command) -> anyhow::Result<()> {
                     cmdline: args.cmdline,
                 })
                 .await?;
+
+                vmm.try_boot().await?;
             }
-            Command::Snapshot(args) => vmm.create_vm_from_snapshot(&args.path).await?,
+            Command::Snapshot(args) => {
+                vmm.create_vm_from_snapshot(&args.path).await?;
+
+                vmm.try_boot().await?;
+            }
         }
 
         vmm.run().await?;

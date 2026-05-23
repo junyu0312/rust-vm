@@ -40,6 +40,10 @@ pub struct Vm {
 }
 
 impl Vm {
+    pub fn state(&self) -> VmState {
+        self.vm_state
+    }
+
     pub fn vcpu_manager(&self) -> Arc<Mutex<VcpuManager>> {
         self.vcpu_manager.clone()
     }
@@ -180,6 +184,8 @@ impl Vm {
         }
 
         // TODO: resume devices
+
+        self.vm_state = VmState::Running;
 
         Ok(())
     }
