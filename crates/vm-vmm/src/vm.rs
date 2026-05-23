@@ -13,6 +13,7 @@ use vm_core::monitor::MonitorCommandOps;
 use vm_core::virtualization::vcpu::error::VcpuError;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_core::virtualization::vm::error::VmError;
+use vm_core::virtualization::vm::state::VmState;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::service::gdbstub::connection::VmGdbStubConnector;
@@ -29,6 +30,7 @@ const PAGE_SIZE: usize = 4 << 10;
 pub struct Vm {
     vm_config: VmConfig,
     _vm_instance: Arc<dyn HypervisorVm>,
+    vm_state: VmState,
     vcpu_manager: Arc<Mutex<VcpuManager>>,
     memory_address_space: Arc<MemoryAddressSpace>,
     _irq_chip: Arc<dyn InterruptController>,
@@ -51,6 +53,8 @@ impl Vm {
     }
 
     pub async fn boot(&mut self) -> Result<(), VmError> {
+        self.vm_state.ensure_is_created()?;
+
         let mut stop_on_boot = false;
 
         if let Some(gdb_stub) = &self.gdb_stub {
@@ -64,12 +68,16 @@ impl Vm {
 
         if !stop_on_boot {
             vcpu_manager.get_vcpu_mut(0)?.boot().await?;
+
+            self.vm_state = VmState::Running;
         }
 
         Ok(())
     }
 
     pub async fn read_core_registers(&self, vcpu_id: usize) -> Result<ArchCoreRegisters, VmError> {
+        self.vm_state.ensure_is_not_running()?;
+
         let mut vcpu_manager = self.vcpu_manager.lock().await;
         let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
 
@@ -83,6 +91,8 @@ impl Vm {
         vcpu_id: usize,
         registers: ArchCoreRegisters,
     ) -> Result<(), VmError> {
+        self.vm_state.ensure_is_not_running()?;
+
         let mut vcpu_manager = self.vcpu_manager.lock().await;
         let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
 
@@ -97,6 +107,8 @@ impl Vm {
         len: usize,
         vcpu_id: usize,
     ) -> Result<Vec<u8>, VmError> {
+        self.vm_state.ensure_is_not_running()?;
+
         let vcpu_manager = self.vcpu_manager();
         let mut vcpu_manager = vcpu_manager.lock().await;
         let vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
@@ -123,6 +135,8 @@ impl Vm {
         _data: &[u8],
         vcpu_id: usize,
     ) -> Result<(), VmError> {
+        self.vm_state.ensure_is_not_running()?;
+
         let vcpu_manager = self.vcpu_manager();
         let mut vcpu_manager = vcpu_manager.lock().await;
         let _vcpu = vcpu_manager.get_vcpu_mut(vcpu_id)?;
@@ -131,6 +145,9 @@ impl Vm {
     }
 
     pub async fn get_active_vcpus(&self) -> usize {
+        // TODO: is it necessary?
+        // self.vm_state.ensure_is_not_running()?;
+
         let vcpu_manager = self.vcpu_manager();
         let vcpu_manager = vcpu_manager.lock().await;
 
@@ -138,6 +155,8 @@ impl Vm {
     }
 
     pub async fn pause(&mut self) -> Result<(), VmError> {
+        self.vm_state.ensure_is_running()?;
+
         {
             let mut vcpu_manager = self.vcpu_manager.lock().await;
 
@@ -146,10 +165,14 @@ impl Vm {
 
         // TODO: pause devices
 
+        self.vm_state = VmState::Paused;
+
         Ok(())
     }
 
     pub async fn resume(&mut self) -> Result<(), VmError> {
+        self.vm_state.ensure_is_not_running()?;
+
         {
             let mut vcpu_manager = self.vcpu_manager.lock().await;
 
@@ -162,6 +185,8 @@ impl Vm {
     }
 
     pub async fn save(&mut self, path: PathBuf) -> Result<(), VmSnapshotError> {
+        self.vm_state.ensure_is_not_running()?;
+
         let mut tmp = NamedTempFile::new()?;
 
         let snap = self.build_snapshot().await?;

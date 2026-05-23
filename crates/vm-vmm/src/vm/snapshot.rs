@@ -31,6 +31,7 @@ use crate::device::InitDevice;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::Vm;
+use crate::vm::VmState;
 use crate::vm::config::VmConfig;
 use crate::vm::vm_exit_handler::VmExitHandler;
 use crate::vmm::error::VmSnapshotError;
@@ -40,6 +41,7 @@ use crate::vmm::handler::VmmCommand;
 #[derive(Serialize, Deserialize)]
 pub struct VmSnapshot {
     vm_config: VmConfig,
+    vm_state: VmState,
     memory_address_space: MemoryAddressSpaceSnapshot,
     vcpus: VcpuManagerSnapshot,
     devices: DeviceSnapshot,
@@ -56,6 +58,7 @@ impl Vm {
 
         let snap = VmSnapshot {
             vm_config: self.vm_config.clone(),
+            vm_state: self.vm_state,
             memory_address_space: self.memory_address_space().build_snapshot()?,
             vcpus,
             devices: self.device_manager.build_snapshot()?,
@@ -150,6 +153,7 @@ impl Vm {
         let vm = Vm {
             vm_config: snap.vm_config,
             _vm_instance: vm_instance,
+            vm_state: snap.vm_state,
             vcpu_manager,
             memory_address_space,
             _irq_chip: irq_chip,
