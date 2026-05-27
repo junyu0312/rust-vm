@@ -500,7 +500,7 @@ fn handle_command(
             let mut handler: std::sync::MutexGuard<'_, HvpVcpuInternal> =
                 hvp_vcpu_handler.lock().unwrap();
 
-            handler.write_registers(registers)?;
+            handler.write_registers(*registers)?;
 
             Ok(VcpuCommandResponse::Empty)
         }
@@ -514,7 +514,7 @@ fn handle_command(
         VcpuCommand::WriteCoreRegisters(registers) => {
             let mut handler = hvp_vcpu_handler.lock().unwrap();
 
-            handler.write_core_registers(registers)?;
+            handler.write_core_registers(*registers)?;
 
             Ok(VcpuCommandResponse::Empty)
         }

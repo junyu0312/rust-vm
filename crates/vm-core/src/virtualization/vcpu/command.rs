@@ -6,9 +6,9 @@ use crate::virtualization::vcpu::error::VcpuError;
 
 pub enum VcpuCommand {
     ReadRegisters,
-    WriteRegisters(ArchRegisters),
+    WriteRegisters(Box<ArchRegisters>),
     ReadCoreRegisters,
-    WriteCoreRegisters(ArchCoreRegisters),
+    WriteCoreRegisters(Box<ArchCoreRegisters>),
     TranslateGvaToGpa(u64),
     Resume,
 }

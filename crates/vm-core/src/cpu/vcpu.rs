@@ -76,7 +76,7 @@ impl Vcpu {
             VcpuCommandResponse::Registers(regs) => Ok(*regs),
             VcpuCommandResponse::Err(err) => {
                 error!(?err);
-                return Err(CpuError::VcpuError(err));
+                Err(CpuError::VcpuError(err))
             }
             _ => unreachable!(),
         }
@@ -97,7 +97,7 @@ impl Vcpu {
         registers: ArchCoreRegisters,
     ) -> Result<(), CpuError> {
         match self
-            .send_command_and_then_wait(VcpuCommand::WriteCoreRegisters(registers))
+            .send_command_and_then_wait(VcpuCommand::WriteCoreRegisters(Box::new(registers)))
             .await?
         {
             VcpuCommandResponse::Empty => Ok(()),
@@ -107,7 +107,7 @@ impl Vcpu {
 
     pub async fn write_registers(&mut self, registers: ArchRegisters) -> Result<(), CpuError> {
         match self
-            .send_command_and_then_wait(VcpuCommand::WriteRegisters(registers))
+            .send_command_and_then_wait(VcpuCommand::WriteRegisters(Box::new(registers)))
             .await?
         {
             VcpuCommandResponse::Empty => Ok(()),
