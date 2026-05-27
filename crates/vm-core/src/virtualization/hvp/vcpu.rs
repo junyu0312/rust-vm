@@ -399,10 +399,12 @@ impl AArch64Vcpu for HvpVcpuInternal {
         self.set_sys_reg(SysRegister::ElrEl2, registers.elr_el2)?;
         self.set_sys_reg(SysRegister::EsrEl2, registers.esr_el2)?;
         self.set_sys_reg(SysRegister::FarEl2, registers.far_el2)?;
-        self.set_sys_reg(SysRegister::HcrEl2, registers.hcr_el2)?;
+
+        // self.set_sys_reg(SysRegister::HcrEl2, registers.hcr_el2)?; // TODO: stuck while booting, why?
+
         self.set_sys_reg(SysRegister::HpfarEl2, registers.hpfar_el2)?;
         self.set_sys_reg(SysRegister::MairEl2, registers.mair_el2)?;
-        // self.set_sys_reg(SysRegister::MdcrEl2, registers.mdcr_el2)?;
+        // self.set_sys_reg(SysRegister::MdcrEl2, registers.mdcr_el2)?; // mask
         self.set_sys_reg(SysRegister::SctlrEl2, registers.sctlr_el2)?;
         self.set_sys_reg(SysRegister::SpsrEl2, registers.spsr_el2)?;
         self.set_sys_reg(SysRegister::SpEl2, registers.sp_el2)?;
