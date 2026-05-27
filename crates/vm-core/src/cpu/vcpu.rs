@@ -1,4 +1,5 @@
 use tokio::sync::mpsc::WeakSender;
+use tracing::error;
 
 use crate::arch::registers::ArchCoreRegisters;
 use crate::arch::registers::ArchRegisters;
@@ -69,6 +70,10 @@ impl Vcpu {
             .await?
         {
             VcpuCommandResponse::Registers(regs) => Ok(*regs),
+            VcpuCommandResponse::Err(err) => {
+                error!(?err);
+                return Err(CpuError::VcpuError(err));
+            }
             _ => unreachable!(),
         }
     }
