@@ -43,10 +43,11 @@ impl VcpuManager {
         vcpu_id: usize,
         mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
+        booted: bool, // for recovery
     ) -> Result<(), VmError> {
         let vcpu_instance = self.vm_instance.create_vcpu(vcpu_id, mm, vm_exit_handler)?;
 
-        let vcpu = Vcpu::new(vcpu_instance);
+        let vcpu = Vcpu::new(vcpu_instance, booted);
 
         self.vcpus.push(vcpu);
 

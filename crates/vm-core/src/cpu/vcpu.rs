@@ -1,4 +1,5 @@
 use tokio::sync::mpsc::WeakSender;
+use tracing::error;
 
 use crate::arch::registers::ArchCoreRegisters;
 use crate::arch::registers::ArchRegisters;
@@ -15,16 +16,20 @@ pub struct Vcpu {
 }
 
 impl Vcpu {
-    pub fn new(vcpu_instance: Box<dyn HypervisorVcpu>) -> Self {
+    pub fn new(vcpu_instance: Box<dyn HypervisorVcpu>, booted: bool) -> Self {
         Vcpu {
             command_tx: vcpu_instance.command_tx(),
             vcpu_instance,
-            booted: false,
+            booted,
         }
     }
 
     pub fn vcpu_id(&self) -> usize {
         self.vcpu_instance.vcpu_id()
+    }
+
+    pub fn booted(&self) -> bool {
+        self.booted
     }
 
     pub async fn setup_vcpu(&mut self, pc: u64, dtb_or_context_id: u64) -> Result<(), CpuError> {
@@ -69,6 +74,10 @@ impl Vcpu {
             .await?
         {
             VcpuCommandResponse::Registers(regs) => Ok(*regs),
+            VcpuCommandResponse::Err(err) => {
+                error!(?err);
+                Err(CpuError::VcpuError(err))
+            }
             _ => unreachable!(),
         }
     }
@@ -88,7 +97,7 @@ impl Vcpu {
         registers: ArchCoreRegisters,
     ) -> Result<(), CpuError> {
         match self
-            .send_command_and_then_wait(VcpuCommand::WriteCoreRegisters(registers))
+            .send_command_and_then_wait(VcpuCommand::WriteCoreRegisters(Box::new(registers)))
             .await?
         {
             VcpuCommandResponse::Empty => Ok(()),
@@ -98,7 +107,7 @@ impl Vcpu {
 
     pub async fn write_registers(&mut self, registers: ArchRegisters) -> Result<(), CpuError> {
         match self
-            .send_command_and_then_wait(VcpuCommand::WriteRegisters(registers))
+            .send_command_and_then_wait(VcpuCommand::WriteRegisters(Box::new(registers)))
             .await?
         {
             VcpuCommandResponse::Empty => Ok(()),

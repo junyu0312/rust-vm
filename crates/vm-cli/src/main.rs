@@ -39,7 +39,11 @@ async fn build_and_run_vm(args: Command) -> anyhow::Result<()> {
                 vmm.try_boot().await?;
             }
             Command::Snapshot(args) => {
+                debug!("import snapshot from {:?}", args.path);
+
                 vmm.create_vm_from_snapshot(&args.path).await?;
+
+                debug!("vm is booting");
 
                 vmm.try_boot().await?;
             }
