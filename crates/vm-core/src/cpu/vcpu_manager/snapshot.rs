@@ -10,8 +10,14 @@ use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vm::error::VmError;
 
 #[derive(Serialize, Deserialize)]
+pub struct VcpuSnapshot {
+    booted: bool,
+    register: ArchRegisters,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct VcpuManagerSnapshot {
-    vcpus: Vec<ArchRegisters>,
+    vcpus: Vec<VcpuSnapshot>,
 }
 
 impl VcpuManager {
@@ -19,9 +25,10 @@ impl VcpuManager {
         let mut vcpus = Vec::with_capacity(self.get_active_vcpus());
 
         for vcpu_id in 0..self.get_active_vcpus() {
-            let regs = self.get_vcpu_mut(vcpu_id)?.read_registers().await?;
+            let booted = self.get_vcpu(vcpu_id)?.booted();
+            let register = self.get_vcpu_mut(vcpu_id)?.read_registers().await?;
 
-            vcpus.push(regs);
+            vcpus.push(VcpuSnapshot { booted, register });
         }
 
         let snap = VcpuManagerSnapshot { vcpus };
@@ -40,10 +47,11 @@ impl VcpuManager {
                 vcpu_id,
                 memory_address_space.clone(),
                 vm_exit_handler.clone(),
+                vcpu_snap.booted,
             )?;
 
             let vcpu = self.get_vcpu_mut(vcpu_id)?;
-            vcpu.write_registers(vcpu_snap).await?;
+            vcpu.write_registers(vcpu_snap.register).await?;
         }
 
         Ok(())

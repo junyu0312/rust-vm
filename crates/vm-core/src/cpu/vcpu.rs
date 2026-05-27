@@ -16,16 +16,20 @@ pub struct Vcpu {
 }
 
 impl Vcpu {
-    pub fn new(vcpu_instance: Box<dyn HypervisorVcpu>) -> Self {
+    pub fn new(vcpu_instance: Box<dyn HypervisorVcpu>, booted: bool) -> Self {
         Vcpu {
             command_tx: vcpu_instance.command_tx(),
             vcpu_instance,
-            booted: false,
+            booted,
         }
     }
 
     pub fn vcpu_id(&self) -> usize {
         self.vcpu_instance.vcpu_id()
+    }
+
+    pub fn booted(&self) -> bool {
+        self.booted
     }
 
     pub async fn setup_vcpu(&mut self, pc: u64, dtb_or_context_id: u64) -> Result<(), CpuError> {

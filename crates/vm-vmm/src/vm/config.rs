@@ -116,6 +116,7 @@ impl Vm {
                     vcpu_id,
                     memory_address_space.clone(),
                     vm_exit_handler.clone(),
+                    false,
                 )?;
             }
         }
