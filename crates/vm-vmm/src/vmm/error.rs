@@ -1,4 +1,5 @@
 use thiserror::Error;
+use vm_core::arch::irq::error::IrqChipError;
 use vm_core::cpu::error::CpuError;
 use vm_core::device::error::DeviceSnapshotError;
 use vm_core::monitor::MonitorError;
@@ -23,6 +24,9 @@ pub enum VmSnapshotError {
 
     #[error("device error: {0}")]
     Device(#[from] DeviceSnapshotError),
+
+    #[error("irq chip error: {0}")]
+    IrqChip(#[from] IrqChipError),
 
     #[error("vm error: {0}")]
     Vm(#[from] VmError),

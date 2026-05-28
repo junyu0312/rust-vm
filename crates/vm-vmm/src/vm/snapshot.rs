@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -12,6 +13,7 @@ use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
 use vm_core::arch::aarch64::layout::MMIO_LEN;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::MMIO_START;
+use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::MMIO_LEN;
 #[cfg(target_arch = "x86_64")]
@@ -44,6 +46,7 @@ pub struct VmSnapshot {
     vm_state: VmState,
     memory_address_space: MemoryAddressSpaceSnapshot,
     vcpus: VcpuManagerSnapshot,
+    irq_chip: Vec<u8>,
     devices: DeviceSnapshot,
 }
 
@@ -56,11 +59,18 @@ impl Vm {
             vcpu_manager.build_snapshot().await?
         };
 
+        let irq_chip = {
+            let mut buf = vec![];
+            self.irq_chip.save(&mut buf)?;
+            buf
+        };
+
         let snap = VmSnapshot {
             vm_config: self.vm_config.clone(),
             vm_state: self.vm_state,
             memory_address_space: self.memory_address_space().build_snapshot()?,
             vcpus,
+            irq_chip,
             devices: self.device_manager.build_snapshot()?,
         };
 
@@ -100,11 +110,18 @@ impl Vm {
             Arc::new(memory_address_space)
         };
 
-        let irq_chip = if !snap.vm_config.devices.iter().any(Device::is_irq_chip) {
-            vm_instance.create_irq_chip()?
-        } else {
-            todo!()
-        };
+        let irq_chip: Arc<dyn InterruptController> =
+            if !snap.vm_config.devices.iter().any(Device::is_irq_chip) {
+                let mut irq_chip = vm_instance.create_irq_chip()?;
+
+                irq_chip
+                    .load(&mut Cursor::new(snap.irq_chip))
+                    .map_err(|err| VmmError::SnapshotError(VmSnapshotError::IrqChip(err)))?;
+
+                Arc::from(irq_chip)
+            } else {
+                todo!()
+            };
 
         let device_manager = {
             let mut device_manager = DeviceManager::new(MmioLayout::new(MMIO_START, MMIO_LEN));
@@ -156,7 +173,7 @@ impl Vm {
             vm_state: snap.vm_state,
             vcpu_manager,
             memory_address_space,
-            _irq_chip: irq_chip,
+            irq_chip,
             device_manager,
             gdb_stub,
             monitor_handlers: monitor_server_builder.components,

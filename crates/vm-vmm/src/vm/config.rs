@@ -13,6 +13,7 @@ use vm_core::arch::aarch64::layout::MMIO_LEN;
 use vm_core::arch::aarch64::layout::MMIO_START;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::RAM_BASE;
+use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::MMIO_LEN;
 #[cfg(target_arch = "x86_64")]
@@ -80,11 +81,12 @@ impl Vm {
 
         let memory_address_space = Arc::new(memory_address_space);
 
-        let irq_chip = if !vm_config.devices.iter().any(Device::is_irq_chip) {
-            vm_instance.create_irq_chip()?
-        } else {
-            todo!()
-        };
+        let irq_chip: Arc<dyn InterruptController> =
+            if !vm_config.devices.iter().any(Device::is_irq_chip) {
+                Arc::from(vm_instance.create_irq_chip()?)
+            } else {
+                todo!()
+            };
 
         let mut device_manager = DeviceManager::new(MmioLayout::new(MMIO_START, MMIO_LEN));
         device_manager.init_devices(
@@ -158,7 +160,7 @@ impl Vm {
             vm_state: VmState::Created,
             vcpu_manager,
             memory_address_space,
-            _irq_chip: irq_chip,
+            irq_chip,
             device_manager,
             gdb_stub,
             monitor_handlers: monitor_server_builder.components,

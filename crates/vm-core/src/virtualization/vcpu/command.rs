@@ -9,6 +9,8 @@ pub enum VcpuCommand {
     WriteRegisters(Box<ArchRegisters>),
     ReadCoreRegisters,
     WriteCoreRegisters(Box<ArchCoreRegisters>),
+    Save,
+    Load(Vec<u8>),
     TranslateGvaToGpa(u64),
     Resume,
 }
@@ -17,6 +19,7 @@ pub enum VcpuCommandResponse {
     Empty,
     CoreRegisters(Box<ArchCoreRegisters>),
     Registers(Box<ArchRegisters>),
+    Save(Vec<u8>),
     TranslateGvaToGpa(Option<u64>),
     Err(VcpuError),
 }

@@ -125,6 +125,16 @@ impl Vcpu {
         }
     }
 
+    pub async fn pause(&self) -> Result<(), CpuError> {
+        if !self.booted {
+            return Ok(());
+        }
+
+        self.vcpu_instance.tick()?;
+
+        Ok(())
+    }
+
     pub async fn resume(&mut self) -> Result<(), CpuError> {
         if !self.booted {
             return Ok(());
@@ -136,14 +146,29 @@ impl Vcpu {
         }
     }
 
-    pub async fn pause(&self) -> Result<(), CpuError> {
-        if !self.booted {
-            return Ok(());
+    pub async fn save(&self) -> Result<Vec<u8>, CpuError> {
+        match self.send_command_and_then_wait(VcpuCommand::Save).await? {
+            VcpuCommandResponse::Save(buf) => Ok(buf),
+            VcpuCommandResponse::Err(err) => {
+                error!(?err);
+                panic!()
+            }
+            _ => unreachable!(),
         }
+    }
 
-        self.vcpu_instance.tick()?;
-
-        Ok(())
+    pub async fn load(&mut self, buf: Vec<u8>) -> Result<(), CpuError> {
+        match self
+            .send_command_and_then_wait(VcpuCommand::Load(buf))
+            .await?
+        {
+            VcpuCommandResponse::Empty => Ok(()),
+            VcpuCommandResponse::Err(err) => {
+                error!(?err);
+                panic!()
+            }
+            _ => unreachable!(),
+        }
     }
 
     async fn send_command_and_then_wait(
@@ -151,8 +176,6 @@ impl Vcpu {
         command: VcpuCommand,
     ) -> Result<VcpuCommandResponse, CpuError> {
         let (req, rx) = VcpuCommandRequest::new(command);
-
-        self.pause().await?;
 
         self.command_tx
             .upgrade()
