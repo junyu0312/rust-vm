@@ -23,10 +23,14 @@ use applevisor_sys::hv_vcpu_exit_t;
 use applevisor_sys::hv_vcpu_get_reg;
 use applevisor_sys::hv_vcpu_get_simd_fp_reg;
 use applevisor_sys::hv_vcpu_get_sys_reg;
+use applevisor_sys::hv_vcpu_get_vtimer_mask;
+use applevisor_sys::hv_vcpu_get_vtimer_offset;
 use applevisor_sys::hv_vcpu_run;
 use applevisor_sys::hv_vcpu_set_reg;
 use applevisor_sys::hv_vcpu_set_simd_fp_reg;
 use applevisor_sys::hv_vcpu_set_sys_reg;
+use applevisor_sys::hv_vcpu_set_vtimer_mask;
+use applevisor_sys::hv_vcpu_set_vtimer_offset;
 use applevisor_sys::hv_vcpu_t;
 use applevisor_sys::hv_vcpus_exit;
 use strum::IntoEnumIterator;
@@ -174,6 +178,18 @@ impl HvpVcpuInternal {
             map
         };
 
+        let vtimer_is_masked = {
+            let mut vtimer_is_masked = false;
+            hv_unsafe_call!(hv_vcpu_get_vtimer_mask(self.vcpu, &mut vtimer_is_masked))?;
+            vtimer_is_masked
+        };
+
+        let vtimer_offset = {
+            let mut vtimer_offset = 0;
+            hv_unsafe_call!(hv_vcpu_get_vtimer_offset(self.vcpu, &mut vtimer_offset))?;
+            vtimer_offset
+        };
+
         let snap = AppleHypervisorVcpuRegisters {
             gic_redistributor,
             gic_icc,
@@ -182,6 +198,8 @@ impl HvpVcpuInternal {
             core,
             sys,
             fp,
+            vtimer_is_masked,
+            vtimer_offset,
         };
 
         let buf = serde_json::to_vec(&snap).map_err(|err| VcpuError::Save(err.into()))?;
@@ -227,6 +245,12 @@ impl HvpVcpuInternal {
             let _ = hv_unsafe_call!(hv_vcpu_set_simd_fp_reg(self.vcpu, reg.into(), value))
                 .inspect_err(|err| error!(?reg, ?err));
         }
+
+        let _ = hv_unsafe_call!(hv_vcpu_set_vtimer_mask(self.vcpu, snap.vtimer_is_masked))
+            .inspect_err(|err| error!(?err, "failed to set vtimer_mask"));
+
+        let _ = hv_unsafe_call!(hv_vcpu_set_vtimer_offset(self.vcpu, snap.vtimer_offset))
+            .inspect_err(|err| error!(?err, "failed to set vtimer_offset"));
 
         Ok(())
     }

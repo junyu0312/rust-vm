@@ -1093,4 +1093,6 @@ pub struct AppleHypervisorVcpuRegisters {
     pub core: BTreeMap<AppleHypervisorCoreRegister, u64>,
     pub sys: BTreeMap<AppleHypervisorSysRegister, u64>,
     pub fp: BTreeMap<AppleHypervisorFpRegister, u128>,
+    pub vtimer_is_masked: bool,
+    pub vtimer_offset: u64,
 }
