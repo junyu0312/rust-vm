@@ -14,7 +14,6 @@ maplit = { workspace = true }
 postcard = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-strum = { workspace = true }
 strum_macros = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
@@ -28,3 +27,6 @@ vm-pci = { workspace = true }
 vm-snapshot = { workspace = true }
 vm-virtio = { workspace = true }
 winnow = { workspace = true }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+strum = { workspace = true }

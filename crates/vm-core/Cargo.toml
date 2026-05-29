@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 applevisor = { workspace = true, optional = true }
 applevisor-sys = { workspace = true, optional = true }
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 bitflags = { workspace = true }
 gdbstub_arch = { workspace = true }
@@ -21,6 +20,7 @@ vm-fdt = { workspace = true }
 vm-mm = { workspace = true }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
+anyhow = { workspace = true }
 futures = { workspace = true }
 vm-aarch64 = { workspace = true }
 static_assertions = { workspace = true }
