@@ -26,4 +26,7 @@ pub enum VcpuError {
 
     #[error("Failed to save vCPU, error: {0}")]
     Save(Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("unsupported register {0}")]
+    RegisterNotSupported(String),
 }

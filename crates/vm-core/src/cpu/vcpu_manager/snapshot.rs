@@ -4,7 +4,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use vm_mm::manager::MemoryAddressSpace;
 
-use crate::arch::registers::ArchRegisters;
 use crate::cpu::vcpu_manager::VcpuManager;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::vm::error::VmError;
@@ -12,7 +11,7 @@ use crate::virtualization::vm::error::VmError;
 #[derive(Serialize, Deserialize)]
 pub struct VcpuSnapshot {
     booted: bool,
-    register: ArchRegisters,
+    state: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -26,9 +25,9 @@ impl VcpuManager {
 
         for vcpu_id in 0..self.get_active_vcpus() {
             let booted = self.get_vcpu(vcpu_id)?.booted();
-            let register = self.get_vcpu_mut(vcpu_id)?.read_registers().await?;
+            let state = self.get_vcpu(vcpu_id)?.save().await?;
 
-            vcpus.push(VcpuSnapshot { booted, register });
+            vcpus.push(VcpuSnapshot { booted, state });
         }
 
         let snap = VcpuManagerSnapshot { vcpus };
@@ -51,7 +50,7 @@ impl VcpuManager {
             )?;
 
             let vcpu = self.get_vcpu_mut(vcpu_id)?;
-            vcpu.write_registers(vcpu_snap.register).await?;
+            vcpu.load(vcpu_snap.state).await?;
         }
 
         Ok(())

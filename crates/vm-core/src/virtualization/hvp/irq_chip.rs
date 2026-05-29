@@ -1,3 +1,6 @@
+use std::io::Read;
+use std::io::Write;
+
 use applevisor::gic::GicConfig;
 use applevisor_sys::hv_error_t;
 use applevisor_sys::hv_gic_send_msi;
@@ -7,7 +10,11 @@ use tracing::warn;
 use crate::arch::aarch64::irq::AArch64IrqChip;
 use crate::arch::irq::InterruptController;
 use crate::arch::irq::Phandle;
+use crate::arch::irq::error::IrqChipError;
 use crate::virtualization::hvp::hv_unsafe_call;
+use crate::virtualization::hvp::irq_chip::snapshot::HvpGicV3Snapshot;
+
+mod snapshot;
 
 pub struct HvpGicV3 {
     distributor_base: u64,
@@ -38,7 +45,7 @@ impl InterruptController for HvpGicV3 {
         hv_unsafe_call!(hv_gic_send_msi(self.msi_base, intid)).unwrap()
     }
 
-    fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> anyhow::Result<Phandle> {
+    fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> Result<Phandle, IrqChipError> {
         let gic_node = fdt.begin_node(&format!(
             "interrupt-controller@{:016x}",
             self.get_distributor_base()
@@ -53,9 +60,13 @@ impl InterruptController for HvpGicV3 {
             "reg",
             &[
                 self.get_distributor_base(),
-                self.get_distributor_size()? as u64,
+                self.get_distributor_size()
+                    .map_err(|err| IrqChipError::WriteDeviceTree(err.to_string()))?
+                    as u64,
                 self.get_redistributor_base(),
-                self.get_redistributor_region_size()? as u64,
+                self.get_redistributor_region_size()
+                    .map_err(|err| IrqChipError::WriteDeviceTree(err.to_string()))?
+                    as u64,
             ],
         )?;
 
@@ -71,7 +82,9 @@ impl InterruptController for HvpGicV3 {
             "reg",
             &[
                 self.get_msi_region_base(),
-                self.get_msi_region_size()? as u64,
+                self.get_msi_region_size()
+                    .map_err(|err| IrqChipError::WriteDeviceTree(err.to_string()))?
+                    as u64,
             ],
         )?;
         fdt.property_phandle(Phandle::MSI as u32)?;
@@ -80,6 +93,24 @@ impl InterruptController for HvpGicV3 {
         fdt.end_node(gic_node)?;
 
         Ok(Phandle::GIC)
+    }
+
+    fn save(&self, write: &mut dyn Write) -> Result<(), IrqChipError> {
+        let snap = self.build_snapshot()?;
+
+        let snap = serde_json::to_vec(&snap).map_err(|_| IrqChipError::SaveSnapshot)?;
+        write
+            .write_all(&snap)
+            .map_err(|_| IrqChipError::SaveSnapshot)?;
+
+        Ok(())
+    }
+
+    fn load(&mut self, read: &mut dyn Read) -> Result<(), IrqChipError> {
+        let snap: HvpGicV3Snapshot = serde_json::from_reader(read)
+            .map_err(|err| IrqChipError::LoadSnapshot(Box::new(err)))?;
+
+        self.install_snapshot(snap)
     }
 }
 

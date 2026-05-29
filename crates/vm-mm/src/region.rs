@@ -33,4 +33,9 @@ impl MemoryRegion {
     pub fn as_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.hva(), self.len()) }
     }
+
+    pub fn copy_from_slice(&self, src: &[u8]) {
+        let point = unsafe { std::slice::from_raw_parts_mut(self.hva(), self.len()) };
+        point.copy_from_slice(src);
+    }
 }

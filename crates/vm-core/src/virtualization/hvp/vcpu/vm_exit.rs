@@ -3,15 +3,18 @@ use applevisor_sys::hv_vcpu_exit_t;
 use tracing::debug;
 use tracing::warn;
 
+use crate::arch::aarch64::vcpu::AArch64Vcpu;
 use crate::arch::aarch64::vcpu::reg::CoreRegister;
 use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::arch::aarch64::vcpu::reg::esr_el2::EsrEl2;
 use crate::arch::aarch64::vcpu::reg::esr_el2::{self};
 use crate::arch::aarch64::vm_exit::VmExitReason;
-use crate::virtualization::hvp::vcpu::register::get_reg;
 use crate::virtualization::vcpu::error::VcpuError;
 
-pub fn to_vm_exit(vcpu: u64, exit_info: hv_vcpu_exit_t) -> Result<VmExitReason, VcpuError> {
+pub fn to_vm_exit(
+    vcpu: &dyn AArch64Vcpu,
+    exit_info: hv_vcpu_exit_t,
+) -> Result<VmExitReason, VcpuError> {
     match exit_info.reason {
         hv_exit_reason_t::CANCELED => Ok(VmExitReason::Canceled),
         hv_exit_reason_t::EXCEPTION => {
@@ -46,7 +49,7 @@ pub fn to_vm_exit(vcpu: u64, exit_info: hv_vcpu_exit_t) -> Result<VmExitReason, 
                         let data = if rt == 0b11111 {
                             0
                         } else {
-                            unsafe { get_reg(vcpu, rt) }?
+                            vcpu.get_sys_reg(reg)?
                         };
                         Ok(VmExitReason::TrappedWrite { reg, data })
                     }
@@ -69,7 +72,13 @@ pub fn to_vm_exit(vcpu: u64, exit_info: hv_vcpu_exit_t) -> Result<VmExitReason, 
                         todo!()
                     };
 
-                    let data = unsafe { get_reg(vcpu, srt) }?;
+                    let data = if srt < 31 {
+                        vcpu.get_core_reg(CoreRegister::from_srt(srt))?
+                    } else if srt == 31 {
+                        0
+                    } else {
+                        panic!()
+                    };
 
                     if is_write {
                         Ok(VmExitReason::MMWrite {

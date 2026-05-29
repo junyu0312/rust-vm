@@ -47,6 +47,7 @@ impl MemoryAddressSpace {
             };
 
             let memory_region = MemoryRegion::new(region.gpa, memory_region);
+            memory_region.copy_from_slice(&region.buf);
 
             memory_address_space
                 .try_insert(memory_region)

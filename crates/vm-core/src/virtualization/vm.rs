@@ -22,7 +22,7 @@ pub trait HypervisorVm: Send + Sync {
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Box<dyn HypervisorVcpu>, VmError>;
 
-    fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, VmError>;
+    fn create_irq_chip(&self) -> Result<Box<dyn InterruptController>, VmError>;
 
     fn set_user_memory_region(
         &self,

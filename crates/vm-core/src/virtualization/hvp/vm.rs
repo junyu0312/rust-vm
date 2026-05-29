@@ -52,7 +52,7 @@ impl HypervisorVm for AppleHypervisorVm {
         Ok(vcpu as _)
     }
 
-    fn create_irq_chip(&self) -> Result<Arc<dyn InterruptController>, VmError> {
+    fn create_irq_chip(&self) -> Result<Box<dyn InterruptController>, VmError> {
         let distributor_base = GIC_DISTRIBUTOR;
         let redistributor_base = GIC_REDISTRIBUTOR;
         let msi_base = GIC_MSI;
@@ -123,7 +123,7 @@ impl HypervisorVm for AppleHypervisorVm {
 
         hv_unsafe_call!(hv_gic_create(gic_config))?;
 
-        Ok(Arc::new(HvpGicV3::new(
+        Ok(Box::new(HvpGicV3::new(
             distributor_base,
             redistributor_base,
             msi_base,
