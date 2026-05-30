@@ -1,7 +1,6 @@
 use std::slice::Iter;
 use std::slice::IterMut;
 
-#[cfg(target_arch = "aarch64")]
 use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::layout::MmioRange;
 use crate::device::mmio::mmio_device::MmioDevice;
@@ -10,16 +9,14 @@ use crate::utils::address_space::AddressSpace;
 use crate::utils::address_space::AddressSpaceError;
 
 pub struct MmioAddressSpaceManager {
-    #[cfg(target_arch = "aarch64")]
     mmio_layout: MmioLayout,
     pub(crate) devices: Vec<Box<dyn MmioDevice>>,
     address_space: AddressSpace<u64, Box<dyn MmioHandler>>,
 }
 
 impl MmioAddressSpaceManager {
-    pub fn new(#[cfg(target_arch = "aarch64")] mmio_layout: MmioLayout) -> Self {
+    pub fn new(mmio_layout: MmioLayout) -> Self {
         MmioAddressSpaceManager {
-            #[cfg(target_arch = "aarch64")]
             mmio_layout,
             devices: Default::default(),
             address_space: AddressSpace::default(),
@@ -32,7 +29,6 @@ impl MmioAddressSpaceManager {
         for range in &ranges {
             let mmio_range = range.mmio_range();
 
-            #[cfg(target_arch = "aarch64")]
             if !self.mmio_layout.includes(mmio_range) {
                 return Err(AddressSpaceError::RangeOverlap(
                     mmio_range.start,
@@ -68,7 +64,6 @@ impl MmioAddressSpaceManager {
         Some((range, handler.as_ref()))
     }
 
-    #[cfg(target_arch = "aarch64")]
     pub fn mmio_layout(&self) -> &MmioLayout {
         &self.mmio_layout
     }

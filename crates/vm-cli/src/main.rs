@@ -3,6 +3,7 @@
 use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
+use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_vmm::vm::config::VmConfig;
 use vm_vmm::vmm::Vmm;
 
@@ -14,22 +15,20 @@ use crate::term::term_init;
 mod cmd;
 mod term;
 
+fn build_hypervisor() -> anyhow::Result<Box<dyn Hypervisor>> {
+    cfg_select! {
+        all(target_arch = "aarch64", feature = "hvp") => {
+            Ok(Box::new(vm_core::virtualization::hvp::AppleHypervisor))
+        }
+        feature = "kvm" => {
+            Ok(Box::new(vm_core::virtualization::kvm::KvmHypervisor::new()?))
+        }
+        _ => panic!(),
+    }
+}
+
 async fn build_and_run_vm(args: Command) -> anyhow::Result<()> {
-    let hypervisor;
-
-    #[cfg(all(target_arch = "aarch64", feature = "hvp"))]
-    {
-        use vm_core::virtualization::hvp::AppleHypervisor;
-
-        hypervisor = Box::new(AppleHypervisor);
-    }
-
-    #[cfg(feature = "kvm")]
-    {
-        use vm_core::virtualization::kvm::KvmHypervisor;
-
-        hypervisor = Box::new(KvmHypervisor::new()?);
-    }
+    let hypervisor = build_hypervisor()?;
 
     let mut vmm = Vmm::new(hypervisor);
 

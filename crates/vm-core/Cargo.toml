@@ -28,5 +28,5 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 
 [features]
-kvm = ["dep:kvm-bindings", "dep:kvm-ioctls"]
-hvp = ["dep:applevisor", "dep:applevisor-sys"]
+kvm = ["kvm-bindings", "kvm-ioctls"]
+hvp = ["applevisor", "applevisor-sys"]

@@ -1,7 +1,6 @@
 use std::slice::Iter;
 use std::slice::IterMut;
 
-#[cfg(target_arch = "aarch64")]
 use crate::device::mmio::layout::MmioLayout;
 use crate::device::mmio::mmio_as_manager::MmioAddressSpaceManager;
 use crate::device::mmio::mmio_device::MmioDevice;
@@ -17,13 +16,10 @@ pub struct DeviceManager {
 }
 
 impl DeviceManager {
-    pub fn new(#[cfg(target_arch = "aarch64")] mmio_layout: MmioLayout) -> Self {
+    pub fn new(mmio_layout: MmioLayout) -> Self {
         DeviceManager {
             pio_manager: PioAddressSpaceManager::default(),
-            mmio_manager: MmioAddressSpaceManager::new(
-                #[cfg(target_arch = "aarch64")]
-                mmio_layout,
-            ),
+            mmio_manager: MmioAddressSpaceManager::new(mmio_layout),
         }
     }
 

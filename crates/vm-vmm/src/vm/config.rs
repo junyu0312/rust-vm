@@ -17,7 +17,6 @@ use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
-#[cfg(target_arch = "aarch64")]
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
 use vm_core::virtualization::hypervisor::Hypervisor;
@@ -92,6 +91,8 @@ impl Vm {
         let mut device_manager = DeviceManager::new(
             #[cfg(target_arch = "aarch64")]
             MmioLayout::new(MMIO_START, MMIO_LEN),
+            #[cfg(target_arch = "x86_64")]
+            MmioLayout::default(),
         );
         device_manager.init_devices(
             &mut monitor_server_builder,
