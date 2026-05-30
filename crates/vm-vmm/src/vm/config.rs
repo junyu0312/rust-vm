@@ -15,12 +15,9 @@ use vm_core::arch::aarch64::layout::MMIO_START;
 use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::MMIO_LEN;
-#[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::MMIO_START;
-#[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
+#[cfg(target_arch = "aarch64")]
 use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::device_manager::DeviceManager;
 use vm_core::virtualization::hypervisor::Hypervisor;
@@ -34,6 +31,8 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::memory_container::MemoryContainer;
 use vm_mm::region::MemoryRegion;
 
+#[cfg(target_arch = "x86_64")]
+use crate::bootloader::x86_64::install_bootloader;
 use crate::device::InitDevice;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
@@ -88,7 +87,10 @@ impl Vm {
                 todo!()
             };
 
-        let mut device_manager = DeviceManager::new(MmioLayout::new(MMIO_START, MMIO_LEN));
+        let mut device_manager = DeviceManager::new(
+            #[cfg(target_arch = "aarch64")]
+            MmioLayout::new(MMIO_START, MMIO_LEN),
+        );
         device_manager.init_devices(
             &mut monitor_server_builder,
             memory_address_space.clone(),
@@ -124,31 +126,10 @@ impl Vm {
         }
 
         #[cfg(target_arch = "aarch64")]
-        {
-            use vm_bootloader::boot_loader::BootLoader;
-            use vm_bootloader::boot_loader::BootLoaderBuilder;
-            use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
+        install_bootloader(&vm_config, &vcpu_manager, &memory_address_space).await?;
 
-            let bootloader = AArch64BootLoader::new(
-                vm_config.kernel.clone(),
-                vm_config.initramfs.clone(),
-                vm_config.cmdline.clone(),
-            );
-
-            let mut vcpu_manager = vcpu_manager.lock().await;
-
-            let boot_vcpu = vcpu_manager.get_vcpu_mut(0)?;
-            bootloader
-                .load(
-                    vm_config.memory_size as u64,
-                    vm_config.vcpus,
-                    boot_vcpu,
-                    &memory_address_space,
-                    irq_chip.as_ref(),
-                    device_manager.mmio_devices(),
-                )
-                .await?;
-        }
+        #[cfg(target_arch = "x86_64")]
+        install_bootloader(&vm_config)?;
 
         let gdb_stub = vm_config
             .gdb_port

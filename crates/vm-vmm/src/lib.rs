@@ -1,5 +1,6 @@
 #![deny(warnings)]
 
+mod bootloader;
 mod device;
 mod firmware;
 mod service;

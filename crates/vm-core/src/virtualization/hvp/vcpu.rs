@@ -572,6 +572,8 @@ impl HvpVcpu {
                                 hvp_vcpu_handler.clone(),
                                 cmd,
                             );
+
+                            continue;
                         }
                         Err(TryRecvError::Empty) => (),
                         Err(TryRecvError::Disconnected) => {

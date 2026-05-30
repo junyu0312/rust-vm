@@ -6,6 +6,7 @@ use vm_core::monitor::MonitorError;
 use vm_core::virtualization::hypervisor::error::HypervisorError;
 use vm_core::virtualization::vm::error::VmError;
 
+use crate::bootloader::error::BootLoaderError;
 use crate::device::error::InitDeviceError;
 
 #[derive(Error, Debug)]
@@ -56,7 +57,7 @@ pub enum VmmError {
     Memory(#[from] vm_mm::error::Error),
 
     #[error("Failed to setup with bootloader, error: {0}")]
-    Bootloader(#[from] vm_bootloader::boot_loader::Error),
+    Bootloader(#[from] BootLoaderError),
 
     #[error("monitor error: {0}")]
     Monitor(#[from] MonitorError),
