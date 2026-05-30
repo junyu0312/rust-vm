@@ -43,7 +43,7 @@ impl VcpuManager {
     ) -> Result<(), VmError> {
         for (vcpu_id, vcpu_snap) in snap.vcpus.into_iter().enumerate() {
             self.create_vcpu(
-                vcpu_id,
+                vcpu_id as u64,
                 memory_address_space.clone(),
                 vm_exit_handler.clone(),
                 vcpu_snap.booted,

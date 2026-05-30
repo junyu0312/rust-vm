@@ -29,7 +29,7 @@ pub struct AArch64Registers {
 }
 
 impl AArch64Registers {
-    pub fn boot_registers(vcpu_id: usize, x0: u64, pc: u64, regs: AArch64Registers) -> Self {
+    pub fn boot_registers(vcpu_id: u64, x0: u64, pc: u64, regs: AArch64Registers) -> Self {
         let mut new_general_purpose = regs.core.general_purpose;
         new_general_purpose[0] = x0;
         new_general_purpose[1] = 0;
@@ -56,7 +56,7 @@ impl AArch64Registers {
                 ..regs.core
             },
             sys: AArch64SysRegisters {
-                mpidr_el1: vcpu_id as u64,
+                mpidr_el1: vcpu_id,
                 sctlr_el1: sctlr_el1.bits(),
                 cnthctl_el2: cnthctl_el2.bits(),
             },

@@ -555,7 +555,7 @@ fn handle_command_and_send_response(
 }
 
 pub struct HvpVcpu {
-    vcpu_id: usize,
+    vcpu_id: u64,
     handler: Arc<Mutex<HvpVcpuInternal>>,
     command_tx: Sender<VcpuCommandRequest>,
     is_running: Arc<AtomicBool>,
@@ -566,7 +566,7 @@ pub struct HvpVcpu {
 
 impl HvpVcpu {
     pub fn new(
-        vcpu_id: usize,
+        vcpu_id: u64,
         mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Self, VcpuError> {
@@ -663,7 +663,7 @@ impl HvpVcpu {
 }
 
 impl HypervisorVcpu for HvpVcpu {
-    fn vcpu_id(&self) -> usize {
+    fn vcpu_id(&self) -> u64 {
         self.vcpu_id
     }
 

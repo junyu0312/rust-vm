@@ -70,7 +70,7 @@ jobs:
       - name: fmt
         run: cargo fmt --check
 
-  clippy:
+  clippy(x86_64/kvm):
     name: Clippy
     runs-on: ubuntu-latest
     steps:
@@ -85,9 +85,73 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets
 
-  udeps:
+  clippy(aarch64/kvm):
+    name: Clippy
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          components: clippy
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: clippy
+        run: cargo clippy --all-targets
+
+  clippy(aarch64/hvp):
+    name: Clippy
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          components: clippy
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: clippy
+        run: cargo clippy --all-targets
+
+  udeps(x86_64/kvm):
     name: Udeps
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-udeps
+      - name: udeps
+        run: cargo udeps --all-targets
+
+  udeps(aarch64/kvm):
+    name: Udeps
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-udeps
+      - name: udeps
+        run: cargo udeps --all-targets
+
+  udeps(aarch64/hvp):
+    name: Udeps
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
       - name: Install Rust ${{ env.RUST_NIGHTLY }}

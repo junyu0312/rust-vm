@@ -31,6 +31,8 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::memory_container::MemoryContainer;
 use vm_mm::region::MemoryRegion;
 
+#[cfg(target_arch = "aarch64")]
+use crate::bootloader::aarch64::install_bootloader;
 #[cfg(target_arch = "x86_64")]
 use crate::bootloader::x86_64::install_bootloader;
 use crate::device::InitDevice;
@@ -117,7 +119,7 @@ impl Vm {
 
             for vcpu_id in 0..vm_config.vcpus {
                 vcpu_manager.create_vcpu(
-                    vcpu_id,
+                    vcpu_id as u64,
                     memory_address_space.clone(),
                     vm_exit_handler.clone(),
                     false,
@@ -126,7 +128,14 @@ impl Vm {
         }
 
         #[cfg(target_arch = "aarch64")]
-        install_bootloader(&vm_config, &vcpu_manager, &memory_address_space).await?;
+        install_bootloader(
+            &vm_config,
+            &vcpu_manager,
+            &memory_address_space,
+            irq_chip.as_ref(),
+            device_manager.as_ref(),
+        )
+        .await?;
 
         #[cfg(target_arch = "x86_64")]
         install_bootloader(&vm_config)?;

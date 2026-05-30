@@ -26,11 +26,11 @@ impl KvmVm {
 impl HypervisorVm for KvmVm {
     fn create_vcpu(
         &self,
-        vcpu_id: usize,
+        vcpu_id: u64,
         _mm: Arc<MemoryAddressSpace>,
         _vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Box<dyn HypervisorVcpu>, VmError> {
-        let vcpu = KvmVcpu::new(&self.vm_fd, vcpu_id as u64)
+        let vcpu = KvmVcpu::new(&self.vm_fd, vcpu_id)
             .map_err(|err| VmError::CreateVcpuError(Box::new(err)))?;
 
         Ok(Box::new(vcpu))

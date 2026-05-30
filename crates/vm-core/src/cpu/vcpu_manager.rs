@@ -40,7 +40,7 @@ impl VcpuManager {
 
     pub fn create_vcpu(
         &mut self,
-        vcpu_id: usize,
+        vcpu_id: u64,
         mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
         booted: bool, // for recovery
