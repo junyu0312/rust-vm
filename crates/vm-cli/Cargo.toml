@@ -18,5 +18,5 @@ vm-vmm.workspace = true
 
 [features]
 default = ["kvm"]
-kvm = ["vm-core/kvm"]
-hvp = ["vm-core/hvp"]
+kvm = ["vm-core/kvm", "vm-vmm/kvm"]
+hvp = ["vm-core/hvp", "vm-vmm/hvp"]

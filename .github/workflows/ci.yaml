@@ -113,7 +113,7 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v2
       - name: clippy
-        run: cargo clippy --all-targets
+        run: cargo clippy --all-targets --no-default-features --features hvp
 
   udeps-x86_64_kvm:
     name: Udeps(x86_64/Kvm)
@@ -164,7 +164,7 @@ jobs:
         with:
           tool: cargo-udeps
       - name: udeps
-        run: cargo udeps --all-targets
+        run: cargo udeps --all-targets --no-default-features --features hvp
 
   test:
     name: Test

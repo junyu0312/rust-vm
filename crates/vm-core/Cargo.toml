@@ -24,9 +24,9 @@ anyhow = { workspace = true }
 futures = { workspace = true }
 vm-aarch64 = { workspace = true }
 static_assertions = { workspace = true }
-strum = { workspace = true }
+strum = { workspace = true, optional = true }
 strum_macros = { workspace = true }
 
 [features]
 kvm = ["kvm-bindings", "kvm-ioctls"]
-hvp = ["applevisor", "applevisor-sys"]
+hvp = ["applevisor", "applevisor-sys", "strum"]
