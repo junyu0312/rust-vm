@@ -70,7 +70,7 @@ jobs:
       - name: fmt
         run: cargo fmt --check
 
-  clippy(x86_64/kvm):
+  clippy-x86_64_kvm:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
@@ -85,7 +85,7 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets
 
-  clippy(aarch64/kvm):
+  clippy-aarch64_kvm:
     name: Clippy
     runs-on: ubuntu-24.04-arm
     steps:
@@ -100,7 +100,7 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets
 
-  clippy(aarch64/hvp):
+  clippy-aarch64_hvp:
     name: Clippy
     runs-on: macos-latest
     steps:
@@ -115,7 +115,7 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets
 
-  udeps(x86_64/kvm):
+  udeps-x86_64_kvm:
     name: Udeps
     runs-on: ubuntu-latest
     steps:
@@ -132,7 +132,7 @@ jobs:
       - name: udeps
         run: cargo udeps --all-targets
 
-  udeps(aarch64/kvm):
+  udeps-aarch64_kvm:
     name: Udeps
     runs-on: ubuntu-24.04-arm
     steps:
@@ -149,7 +149,7 @@ jobs:
       - name: udeps
         run: cargo udeps --all-targets
 
-  udeps(aarch64/hvp):
+  udeps-aarch64_hvp:
     name: Udeps
     runs-on: macos-latest
     steps:
