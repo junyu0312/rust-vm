@@ -36,7 +36,7 @@ impl AArch64BootLoader {
         ram_size: u64,
         memory: &MemoryAddressSpace,
     ) -> Result<kernel_loader::LoadResult> {
-        let image =
+        let mut image =
             Image::new(&self.kernel).map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
         let boot_params = AArch64BootParams {

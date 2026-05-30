@@ -1,9 +1,12 @@
 use crate::arch::layout::Error;
 use crate::arch::layout::MemoryLayout;
 
-// TODO
-
 pub const RAM_BASE: u64 = 0x0000_0000;
+pub const GDT_START: u32 = 0x0000_0500;
+pub const BOOT_PARAMS_START: u32 = 0x0000_7000;
+pub const CMDLINE_START: u32 = 0x0001_0000;
+pub const KERNEL_START: u32 = 0x0010_0000;
+pub const INITRD_START: u32 = 0x1000_0000;
 
 type Result<T> = std::result::Result<T, Error>;
 

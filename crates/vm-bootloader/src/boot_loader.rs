@@ -16,16 +16,25 @@ pub mod arch;
 pub enum Error {
     #[error("Load dtb failed, reason: {0}")]
     LoadDtbFailed(String),
+
     #[error("Setup kernel failed, reason: {0}")]
     LoadKernelFailed(String),
+
+    #[error("Failed to loader kernel, err: {0}")]
+    KernelLoader(#[from] crate::kernel_loader::Error),
+
     #[error("Load initd failed, reason: {0}")]
     LoadInitrdFailed(String),
+
     #[error("Memory overlap")]
     MemoryOverlap,
+
     #[error("Setup boot cpu error: {0}")]
-    SetupBootCpuError(CpuError),
+    SetupBootCpuError(#[from] CpuError),
+
     #[error("Layout error, reason: {0}")]
     LayoutError(#[from] layout::Error),
+
     #[error("{0}")]
     GenerateDtb(#[from] vm_fdt::Error),
 }

@@ -1,5 +1,7 @@
 use tokio::sync::mpsc::WeakSender;
 use tracing::error;
+#[cfg(target_arch = "x86_64")]
+use vm_arch::x86_64::gdt::Gdt;
 
 use crate::arch::registers::ArchCoreRegisters;
 use crate::arch::registers::ArchRegisters;
@@ -32,23 +34,37 @@ impl Vcpu {
         self.booted
     }
 
+    #[cfg(target_arch = "aarch64")]
     pub async fn setup_vcpu(&mut self, pc: u64, dtb_or_context_id: u64) -> Result<(), CpuError> {
-        #[cfg(target_arch = "aarch64")]
-        {
-            use crate::arch::registers::aarch64::AArch64Registers;
+        use crate::arch::registers::aarch64::AArch64Registers;
 
-            let register = self.read_registers().await?;
-            let registers =
-                AArch64Registers::boot_registers(self.vcpu_id(), dtb_or_context_id, pc, register);
-            self.write_registers(registers).await?;
-        }
+        let register = self.read_registers().await?;
+        let registers =
+            AArch64Registers::boot_registers(self.vcpu_id(), dtb_or_context_id, pc, register);
+        self.write_registers(registers).await?;
 
-        #[cfg(target_arch = "x86_64")]
-        {
-            use std::hint::black_box;
+        Ok(())
+    }
 
-            black_box((pc, dtb_or_context_id));
-        }
+    #[cfg(target_arch = "x86_64")]
+    pub async fn setup_vcpu(
+        &mut self,
+        gdt: Gdt<5>,
+        kernel_start: u32,
+        gdt_start: u32,
+        boot_params: u32,
+    ) -> Result<(), CpuError> {
+        use crate::arch::registers::x86_64::X86_64Registers;
+
+        let register = self.read_registers().await?;
+        let registers = X86_64Registers::boot_registers(
+            gdt_start as u64,
+            gdt,
+            kernel_start as u64,
+            boot_params as u64,
+            register,
+        );
+        self.write_registers(registers).await?;
 
         Ok(())
     }

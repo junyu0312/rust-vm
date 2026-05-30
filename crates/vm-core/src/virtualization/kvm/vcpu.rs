@@ -2,47 +2,43 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
+#[cfg(target_arch = "x86_64")]
+use kvm_bindings::CpuId;
+use kvm_ioctls::VcpuFd;
 use kvm_ioctls::VmFd;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::WeakSender;
 use tokio::sync::mpsc::error::TryRecvError;
 use tracing::error;
+use vm_mm::manager::MemoryAddressSpace;
 
+use crate::cpu::vm_exit::VmExit;
+use crate::virtualization::kvm::vcpu::vm_exit::VmExitResult;
 use crate::virtualization::kvm::vcpu::vm_exit::handle_vm_exit;
 use crate::virtualization::vcpu::HypervisorVcpu;
-use crate::virtualization::vcpu::command::VcpuCommand;
 use crate::virtualization::vcpu::command::VcpuCommandRequest;
 use crate::virtualization::vcpu::command::VcpuCommandResponse;
 use crate::virtualization::vcpu::error::VcpuError;
 
 mod vm_exit;
 
-fn handle_command(
-    is_running: &AtomicBool,
-    cmd: VcpuCommand,
-) -> Result<VcpuCommandResponse, VcpuError> {
-    match cmd {
-        VcpuCommand::ReadRegisters => todo!(),
-        VcpuCommand::WriteRegisters(_) => todo!(),
-        VcpuCommand::ReadCoreRegisters => todo!(),
-        VcpuCommand::WriteCoreRegisters(_) => todo!(),
-        VcpuCommand::Save => todo!(),
-        VcpuCommand::Load(_) => todo!(),
-        VcpuCommand::TranslateGvaToGpa(_) => todo!(),
-        VcpuCommand::Resume => {
-            is_running.store(true, Ordering::Release);
-
-            Ok(VcpuCommandResponse::Empty)
-        }
-    }
+pub struct KvmVcpuInternal<'a> {
+    pub vcpu_fd: &'a VcpuFd,
 }
 
-fn handle_command_and_send_response(is_running: &AtomicBool, request: VcpuCommandRequest) {
-    if let Err(_err) = match handle_command(is_running, request.cmd) {
-        Ok(resp) => request.response.send(resp),
-        Err(err) => request.response.send(VcpuCommandResponse::Err(err)),
-    } {
-        error!("Failed to send response of vcpu command");
+impl<'a> KvmVcpuInternal<'a> {
+    fn handle_command_and_send_response(
+        &mut self,
+        is_running: &AtomicBool,
+        request: VcpuCommandRequest,
+    ) {
+        if let Err(_err) = match self.handle_command(is_running, request.cmd) {
+            Ok(resp) => request.response.send(resp),
+            Err(err) => request.response.send(VcpuCommandResponse::Err(err)),
+        } {
+            error!("Failed to send response of vcpu command");
+        }
     }
 }
 
@@ -52,10 +48,18 @@ pub struct KvmVcpu {
 }
 
 impl KvmVcpu {
-    pub fn new(vm_fd: &VmFd, vcpu_id: u64) -> Result<Self, VcpuError> {
+    pub fn new(
+        vm_fd: &VmFd,
+        vcpu_id: u64,
+        #[cfg(target_arch = "x86_64")] supported_cpuid: &CpuId,
+        vm_exit_handler: Arc<dyn VmExit>,
+        _mm: Arc<MemoryAddressSpace>,
+    ) -> Result<Self, VcpuError> {
         let mut vcpu_fd = vm_fd.create_vcpu(vcpu_id)?;
+        #[cfg(target_arch = "x86_64")]
+        vcpu_fd.set_cpuid2(supported_cpuid)?;
 
-        let (command_tx, mut command_rx) = tokio::sync::mpsc::channel(8);
+        let (command_tx, mut command_rx) = mpsc::channel(8);
         let is_running = Arc::new(AtomicBool::new(false));
 
         let _join_handler = {
@@ -66,7 +70,9 @@ impl KvmVcpu {
                     {
                         match command_rx.try_recv() {
                             Ok(request) => {
-                                handle_command_and_send_response(&is_running, request);
+                                let mut vcpu = KvmVcpuInternal { vcpu_fd: &vcpu_fd };
+
+                                vcpu.handle_command_and_send_response(&is_running, request);
 
                                 continue;
                             }
@@ -79,9 +85,21 @@ impl KvmVcpu {
 
                     {
                         if is_running.load(Ordering::Acquire) {
+                            // vcpu_fd
+                            //     .set_guest_debug(&kvm_guest_debug {
+                            //         control: KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_SINGLESTEP,
+                            //         ..Default::default()
+                            //     })
+                            //     .unwrap();
+
                             let vm_exit = vcpu_fd.run()?;
 
-                            handle_vm_exit(vm_exit);
+                            match handle_vm_exit(vm_exit, vm_exit_handler.as_ref()) {
+                                Ok(result) => match result {
+                                    VmExitResult::Ok => continue,
+                                },
+                                Err(_) => todo!(),
+                            }
                         }
                     }
 
@@ -90,7 +108,9 @@ impl KvmVcpu {
                             .blocking_recv()
                             .ok_or(VcpuError::VcpuCommandDisconnected)
                             .map(|request| {
-                                handle_command_and_send_response(&is_running, request)
+                                let mut vcpu = KvmVcpuInternal { vcpu_fd: &vcpu_fd };
+
+                                vcpu.handle_command_and_send_response(&is_running, request)
                             })?;
                     }
                 }

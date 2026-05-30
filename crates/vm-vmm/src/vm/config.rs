@@ -128,7 +128,6 @@ impl Vm {
             }
         }
 
-        #[cfg(target_arch = "aarch64")]
         install_bootloader(
             &vm_config,
             &vcpu_manager,
@@ -137,9 +136,6 @@ impl Vm {
             device_manager.as_ref(),
         )
         .await?;
-
-        #[cfg(target_arch = "x86_64")]
-        install_bootloader(&vm_config)?;
 
         let gdb_stub = vm_config
             .gdb_port

@@ -83,7 +83,7 @@ impl KernelLoader for Image {
     type BootParams = AArch64BootParams;
 
     fn load(
-        &self,
+        &mut self,
         boot_params: &AArch64BootParams,
         memory: &MemoryAddressSpace,
     ) -> Result<LoadResult> {
@@ -125,7 +125,7 @@ impl KernelLoader for Image {
 
         memory
             .copy_from_slice(kernel_start, &self.kernel)
-            .map_err(|err| Error::CopyKernelFailed(err.to_string()))?;
+            .map_err(Error::CopyKernelFailed)?;
 
         Ok(LoadResult {
             start_pc: kernel_start,

@@ -27,6 +27,9 @@ static_assertions = { workspace = true }
 strum = { workspace = true, optional = true }
 strum_macros = { workspace = true }
 
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+vm-arch = { workspace = true }
+
 [features]
-kvm = ["kvm-bindings", "kvm-ioctls"]
-hvp = ["applevisor", "applevisor-sys", "strum"]
+kvm = ["kvm-bindings", "kvm-ioctls", "vm-arch/kvm"]
+hvp = ["applevisor", "applevisor-sys", "strum", "vm-arch/hvp"]

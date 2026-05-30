@@ -1,109 +1,36 @@
+use std::ffi::CString;
 use std::fs;
 use std::path::Path;
+use std::slice;
 
-use header::*;
+use tracing::debug;
+use vm_arch::x86_64::gdt::Gdt;
+use vm_arch::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
+use zerocopy::FromZeros;
+use zerocopy::IntoBytes;
 
 use crate::kernel_loader::Error;
 use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::LoadResult;
 use crate::kernel_loader::Result;
+use crate::kernel_loader::linux::bzimage::boot_params::BootParams;
 
-mod header {
-    pub struct Header {
-        pub offset: usize,
-        pub size: usize,
-    }
+mod boot_params;
 
-    pub const SETUP_SECTS: Header = Header {
-        offset: 0x1f1,
-        size: 1,
-    };
-    pub const BOOT_FLAG: Header = Header {
-        offset: 0x1fe,
-        size: 2,
-    };
-    pub const HEADER: Header = Header {
-        offset: 0x202,
-        size: 4,
-    };
-    pub const VERSION: Header = Header {
-        offset: 0x206,
-        size: 2,
-    };
-    pub const TYPE_OF_LOADER: Header = Header {
-        offset: 0x210,
-        size: 1,
-    };
-    pub const LOADFLAGS: Header = Header {
-        offset: 0x211,
-        size: 1,
-    };
-    pub const RAMDISK_IMAGE: Header = Header {
-        offset: 0x218,
-        size: 4,
-    };
-    pub const RAMDISK_SIZE: Header = Header {
-        offset: 0x21c,
-        size: 4,
-    };
-    pub const HEAP_END_PTR: Header = Header {
-        offset: 0x224,
-        size: 2,
-    };
-    pub const CMD_LINE_PTR: Header = Header {
-        offset: 0x228,
-        size: 4,
-    };
-    pub const INITRD_ADDR_MAX: Header = Header {
-        offset: 0x22c,
-        size: 4,
-    };
-    pub const CMDLINE_SIZE: Header = Header {
-        offset: 0x238,
-        size: 4,
-    };
-
-    pub const MINIMAL_VERSION: u16 = 0x206;
-
-    pub enum Value {
-        U8(u8),
-        U16(u16),
-        U32(u32),
-    }
-
-    impl Value {
-        pub fn as_u8(&self) -> u8 {
-            match self {
-                Value::U8(v) => *v,
-                _ => unreachable!(),
-            }
-        }
-
-        pub fn as_u16(&self) -> u16 {
-            match self {
-                Value::U16(v) => *v,
-                _ => unreachable!(),
-            }
-        }
-
-        pub fn as_u32(&self) -> u32 {
-            match self {
-                Value::U32(v) => *v,
-                _ => unreachable!(),
-            }
-        }
-    }
-}
-
-const CS: u16 = 0x1000;
-const IP: u16 = 0x0000;
-const SP: u16 = 0x8000;
-const CMDLINE_OFFSET: u32 = 0x20000;
-pub const KERNEL_START: u32 = 0x100000;
+const MINIMAL_VERSION: u16 = 0x206;
 
 fn to_gpa(cs: u16, ip: u16) -> u32 {
     ((cs as u32) << 4) + ip as u32
+}
+
+pub struct BzImageBootParams {
+    pub gdt_start: u32,
+    pub boot_params_start: u32,
+    pub kernel_start: u32,
+    // pub heap_end: u32,
+    pub initrd_start: u32,
+    pub cmdline_start: u32,
 }
 
 pub struct BzImage {
@@ -113,49 +40,9 @@ pub struct BzImage {
 }
 
 impl BzImage {
-    fn read_header(&self, header: &Header) -> Result<Value> {
-        let bytes = &self.bzimage[header.offset..header.offset + header.size];
-
-        match header.size {
-            1 => Ok(Value::U8(u8::from_le_bytes(
-                bytes.try_into().map_err(|_| Error::InvalidKernelImage)?,
-            ))),
-            2 => Ok(Value::U16(u16::from_le_bytes(
-                bytes.try_into().map_err(|_| Error::InvalidKernelImage)?,
-            ))),
-            4 => Ok(Value::U32(u32::from_le_bytes(
-                bytes.try_into().map_err(|_| Error::InvalidKernelImage)?,
-            ))),
-            _ => Err(Error::InvalidKernelImage),
-        }
-    }
-
-    fn get_setup_sects(&self) -> Result<u8> {
-        Ok(self.read_header(&SETUP_SECTS)?.as_u8())
-    }
-
-    fn get_boot_flag(&self) -> Result<u16> {
-        Ok(self.read_header(&BOOT_FLAG)?.as_u16())
-    }
-
-    fn get_header(&self) -> Result<u32> {
-        Ok(self.read_header(&HEADER)?.as_u32())
-    }
-
-    fn get_version(&self) -> Result<u16> {
-        Ok(self.read_header(&VERSION)?.as_u16())
-    }
-
-    fn get_initrd_addr_max(&self) -> Result<u32> {
-        Ok(self.read_header(&INITRD_ADDR_MAX)?.as_u32())
-    }
-
-    fn get_cmdline_size(&self) -> Result<u32> {
-        Ok(self.read_header(&CMDLINE_SIZE)?.as_u32())
-    }
-
     pub fn new(path: &Path, initrd: Option<&Path>, cmdline: Option<&str>) -> Result<Self> {
         let bzimage = fs::read(path).map_err(|_| Error::ReadFailed)?;
+
         let initrd = initrd
             .map(fs::read)
             .transpose()
@@ -168,17 +55,173 @@ impl BzImage {
             cmdline,
         })
     }
+
+    fn setup_hdr(
+        &self,
+        params: &BzImageBootParams,
+        boot_params: &mut BootParams,
+        memory: &MemoryAddressSpace,
+    ) -> Result<LoadResult> {
+        {
+            // the second byte of `jump` field is a signed offset relative to byte 0x202,
+            // which can be used to determine the size of the header
+            let end_of_hdr = 0x0202 + self.bzimage[0x0201] as usize;
+            let length_of_hdr = end_of_hdr - 0x01f1;
+            boot_params.hdr.as_mut_bytes()[..length_of_hdr]
+                .copy_from_slice(&self.bzimage[0x01f1..end_of_hdr]);
+        }
+
+        debug!(?boot_params.hdr);
+
+        if boot_params.hdr.boot_flag != 0xAA55 {
+            return Err(Error::InvalidKernelImage);
+        }
+
+        if boot_params.hdr.header != u32::from_le_bytes("HdrS".as_bytes().try_into().unwrap()) {
+            return Err(Error::KernelTooOld);
+        }
+
+        let version = boot_params.hdr.version;
+        if version < MINIMAL_VERSION {
+            return Err(Error::KernelTooOld);
+        }
+
+        let kernel_version = {
+            let kernel_version_offset = (boot_params.hdr.kernel_version + 0x200) as usize;
+            let end = self.bzimage[kernel_version_offset..]
+                .iter()
+                .position(|&b| b == 0)
+                .ok_or(Error::InvalidKernelImage)?;
+            std::str::from_utf8(&self.bzimage[kernel_version_offset..kernel_version_offset + end])
+                .map_err(|_| Error::InvalidKernelImage)?
+        };
+        debug!(kernel_version);
+
+        boot_params.hdr.type_of_loader = 0xff; // undefined
+
+        if boot_params.hdr.loadflags & 0x01 != 1 {
+            // the proteced-mode code is loaded at 0x10000 which is not expected
+            return Err(Error::InvalidKernelImage);
+        }
+        // boot_params.hdr.loadflags |= 0x80; // CAN_USE_HEAP
+
+        // boot_params.hdr.heap_end_ptr =
+
+        if params.kernel_start != boot_params.hdr.code32_start {
+            return Err(Error::KernelStartOffsetNotSupport);
+        }
+        // We are booting using the 32-bit boot protocol
+        // If booting 64-bit linux, we should plus 0x200 offset.
+        let kernel_start = boot_params.hdr.code32_start as u64;
+
+        if let Some(initrd) = &self.initrd {
+            if params.initrd_start as usize + initrd.len()
+                > boot_params.hdr.initrd_addr_max as usize
+            {
+                return Err(Error::InitramfsAddressTooHigh);
+            }
+
+            boot_params.hdr.ramdisk_image = params.initrd_start;
+            boot_params.hdr.ramdisk_size = initrd
+                .len()
+                .try_into()
+                .map_err(|_| Error::InitramfsTooLarge)?;
+            memory
+                .copy_from_slice(params.initrd_start as u64, initrd)
+                .map_err(Error::CopyInitramfsFailed)?;
+        }
+
+        {
+            let cmdline = if let Some(cmdline) = &self.cmdline {
+                CString::new(cmdline.to_string()).map_err(|_| Error::CopyCmdlineFailed)?
+            } else {
+                CString::new("auto".to_string()).unwrap()
+            };
+
+            if cmdline.count_bytes() > boot_params.hdr.cmdline_size as usize {
+                return Err(Error::CmdlineTooLarge);
+            }
+
+            boot_params.hdr.cmd_line_ptr = params.cmdline_start;
+
+            memory
+                .copy_from_slice(params.cmdline_start as u64, cmdline.as_bytes_with_nul())
+                .map_err(|_| Error::CopyCmdlineFailed)?;
+        }
+
+        let kernel_len;
+        {
+            let mut setup_sects = boot_params.hdr.setup_sects;
+            if setup_sects == 0 {
+                setup_sects = 4;
+            }
+
+            let setup_size = (setup_sects as usize + 1) * 0x200;
+            kernel_len = self.bzimage.len() - setup_size;
+            memory
+                .copy_from_slice(params.kernel_start as u64, &self.bzimage[setup_size..])
+                .map_err(Error::CopyKernelFailed)?;
+            println!("{:x}", unsafe { *memory.gpa_to_hva(0x100000).unwrap() });
+        }
+
+        memory
+            .copy_from_slice(params.boot_params_start as u64, unsafe {
+                slice::from_raw_parts(
+                    boot_params as *const BootParams as *const u8,
+                    size_of::<BootParams>(),
+                )
+            })
+            .map_err(Error::CopyKernelFailed)?;
+
+        Ok(LoadResult {
+            start_pc: kernel_start,
+            kernel_start,
+            kernel_len,
+            gdt: Gdt::default(), // TODO: refine
+        })
+    }
+
+    fn setup_gdt(&self, params: &BzImageBootParams, memory: &MemoryAddressSpace) -> Result<Gdt<5>> {
+        let null = GdtEntry::new(0, 0, 0);
+        let null2 = GdtEntry::new(0, 0, 0);
+        let code = GdtEntry::new(0, 0xfffff, 0xc09b);
+        let data = GdtEntry::new(0, 0xfffff, 0xc093);
+        let tss = GdtEntry::new(0, 0xfffff, 0x808b);
+
+        let gdt = Gdt::new([null, null2, code, data, tss]);
+
+        memory
+            .copy_from_slice(params.gdt_start as u64, gdt.as_bytes())
+            .map_err(|_| Error::CopyGdtFailed)?;
+
+        Ok(gdt)
+    }
 }
 
 impl KernelLoader for BzImage {
-    type BootParams = ();
+    type BootParams = BzImageBootParams;
 
     fn load(
-        &self,
-        _boot_params: &Self::BootParams,
-        _memory: &MemoryAddressSpace,
+        &mut self,
+        params: &Self::BootParams,
+        memory: &MemoryAddressSpace,
     ) -> Result<LoadResult> {
-        todo!()
+        let mut boot_params = BootParams::new_zeroed();
+
+        let load_result = self.setup_hdr(params, &mut boot_params, memory)?;
+
+        let gdt = self.setup_gdt(params, memory)?;
+
+        if false {
+            todo!("setup acpi_rsdp_addr and e820");
+        }
+
+        Ok(LoadResult {
+            start_pc: load_result.start_pc,
+            kernel_start: load_result.kernel_start,
+            kernel_len: load_result.kernel_len,
+            gdt,
+        })
     }
 
     /*
@@ -189,23 +232,9 @@ impl KernelLoader for BzImage {
         memory_size: usize,
         vcpu0: &mut V::Vcpu,
     ) -> Result<(), Error> {
-        if self.get_boot_flag()? != 0xAA55 {
-            return Err(Error::InvalidKernelImage);
-        }
 
-        if self.get_header()? != u32::from_le_bytes("HdrS".as_bytes().try_into().unwrap()) {
-            return Err(Error::InvalidKernelImage);
-        }
 
-        let version = self.get_version()?;
-        if version < MINIMAL_VERSION {
-            return Err(Error::InvalidKernelImage);
-        }
 
-        let mut setup_sects = self.get_setup_sects()?;
-        if setup_sects == 0 {
-            setup_sects = 4;
-        }
 
         {
             let setup_start_gpa = to_gpa(CS, IP) as u64;
