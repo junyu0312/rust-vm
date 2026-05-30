@@ -24,7 +24,7 @@ impl Vcpu {
         }
     }
 
-    pub fn vcpu_id(&self) -> usize {
+    pub fn vcpu_id(&self) -> u64 {
         self.vcpu_instance.vcpu_id()
     }
 

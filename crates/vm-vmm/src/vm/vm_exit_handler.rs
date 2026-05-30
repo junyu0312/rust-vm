@@ -102,11 +102,17 @@ impl VmExit for VmExitHandler {
         Ok(())
     }
 
+    #[cfg(target_arch = "aarch64")]
     fn in_mmio_region(&self, addr: u64) -> bool {
         self.device_manager
             .mmio_manager
             .mmio_layout()
             .in_mmio_region(addr)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    fn in_mmio_region(&self, _addr: u64) -> bool {
+        todo!()
     }
 
     #[cfg(target_arch = "aarch64")]

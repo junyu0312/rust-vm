@@ -48,7 +48,7 @@ pub enum Command {
 
 #[derive(Debug, Args)]
 pub struct CreateArgs {
-    #[arg(short, long)]
+    #[arg(long)]
     pub cpus: usize,
 
     #[arg(short, long)]
@@ -60,7 +60,7 @@ pub struct CreateArgs {
     #[arg(short, long)]
     pub kernel: PathBuf,
 
-    #[arg(short, long)]
+    #[arg(long)]
     pub cmdline: Option<String>,
 
     #[arg(short, long)]

@@ -8,7 +8,7 @@ pub mod error;
 pub(crate) mod command;
 
 pub trait HypervisorVcpu: Send + Sync {
-    fn vcpu_id(&self) -> usize;
+    fn vcpu_id(&self) -> u64;
 
     fn command_tx(&self) -> WeakSender<VcpuCommandRequest>;
 

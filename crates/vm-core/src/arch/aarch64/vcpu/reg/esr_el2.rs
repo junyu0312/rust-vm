@@ -19,6 +19,7 @@ pub enum Ec {
     Hvc = 0x16,
     Smc = 0x17,
     Trapped = 0x18,
+    InstructionAbortFromALowerExceptionLevel = 0x20,
     DA = 0x24,
 }
 

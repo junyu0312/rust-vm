@@ -40,7 +40,7 @@ pub struct AppleHypervisorVm;
 impl HypervisorVm for AppleHypervisorVm {
     fn create_vcpu(
         &self,
-        vcpu_id: usize,
+        vcpu_id: u64,
         mm: Arc<MemoryAddressSpace>,
         vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Box<dyn HypervisorVcpu>, VmError> {

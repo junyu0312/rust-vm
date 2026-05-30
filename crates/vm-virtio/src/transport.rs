@@ -76,7 +76,7 @@ where
 
             for (queue, (virtqueue, notifier)) in virtqueues_size_max
                 .iter()
-                .zip(virtqueue_notifiers.into_iter())
+                .zip(virtqueue_notifiers)
                 .enumerate()
             {
                 if virtqueue.is_none() {

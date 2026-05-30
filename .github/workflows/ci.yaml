@@ -8,8 +8,8 @@ on:
 
 env:
   RUST_BACKTRACE: 1
-  RUST_STABLE: stable
-  RUST_NIGHTLY: nightly-2025-10-12
+  RUST_STABLE: 1.95.0
+  RUST_NIGHTLY: nightly-2026-05-30
 
 defaults:
   run:
@@ -70,8 +70,8 @@ jobs:
       - name: fmt
         run: cargo fmt --check
 
-  clippy:
-    name: Clippy
+  clippy-x86_64_kvm:
+    name: Clippy(x86_64/Kvm)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -85,8 +85,38 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets
 
-  udeps:
-    name: Udeps
+  clippy-aarch64_kvm:
+    name: Clippy(Arm64/Kvm)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          components: clippy
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: clippy
+        run: cargo clippy --all-targets
+
+  clippy-aarch64_hvp:
+    name: Clippy(Arm64/hvp)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          components: clippy
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - name: clippy
+        run: cargo clippy --all-targets --no-default-features --features hvp
+
+  udeps-x86_64_kvm:
+    name: Udeps(x86_64/Kvm)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -101,6 +131,40 @@ jobs:
           tool: cargo-udeps
       - name: udeps
         run: cargo udeps --all-targets
+
+  udeps-aarch64_kvm:
+    name: Udeps(Arm64/Kvm)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-udeps
+      - name: udeps
+        run: cargo udeps --all-targets
+
+  udeps-aarch64_hvp:
+    name: Udeps(Arm64/hvp)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust ${{ env.RUST_NIGHTLY }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_NIGHTLY }}
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-udeps
+      - name: udeps
+        run: cargo udeps --all-targets --no-default-features --features hvp
 
   test:
     name: Test

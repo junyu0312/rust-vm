@@ -24,6 +24,10 @@ pub enum VmError {
     #[error("Applevisor error: {0}")]
     ApplevisorError(#[from] applevisor::error::HypervisorError),
 
+    #[cfg(feature = "kvm")]
+    #[error("Kvm error: {0}")]
+    Kvm(#[from] kvm_ioctls::Error),
+
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
 

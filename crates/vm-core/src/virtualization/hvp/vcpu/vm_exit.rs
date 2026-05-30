@@ -54,6 +54,19 @@ pub fn to_vm_exit(
                         Ok(VmExitReason::TrappedWrite { reg, data })
                     }
                 }
+                esr_el2::Ec::InstructionAbortFromALowerExceptionLevel => {
+                    let ifsc = iss & 0x3f;
+                    let s1ptw = ((iss >> 7) & 1) != 0;
+                    let ea = ((iss >> 9) & 1) != 0;
+                    let fnv = ((iss >> 10) & 1) != 0;
+
+                    debug!(
+                        ifsc = format!("0b{:b}", ifsc),
+                        s1ptw, ea, fnv, "instruction abort"
+                    );
+
+                    todo!()
+                }
                 esr_el2::Ec::DA => {
                     let far_el2 = exit_info.exception.physical_address;
 

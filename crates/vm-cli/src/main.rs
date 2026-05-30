@@ -3,6 +3,9 @@
 use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
+use vm_core::virtualization::hypervisor::Hypervisor;
+use vm_vmm::vm::config::VmConfig;
+use vm_vmm::vmm::Vmm;
 
 use crate::cmd::Cli;
 use crate::cmd::Command;
@@ -12,56 +15,52 @@ use crate::term::term_init;
 mod cmd;
 mod term;
 
-async fn build_and_run_vm(args: Command) -> anyhow::Result<()> {
-    #[cfg(all(target_arch = "aarch64", feature = "hvp"))]
-    {
-        use vm_core::virtualization::hvp::AppleHypervisor;
-        use vm_vmm::vm::config::VmConfig;
-        use vm_vmm::vmm::Vmm;
-
-        let hypervisor = Box::new(AppleHypervisor);
-
-        let mut vmm = Vmm::new(hypervisor);
-
-        match args {
-            Command::Create(args) => {
-                vmm.create_vm_from_config(VmConfig {
-                    memory_size: parse_memory(&args.memory)?,
-                    vcpus: args.cpus,
-                    devices: args.device.into_iter().map(Into::into).collect(),
-                    gdb_port: args.gdb,
-                    kernel: args.kernel,
-                    initramfs: args.initramfs,
-                    cmdline: args.cmdline,
-                })
-                .await?;
-
-                vmm.try_boot().await?;
-            }
-            Command::Snapshot(args) => {
-                debug!("import snapshot from {:?}", args.path);
-
-                vmm.create_vm_from_snapshot(&args.path).await?;
-
-                debug!("vm is booting");
-
-                vmm.try_boot().await?;
-            }
+fn build_hypervisor() -> anyhow::Result<Box<dyn Hypervisor>> {
+    cfg_select! {
+        all(target_arch = "aarch64", feature = "hvp") => {
+            Ok(Box::new(vm_core::virtualization::hvp::AppleHypervisor))
         }
+        feature = "kvm" => {
+            Ok(Box::new(vm_core::virtualization::kvm::KvmHypervisor::new()?))
+        }
+        _ => panic!(),
+    }
+}
 
-        vmm.run().await?;
+async fn build_and_run_vm(args: Command) -> anyhow::Result<()> {
+    let hypervisor = build_hypervisor()?;
 
-        Ok(())
+    let mut vmm = Vmm::new(hypervisor);
+
+    match args {
+        Command::Create(args) => {
+            vmm.create_vm_from_config(VmConfig {
+                memory_size: parse_memory(&args.memory)?,
+                vcpus: args.cpus,
+                devices: args.device.into_iter().map(Into::into).collect(),
+                gdb_port: args.gdb,
+                kernel: args.kernel,
+                initramfs: args.initramfs,
+                cmdline: args.cmdline,
+            })
+            .await?;
+
+            vmm.try_boot().await?;
+        }
+        Command::Snapshot(args) => {
+            debug!("import snapshot from {:?}", args.path);
+
+            vmm.create_vm_from_snapshot(&args.path).await?;
+
+            debug!("vm is booting");
+
+            vmm.try_boot().await?;
+        }
     }
 
-    #[cfg(not(all(target_arch = "aarch64", feature = "hvp")))]
-    {
-        use std::hint::black_box;
-        black_box(args);
-        black_box(parse_memory);
+    vmm.run().await?;
 
-        todo!()
-    };
+    Ok(())
 }
 
 #[tokio::main]
