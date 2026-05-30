@@ -8,8 +8,8 @@ on:
 
 env:
   RUST_BACKTRACE: 1
-  RUST_STABLE: stable
-  RUST_NIGHTLY: nightly-2025-10-12
+  RUST_STABLE: 1.95.0
+  RUST_NIGHTLY: nightly-2026-05-30
 
 defaults:
   run:
