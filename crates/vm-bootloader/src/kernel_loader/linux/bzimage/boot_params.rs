@@ -153,6 +153,19 @@ pub struct SetupHeader {
     pub kernel_info_offset: u32,
 }
 
+#[repr(u32)]
+pub enum E820Type {
+    Ram = 1,
+    Reserved = 2,
+    Acpi = 3,
+    Nvs = 4,
+    Unusable = 5,
+    Pmem = 7,
+    Pram = 12,
+    SoftReserved = 0xefffffff,
+    ReservedKern = 128,
+}
+
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros)]
 pub struct BootE820Entry {

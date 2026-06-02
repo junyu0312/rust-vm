@@ -30,8 +30,6 @@ impl PciRootComplexPio {
     fn handle_out_config_data(&self, offset: u8, data: &[u8]) {
         let config_address = self.config_address.lock().unwrap();
 
-        assert_eq!(data.len(), 4);
-
         if !config_address.enable() {
             return;
         }
