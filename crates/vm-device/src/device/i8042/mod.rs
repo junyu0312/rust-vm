@@ -1,8 +1,5 @@
-use std::io;
-use std::io::Read;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
@@ -15,7 +12,6 @@ use crate::device::i8042::ps2::Ps2Device;
 use crate::device::i8042::ps2::atkbd::AtKbd;
 use crate::device::i8042::ps2::psmouse::PsMouse;
 use crate::device::i8042::status_register::StatusRegister;
-use crate::utils::keyboard::SCANCODE_SET2_MAP;
 
 mod command;
 mod controller_cfg;
@@ -178,26 +174,26 @@ impl I8042 {
     pub fn new(irq: Arc<dyn InterruptController>) -> Self {
         let i8042 = Arc::new(Mutex::new(I8042Raw::new(irq)));
 
-        thread::spawn({
-            let raw = i8042.clone();
-            move || {
-                let stdin = io::stdin();
-                let mut handle = stdin.lock();
-                let mut buffer = [0u8; 1];
+        // thread::spawn({
+        //     let raw = i8042.clone();
+        //     move || {
+        //         let stdin = io::stdin();
+        //         let mut handle = stdin.lock();
+        //         let mut buffer = [0u8; 1];
 
-                while let Ok(n) = handle.read(&mut buffer) {
-                    if n == 0 {
-                        break;
-                    }
-                    let mut raw = raw.lock().unwrap();
-                    if let Some(bytes) = SCANCODE_SET2_MAP.get(&buffer[0]) {
-                        for &b in bytes {
-                            raw.push_kbd(b);
-                        }
-                    }
-                }
-            }
-        });
+        //         while let Ok(n) = handle.read(&mut buffer) {
+        //             if n == 0 {
+        //                 break;
+        //             }
+        //             let mut raw = raw.lock().unwrap();
+        //             if let Some(bytes) = SCANCODE_SET2_MAP.get(&buffer[0]) {
+        //                 for &b in bytes {
+        //                     raw.push_kbd(b);
+        //                 }
+        //             }
+        //         }
+        //     }
+        // });
 
         I8042(i8042)
     }
