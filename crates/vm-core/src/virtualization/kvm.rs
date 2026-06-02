@@ -4,6 +4,10 @@ use std::sync::Arc;
 use kvm_bindings::CpuId;
 #[cfg(target_arch = "x86_64")]
 use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
+#[cfg(target_arch = "x86_64")]
+use kvm_bindings::KVM_PIT_SPEAKER_DUMMY;
+#[cfg(target_arch = "x86_64")]
+use kvm_bindings::kvm_pit_config;
 use kvm_ioctls::Kvm;
 
 use crate::virtualization::hypervisor::Hypervisor;
@@ -39,6 +43,12 @@ impl KvmHypervisor {
 impl Hypervisor for KvmHypervisor {
     fn create_vm(&self) -> Result<Arc<dyn HypervisorVm>, HypervisorError> {
         let vm_fd = self.kvm.create_vm()?;
+
+        #[cfg(target_arch = "x86_64")]
+        vm_fd.create_pit2(kvm_pit_config {
+            flags: KVM_PIT_SPEAKER_DUMMY, // avoid vm_exit from port 0x61
+            ..Default::default()
+        })?;
 
         Ok(Arc::new(KvmVm::new(
             vm_fd,

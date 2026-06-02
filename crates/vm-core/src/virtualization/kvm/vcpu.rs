@@ -98,7 +98,11 @@ impl KvmVcpu {
                                 Ok(result) => match result {
                                     VmExitResult::Ok => continue,
                                 },
-                                Err(_) => todo!(),
+                                Err(err) => {
+                                    error!(?err);
+
+                                    panic!()
+                                }
                             }
                         }
                     }

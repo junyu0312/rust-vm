@@ -41,8 +41,18 @@ impl InitDevice for DeviceManager {
         _monitor_server_builder: &mut MonitorServerBuilder,
         _mm: Arc<MemoryAddressSpace>,
         _devices: &[Device],
-        _irq_chip: Arc<dyn InterruptController>,
+        irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), InitDeviceError> {
+        use vm_device::device::uart8250::Uart8250;
+        use vm_pci::root_complex::pio::PciRootComplexPio;
+
+        let uart8250 = Uart8250::<4>::new(Some(0x3f8), irq_chip);
+
+        let pci_rc = PciRootComplexPio::default();
+
+        self.register_pio_device(Box::new(uart8250))?;
+        self.register_pio_device(Box::new(pci_rc))?;
+
         Ok(())
     }
 

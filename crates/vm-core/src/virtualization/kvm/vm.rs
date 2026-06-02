@@ -16,7 +16,7 @@ use crate::virtualization::vm::SetUserMemoryRegionFlags;
 use crate::virtualization::vm::error::VmError;
 
 pub struct KvmVm {
-    vm_fd: VmFd,
+    vm_fd: Arc<VmFd>,
     #[cfg(target_arch = "x86_64")]
     supported_cpuid_patched: CpuId,
 }
@@ -24,7 +24,7 @@ pub struct KvmVm {
 impl KvmVm {
     pub fn new(vm_fd: VmFd, #[cfg(target_arch = "x86_64")] supported_cpuid_patched: CpuId) -> Self {
         KvmVm {
-            vm_fd,
+            vm_fd: Arc::new(vm_fd),
             #[cfg(target_arch = "x86_64")]
             supported_cpuid_patched,
         }
@@ -54,7 +54,9 @@ impl HypervisorVm for KvmVm {
     fn create_irq_chip(&self) -> Result<Box<dyn InterruptController>, VmError> {
         self.vm_fd.create_irq_chip()?;
 
-        let irq_chip = KvmIrqChip {};
+        let irq_chip = KvmIrqChip {
+            vm_fd: self.vm_fd.clone(),
+        };
 
         Ok(Box::new(irq_chip))
     }
