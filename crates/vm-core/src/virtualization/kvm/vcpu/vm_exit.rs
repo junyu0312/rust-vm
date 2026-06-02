@@ -1,11 +1,24 @@
 use kvm_ioctls::VcpuExit;
 use tracing::debug;
 
-pub fn handle_vm_exit(vcpu_exit: VcpuExit<'_>) {
+use crate::cpu::vm_exit::VmExit;
+use crate::cpu::vm_exit::VmExitHandlerError;
+
+pub enum VmExitResult {
+    Ok,
+}
+
+pub fn handle_vm_exit(
+    vcpu_exit: VcpuExit<'_>,
+    handler: &dyn VmExit,
+) -> Result<VmExitResult, VmExitHandlerError> {
     debug!(?vcpu_exit);
 
     match vcpu_exit {
-        VcpuExit::IoOut(..) => todo!(),
+        VcpuExit::IoOut(port, data) => {
+            handler.io_out(port, data)?;
+            Ok(VmExitResult::Ok)
+        }
         VcpuExit::IoIn(..) => todo!(),
         VcpuExit::MmioRead(..) => todo!(),
         VcpuExit::MmioWrite(..) => todo!(),

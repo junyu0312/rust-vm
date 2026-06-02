@@ -35,6 +35,18 @@ pub trait InitDevice {
 }
 
 impl InitDevice for DeviceManager {
+    #[cfg(target_arch = "x86_64")]
+    fn init_devices(
+        &mut self,
+        _monitor_server_builder: &mut MonitorServerBuilder,
+        _mm: Arc<MemoryAddressSpace>,
+        _devices: &[Device],
+        _irq_chip: Arc<dyn InterruptController>,
+    ) -> Result<(), InitDeviceError> {
+        Ok(())
+    }
+
+    #[cfg(target_arch = "aarch64")]
     fn init_devices(
         &mut self,
         monitor_server_builder: &mut MonitorServerBuilder,

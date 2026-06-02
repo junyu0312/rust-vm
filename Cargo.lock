@@ -1182,12 +1182,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "vm-arch"
+version = "0.1.0"
+dependencies = [
+ "kvm-bindings",
+ "zerocopy",
+]
+
+[[package]]
 name = "vm-bootloader"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "thiserror",
  "tracing",
+ "vm-arch",
  "vm-core",
  "vm-fdt",
  "vm-mm",
@@ -1233,6 +1242,7 @@ dependencies = [
  "tokio",
  "tracing",
  "vm-aarch64",
+ "vm-arch",
  "vm-fdt",
  "vm-mm",
 ]

@@ -1,15 +1,42 @@
+use tokio::sync::Mutex;
+use vm_bootloader::boot_loader::BootLoader;
 use vm_bootloader::boot_loader::BootLoaderBuilder;
 use vm_bootloader::boot_loader::arch::x86_64::X86_64BootLoader;
+use vm_core::arch::irq::InterruptController;
+use vm_core::cpu::vcpu_manager::VcpuManager;
+use vm_core::device_manager::DeviceManager;
+use vm_mm::manager::MemoryAddressSpace;
 
 use crate::bootloader::error::BootloaderError;
 use crate::vm::config::VmConfig;
 
-pub fn install_bootloader(vm_config: &VmConfig) -> Result<(), BootloaderError> {
-    let _bootloader = X86_64BootLoader::new(
+pub async fn install_bootloader(
+    vm_config: &VmConfig,
+    vcpu_manager: &Mutex<VcpuManager>,
+    memory_address_space: &MemoryAddressSpace,
+    irq_chip: &dyn InterruptController,
+    device_manager: &DeviceManager,
+) -> Result<(), BootloaderError> {
+    let bootloader = X86_64BootLoader::new(
         vm_config.kernel.clone(),
         vm_config.initramfs.clone(),
         vm_config.cmdline.clone(),
     );
 
-    todo!()
+    let mut vcpu_manager = vcpu_manager.lock().await;
+
+    let boot_vcpu = vcpu_manager.get_vcpu_mut(0)?;
+
+    bootloader
+        .load(
+            vm_config.memory_size as u64,
+            vm_config.vcpus,
+            boot_vcpu,
+            memory_address_space,
+            irq_chip,
+            device_manager.mmio_devices(),
+        )
+        .await?;
+
+    Ok(())
 }

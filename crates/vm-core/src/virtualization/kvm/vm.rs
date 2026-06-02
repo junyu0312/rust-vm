@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+#[cfg(target_arch = "x86_64")]
+use kvm_bindings::CpuId;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::VmFd;
 use vm_mm::manager::MemoryAddressSpace;
@@ -15,11 +17,17 @@ use crate::virtualization::vm::error::VmError;
 
 pub struct KvmVm {
     vm_fd: VmFd,
+    #[cfg(target_arch = "x86_64")]
+    supported_cpuid_patched: CpuId,
 }
 
 impl KvmVm {
-    pub fn new(vm_fd: VmFd) -> Self {
-        KvmVm { vm_fd }
+    pub fn new(vm_fd: VmFd, #[cfg(target_arch = "x86_64")] supported_cpuid_patched: CpuId) -> Self {
+        KvmVm {
+            vm_fd,
+            #[cfg(target_arch = "x86_64")]
+            supported_cpuid_patched,
+        }
     }
 }
 
@@ -27,11 +35,18 @@ impl HypervisorVm for KvmVm {
     fn create_vcpu(
         &self,
         vcpu_id: u64,
-        _mm: Arc<MemoryAddressSpace>,
-        _vm_exit_handler: Arc<dyn VmExit>,
+        mm: Arc<MemoryAddressSpace>,
+        vm_exit_handler: Arc<dyn VmExit>,
     ) -> Result<Box<dyn HypervisorVcpu>, VmError> {
-        let vcpu = KvmVcpu::new(&self.vm_fd, vcpu_id)
-            .map_err(|err| VmError::CreateVcpuError(Box::new(err)))?;
+        let vcpu = KvmVcpu::new(
+            &self.vm_fd,
+            vcpu_id,
+            #[cfg(target_arch = "x86_64")]
+            &self.supported_cpuid_patched,
+            vm_exit_handler,
+            mm,
+        )
+        .map_err(|err| VmError::CreateVcpuError(Box::new(err)))?;
 
         Ok(Box::new(vcpu))
     }
