@@ -1,7 +1,9 @@
+use std::io::Read;
 use std::io::Write;
 use std::io::{self};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
@@ -198,15 +200,6 @@ impl<const IRQ: u32> Uart8250Internal<IRQ> {
         }
     }
 
-    // fn receive_byte(&mut self, data: u8) {
-    //     if self.rbr.is_some() {
-    //         self.lsr.insert(LSR::OverrunError);
-    //     } else {
-    //         self.rbr = Some(data);
-    //         self.lsr.insert(LSR::DataReady);
-    //     }
-    // }
-
     // Receive buffer register
     fn in_rbr(&mut self, data: &mut [u8]) {
         assert_eq!(data.len(), 1);
@@ -328,13 +321,24 @@ impl<const IRQ: u32> Uart8250Internal<IRQ> {
         self.lsr.insert(LSR::THREmpty | LSR::THREmptyAndLineIdle);
         // }
     }
+
+    fn receive_byte(&mut self, data: u8) {
+        if self.rbr.is_some() {
+            self.lsr.insert(LSR::OverrunError);
+        } else {
+            self.rbr = Some(data);
+            self.lsr.insert(LSR::DataReady);
+        }
+
+        self.update_irq();
+    }
 }
 
-pub struct Uart8250<const IRQ: u32>(Mutex<Uart8250Internal<IRQ>>);
+pub struct Uart8250<const IRQ: u32>(Arc<Mutex<Uart8250Internal<IRQ>>>);
 
 impl<const IRQ: u32> Uart8250<IRQ> {
     pub fn new(port_base: Option<u16>, irq_controller: Arc<dyn InterruptController>) -> Self {
-        let internal = Uart8250Internal {
+        let internal = Arc::new(Mutex::new(Uart8250Internal {
             port_base,
             txr: Default::default(),
             rbr: Default::default(),
@@ -348,9 +352,26 @@ impl<const IRQ: u32> Uart8250<IRQ> {
             msr: Default::default(),
             irq_controller,
             irq_state: false,
-        };
+        }));
 
-        Uart8250(Mutex::new(internal))
+        thread::spawn({
+            let raw = internal.clone();
+            move || {
+                let stdin = io::stdin();
+                let mut handle = stdin.lock();
+                let mut buffer = [0u8; 1];
+
+                while let Ok(n) = handle.read(&mut buffer) {
+                    if n == 0 {
+                        break;
+                    }
+                    let mut raw = raw.lock().unwrap();
+                    raw.receive_byte(buffer[0]);
+                }
+            }
+        });
+
+        Uart8250(internal)
     }
 }
 

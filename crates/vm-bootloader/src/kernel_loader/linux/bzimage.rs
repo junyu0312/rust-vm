@@ -198,7 +198,7 @@ impl BzImage {
 
         boot_params.e820_table[2] = BootE820Entry {
             addr: params.kernel_start as u64,
-            size: params.memory_size as u64 - 0x100000,
+            size: params.memory_size - 0x100000,
             ty: E820Type::Ram as u32,
         };
 

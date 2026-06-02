@@ -2,7 +2,6 @@ use vm_core::device::Device;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
 
-#[derive(Default)]
 pub struct Cmos;
 
 impl Device for Cmos {
