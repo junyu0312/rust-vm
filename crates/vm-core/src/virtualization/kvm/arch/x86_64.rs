@@ -1,16 +1,18 @@
-use kvm_bindings::{kvm_dtable, kvm_regs, kvm_segment, kvm_sregs};
+use kvm_bindings::kvm_dtable;
+use kvm_bindings::kvm_regs;
+use kvm_bindings::kvm_segment;
+use kvm_bindings::kvm_sregs;
 
+use crate::arch::registers::x86_64::X86_64CoreRegisters;
+use crate::arch::registers::x86_64::X86_64Dtable;
+use crate::arch::registers::x86_64::X86_64Registers;
+use crate::arch::registers::x86_64::X86_64SRegisters;
+use crate::arch::registers::x86_64::X86_64Segment;
+use crate::arch::x86_64::vcpu::X86_64Vcpu;
+use crate::virtualization::kvm::vcpu::KvmVcpuInternal;
 use crate::virtualization::vcpu::command::VcpuCommand;
 use crate::virtualization::vcpu::command::VcpuCommandResponse;
-use crate::{
-    arch::{
-        registers::x86_64::{
-            X86_64CoreRegisters, X86_64Dtable, X86_64Registers, X86_64SRegisters, X86_64Segment,
-        },
-        x86_64::vcpu::X86_64Vcpu,
-    },
-    virtualization::{kvm::vcpu::KvmVcpuInternal, vcpu::error::VcpuError},
-};
+use crate::virtualization::vcpu::error::VcpuError;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 

@@ -1,7 +1,8 @@
 use kvm_ioctls::VcpuExit;
 use tracing::debug;
 
-use crate::cpu::vm_exit::{VmExit, VmExitHandlerError};
+use crate::cpu::vm_exit::VmExit;
+use crate::cpu::vm_exit::VmExitHandlerError;
 
 pub enum VmExitResult {
     Ok,

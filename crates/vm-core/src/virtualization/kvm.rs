@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 #[cfg(target_arch = "x86_64")]
-use kvm_bindings::{CpuId, KVM_MAX_CPUID_ENTRIES};
+use kvm_bindings::CpuId;
+#[cfg(target_arch = "x86_64")]
+use kvm_bindings::KVM_MAX_CPUID_ENTRIES;
 use kvm_ioctls::Kvm;
 
 use crate::virtualization::hypervisor::Hypervisor;

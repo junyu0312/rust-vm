@@ -1,12 +1,16 @@
 use std::hint::black_box;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::aarch64::vcpu::AArch64Vcpu;
-use crate::arch::aarch64::vcpu::reg::{CoreRegister, FpRegister, SysRegister};
+use crate::arch::aarch64::vcpu::reg::CoreRegister;
+use crate::arch::aarch64::vcpu::reg::FpRegister;
+use crate::arch::aarch64::vcpu::reg::SysRegister;
 use crate::virtualization::kvm::vcpu::KvmVcpuInternal;
-use crate::virtualization::vcpu::command::{VcpuCommand, VcpuCommandResponse};
+use crate::virtualization::vcpu::command::VcpuCommand;
+use crate::virtualization::vcpu::command::VcpuCommandResponse;
 use crate::virtualization::vcpu::error::VcpuError;
 
 impl<'a> AArch64Vcpu for KvmVcpuInternal<'a> {

@@ -5,7 +5,8 @@
  */
 
 use kvm_bindings::kvm_segment;
-use zerocopy::{Immutable, IntoBytes};
+use zerocopy::Immutable;
+use zerocopy::IntoBytes;
 
 #[repr(packed, C)]
 #[derive(Clone, Copy, IntoBytes, Immutable)]
