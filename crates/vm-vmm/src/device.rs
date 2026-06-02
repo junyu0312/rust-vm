@@ -54,8 +54,8 @@ impl InitDevice for DeviceManager {
         let uart8250_com2 = Uart8250::<3>::new(Some(0x2f8), irq_chip.clone());
         let uart8250_com3 = Uart8250::<4>::new(Some(0x3e8), irq_chip.clone());
         let uart8250_com4 = Uart8250::<3>::new(Some(0x2e8), irq_chip.clone());
-        let cmos = Cmos::default();
-        let post_debug = PostDebug::default();
+        let cmos = Cmos;
+        let post_debug = PostDebug;
         let dummy = Dummy;
         let i8042 = I8042::new(irq_chip);
         let pci_rc = PciRootComplexPio::default();

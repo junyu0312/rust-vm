@@ -4,7 +4,6 @@ use vm_core::device::pio::pio_device::PortRange;
 
 const PORT: u16 = 0x80;
 
-#[derive(Default)]
 pub struct PostDebug;
 
 impl Device for PostDebug {
