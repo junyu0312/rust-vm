@@ -2,14 +2,14 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum VmExitHandlerError {
-    #[error("no device found for port 0x{0:#x}")]
+    #[error("no device found for port {0:#x}")]
     NoDeviceForPort(u16),
 
-    #[error("no device found for addr 0x{0:#x}")]
+    #[error("no device found for addr {0:#x}")]
     NoDeviceForAddr(u64),
 
     #[error(
-        "mmio out of memory: mmio_start: 0x{mmio_start:x}, mmio_len: {mmio_len}, addr: 0x{addr:x}"
+        "mmio out of memory: mmio_start: {mmio_start:x}, mmio_len: {mmio_len}, addr: 0x{addr:x}"
     )]
     MmioOutOfMemory {
         mmio_start: u64,

@@ -14,7 +14,9 @@ use crate::kernel_loader::Error;
 use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::LoadResult;
 use crate::kernel_loader::Result;
+use crate::kernel_loader::linux::bzimage::boot_params::BootE820Entry;
 use crate::kernel_loader::linux::bzimage::boot_params::BootParams;
+use crate::kernel_loader::linux::bzimage::boot_params::E820Type;
 
 mod boot_params;
 
@@ -31,6 +33,7 @@ pub struct BzImageBootParams {
     // pub heap_end: u32,
     pub initrd_start: u32,
     pub cmdline_start: u32,
+    pub memory_size: u64,
 }
 
 pub struct BzImage {
@@ -161,7 +164,6 @@ impl BzImage {
             memory
                 .copy_from_slice(params.kernel_start as u64, &self.bzimage[setup_size..])
                 .map_err(Error::CopyKernelFailed)?;
-            println!("{:x}", unsafe { *memory.gpa_to_hva(0x100000).unwrap() });
         }
 
         memory
@@ -179,6 +181,28 @@ impl BzImage {
             kernel_len,
             gdt: Gdt::default(), // TODO: refine
         })
+    }
+
+    fn setup_e820(&self, params: &BzImageBootParams, boot_params: &mut BootParams) -> Result<()> {
+        boot_params.e820_entries = 3;
+        boot_params.e820_table[0] = BootE820Entry {
+            addr: 0,
+            size: 0x9efff,
+            ty: E820Type::Ram as u32,
+        };
+        boot_params.e820_table[1] = BootE820Entry {
+            addr: 0x9f000,
+            size: 0x61000,
+            ty: E820Type::Reserved as u32,
+        };
+
+        boot_params.e820_table[2] = BootE820Entry {
+            addr: params.kernel_start as u64,
+            size: params.memory_size as u64 - 0x100000,
+            ty: E820Type::Ram as u32,
+        };
+
+        Ok(())
     }
 
     fn setup_gdt(&self, params: &BzImageBootParams, memory: &MemoryAddressSpace) -> Result<Gdt<5>> {
@@ -208,12 +232,12 @@ impl KernelLoader for BzImage {
     ) -> Result<LoadResult> {
         let mut boot_params = BootParams::new_zeroed();
 
+        self.setup_e820(params, &mut boot_params)?;
         let load_result = self.setup_hdr(params, &mut boot_params, memory)?;
-
         let gdt = self.setup_gdt(params, memory)?;
 
         if false {
-            todo!("setup acpi_rsdp_addr and e820");
+            todo!("setup acpi_rsdp_addr");
         }
 
         Ok(LoadResult {

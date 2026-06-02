@@ -39,7 +39,7 @@ impl BootLoaderBuilder for X86_64BootLoader {
 impl BootLoader for X86_64BootLoader {
     async fn load(
         &self,
-        _ram_size: u64,
+        ram_size: u64,
         _vcpus: usize,
         boot_vcpu: &mut Vcpu,
         memory: &MemoryAddressSpace,
@@ -58,18 +58,10 @@ impl BootLoader for X86_64BootLoader {
             kernel_start: KERNEL_START,
             initrd_start: INITRD_START,
             cmdline_start: CMDLINE_START,
+            memory_size: ram_size,
         };
 
-        let load_result = kernel_loader.load(
-            &BzImageBootParams {
-                gdt_start: GDT_START,
-                boot_params_start: BOOT_PARAMS_START,
-                kernel_start: KERNEL_START,
-                initrd_start: INITRD_START,
-                cmdline_start: CMDLINE_START,
-            },
-            memory,
-        )?;
+        let load_result = kernel_loader.load(&params, memory)?;
 
         boot_vcpu
             .setup_vcpu(

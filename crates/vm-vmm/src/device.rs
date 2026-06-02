@@ -43,14 +43,31 @@ impl InitDevice for DeviceManager {
         _devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), InitDeviceError> {
+        use vm_device::device::cmos::Cmos;
+        use vm_device::device::dummy::Dummy;
+        use vm_device::device::i8042::I8042;
+        use vm_device::device::post_debug::PostDebug;
         use vm_device::device::uart8250::Uart8250;
         use vm_pci::root_complex::pio::PciRootComplexPio;
 
-        let uart8250 = Uart8250::<4>::new(Some(0x3f8), irq_chip);
-
+        let uart8250_com1 = Uart8250::<4>::new(Some(0x3f8), irq_chip.clone());
+        let uart8250_com2 = Uart8250::<3>::new(Some(0x2f8), irq_chip.clone());
+        let uart8250_com3 = Uart8250::<4>::new(Some(0x3e8), irq_chip.clone());
+        let uart8250_com4 = Uart8250::<3>::new(Some(0x2e8), irq_chip.clone());
+        let cmos = Cmos::default();
+        let post_debug = PostDebug::default();
+        let dummy = Dummy;
+        let i8042 = I8042::new(irq_chip);
         let pci_rc = PciRootComplexPio::default();
 
-        self.register_pio_device(Box::new(uart8250))?;
+        self.register_pio_device(Box::new(uart8250_com1))?;
+        self.register_pio_device(Box::new(uart8250_com2))?;
+        self.register_pio_device(Box::new(uart8250_com3))?;
+        self.register_pio_device(Box::new(uart8250_com4))?;
+        self.register_pio_device(Box::new(cmos))?;
+        self.register_pio_device(Box::new(post_debug))?;
+        self.register_pio_device(Box::new(dummy))?;
+        self.register_pio_device(Box::new(i8042))?;
         self.register_pio_device(Box::new(pci_rc))?;
 
         Ok(())
