@@ -19,7 +19,10 @@ pub fn handle_vm_exit(
             handler.io_out(port, data)?;
             Ok(VmExitResult::Ok)
         }
-        VcpuExit::IoIn(..) => todo!(),
+        VcpuExit::IoIn(port, data) => {
+            handler.io_in(port, data)?;
+            Ok(VmExitResult::Ok)
+        }
         VcpuExit::MmioRead(..) => todo!(),
         VcpuExit::MmioWrite(..) => todo!(),
         VcpuExit::Unknown => todo!(),

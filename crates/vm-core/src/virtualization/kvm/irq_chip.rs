@@ -1,17 +1,21 @@
 use std::io::Read;
 use std::io::Write;
+use std::sync::Arc;
 
+use kvm_ioctls::VmFd;
 use vm_fdt::FdtWriter;
 
 use crate::arch::irq::InterruptController;
 use crate::arch::irq::Phandle;
 use crate::arch::irq::error::IrqChipError;
 
-pub struct KvmIrqChip {}
+pub struct KvmIrqChip {
+    pub vm_fd: Arc<VmFd>,
+}
 
 impl InterruptController for KvmIrqChip {
-    fn trigger_irq(&self, _irq_line: u32, _active: bool) {
-        todo!()
+    fn trigger_irq(&self, irq: u32, active: bool) {
+        let _ = self.vm_fd.set_irq_line(irq, active);
     }
 
     fn send_msi(&self, _intid: u32) {
