@@ -16,6 +16,7 @@ use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
+use crate::device::InitDevice;
 use crate::device::error::InitDeviceError;
 use crate::device::irq_allocation::IrqAllocation;
 use crate::service::monitor::builder::MonitorServerBuilder;
@@ -105,6 +106,8 @@ impl InitDevice for DeviceManager {
                         .register_device(Box::new(virtio_entropy))
                         .map_err(|_| vm_pci::error::Error::FailedRegisterPciDevice)?;
                 }
+                #[cfg(target_os = "linux")]
+                Device::VfioPci { .. } => todo!(),
             }
         }
 

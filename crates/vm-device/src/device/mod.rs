@@ -21,17 +21,21 @@ pub enum Device {
     VirtioMmioBalloon,
     VirtioMmioEntropy,
     VirtioPciEntropy,
-    VfioPci { host: String },
+    #[cfg(target_os = "linux")]
+    VfioPci {
+        host: String,
+    },
 }
 
 impl Device {
     pub fn is_irq_chip(&self) -> bool {
         match self {
             Device::GicV3 => true,
-            Device::VirtioMmioBalloon
-            | Device::VirtioMmioEntropy
-            | Device::VirtioPciEntropy
-            | Device::VfioPci { .. } => false,
+            Device::VirtioMmioBalloon | Device::VirtioMmioEntropy | Device::VirtioPciEntropy => {
+                false
+            }
+            #[cfg(target_os = "linux")]
+            Device::VfioPci { .. } => false,
         }
     }
 }
