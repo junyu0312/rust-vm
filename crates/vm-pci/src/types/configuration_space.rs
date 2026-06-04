@@ -36,13 +36,16 @@ impl ConfigurationSpace {
         }
     }
 
-    pub(crate) fn init<T: PciTypeFunctionCommon>(&mut self, header_type: u8) {
+    pub(crate) fn init<T>(&mut self, function: &T, header_type: u8)
+    where
+        T: PciTypeFunctionCommon,
+    {
         let header = self.as_common_header_mut();
-        header.vendor_id = T::VENDOR_ID;
-        header.device_id = T::DEVICE_ID;
-        header.prog_if = T::CLASS_CODE as u8;
-        header.subclass = (T::CLASS_CODE >> 8) as u8;
-        header.class_code = (T::CLASS_CODE >> 16) as u8;
+        header.vendor_id = function.vendor_id();
+        header.device_id = function.device_id();
+        header.prog_if = function.class_code() as u8;
+        header.subclass = (function.class_code() >> 8) as u8;
+        header.class_code = (function.class_code() >> 16) as u8;
         header.header_type = header_type;
     }
 

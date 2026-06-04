@@ -4,9 +4,9 @@ use std::io::Cursor;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::warn;
+use vm_core::device::error::DeviceSnapshotError;
 
-use crate::device::error::DeviceSnapshotError;
-use crate::device_manager::DeviceManager;
+use crate::device::device_manager::DeviceManager;
 
 #[derive(Serialize, Deserialize)]
 pub struct DeviceSnapshot {

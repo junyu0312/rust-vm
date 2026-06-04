@@ -8,7 +8,8 @@ use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
 use vm_core::arch::aarch64::vcpu::AArch64Vcpu;
 use vm_core::cpu::vm_exit::VmExit;
 use vm_core::cpu::vm_exit::VmExitHandlerError;
-use vm_core::device_manager::DeviceManager;
+
+use crate::device::device_manager::DeviceManager;
 
 pub struct VmExitHandler {
     device_manager: Arc<DeviceManager>,

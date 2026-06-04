@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 
-use crate::root_complex::PciRootComplex;
+use crate::root_complex::pci_root_complex::PciRootComplex;
 
 pub struct DeviceMmioHandler {
     gpa_mmio_range: MmioRange,

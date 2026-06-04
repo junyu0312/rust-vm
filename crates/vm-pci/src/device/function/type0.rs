@@ -24,7 +24,7 @@ pub enum Bar {
 }
 
 pub trait PciType0Function: PciTypeFunctionCommon {
-    const BAR_SIZE: [Option<u32>; 6];
+    fn bar_size(&self) -> [Option<u32>; 6];
 
     fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>>;
 
@@ -52,7 +52,7 @@ where
 {
     pub fn new(function: T) -> Result<Self, Error> {
         let mut configuration_space = ConfigurationSpace::new();
-        configuration_space.init::<T>(0);
+        configuration_space.init(&function, 0);
         function.init_capability(&mut configuration_space)?;
 
         let header = configuration_space.as_header_mut::<Type0Header>();

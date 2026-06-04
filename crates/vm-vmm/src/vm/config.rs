@@ -18,7 +18,6 @@ use vm_core::arch::irq::InterruptController;
 use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::device::mmio::layout::MmioLayout;
-use vm_core::device_manager::DeviceManager;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
 use vm_core::virtualization::vm::error::VmError;
@@ -34,7 +33,7 @@ use vm_mm::region::MemoryRegion;
 use crate::bootloader::aarch64::install_bootloader;
 #[cfg(target_arch = "x86_64")]
 use crate::bootloader::x86_64::install_bootloader;
-use crate::device::InitDevice;
+use crate::device::device_manager::DeviceManager;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::PAGE_SIZE;
@@ -94,7 +93,7 @@ impl Vm {
             #[cfg(target_arch = "x86_64")]
             MmioLayout::default(),
         );
-        device_manager.init_devices(
+        device_manager.init(
             &mut monitor_server_builder,
             memory_address_space.clone(),
             &vm_config.devices,

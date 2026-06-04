@@ -41,11 +41,12 @@ where
 {
     fn write_bar(&self, n: u8, buf: &[u8]) -> Option<EcamUpdateCallback> {
         let mut internal = self.internal.lock().unwrap();
+        let bar_size = internal.function.bar_size();
 
         let val = u32::from_le_bytes(buf.try_into().unwrap());
         let header = internal.configuration_space.as_header_mut::<Type0Header>();
 
-        if let Some(bar_size) = T::BAR_SIZE[n as usize] {
+        if let Some(bar_size) = bar_size[n as usize] {
             if val == u32::MAX {
                 header.bar[n as usize] = !(bar_size - 1);
                 None

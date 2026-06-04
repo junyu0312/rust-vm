@@ -4,8 +4,10 @@ use vm_core::device::Device;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
 
-use crate::root_complex::PciRootComplex;
+use crate::root_complex::PciRootComplexOps;
+use crate::root_complex::pci_root_complex::PciRootComplex;
 use crate::root_complex::pio::config_addr::ConfigAddress;
+use crate::types::device::PciDevice;
 
 mod config_addr;
 
@@ -112,5 +114,11 @@ impl PioDevice for PciRootComplexPio {
         } else {
             panic!("pci: 0x{:x}", port);
         }
+    }
+}
+
+impl PciRootComplexOps for PciRootComplexPio {
+    fn register_device(&self, device: Box<dyn PciDevice>) -> Result<(), Box<dyn PciDevice>> {
+        self.internal.lock().unwrap().register_device(device)
     }
 }

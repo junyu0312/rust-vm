@@ -8,7 +8,6 @@ use tokio::sync::Mutex;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::registers::ArchCoreRegisters;
 use vm_core::cpu::vcpu_manager::VcpuManager;
-use vm_core::device_manager::DeviceManager;
 use vm_core::monitor::MonitorCommandOps;
 use vm_core::virtualization::vcpu::error::VcpuError;
 use vm_core::virtualization::vm::HypervisorVm;
@@ -16,6 +15,7 @@ use vm_core::virtualization::vm::error::VmError;
 use vm_core::virtualization::vm::state::VmState;
 use vm_mm::manager::MemoryAddressSpace;
 
+use crate::device::device_manager::DeviceManager;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::vm::config::VmConfig;
 use crate::vmm::error::VmSnapshotError;

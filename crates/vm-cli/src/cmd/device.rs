@@ -1,3 +1,6 @@
+#[cfg(target_os = "linux")]
+use std::path::PathBuf;
+
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -8,7 +11,8 @@ pub enum Device {
     VirtioPciEntropy,
     #[cfg(target_os = "linux")]
     VfioPci {
-        host: String,
+        name: String,
+        path: PathBuf,
     },
 }
 
@@ -20,7 +24,7 @@ impl From<Device> for vm_device::device::Device {
             Device::VirtioMmioEntropy => vm_device::device::Device::VirtioMmioEntropy,
             Device::VirtioPciEntropy => vm_device::device::Device::VirtioPciEntropy,
             #[cfg(target_os = "linux")]
-            Device::VfioPci { host } => vm_device::device::Device::VfioPci { host },
+            Device::VfioPci { name, path } => vm_device::device::Device::VfioPci { name, path },
         }
     }
 }

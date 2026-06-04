@@ -2,7 +2,6 @@ use std::hint::black_box;
 use std::sync::Arc;
 
 use vm_core::arch::irq::InterruptController;
-use vm_core::device_manager::DeviceManager;
 use vm_device::device::Device;
 use vm_device::device::cmos::Cmos;
 use vm_device::device::dummy::Dummy;
@@ -11,15 +10,17 @@ use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::pio::PciRootComplexPio;
+use vm_vfio::vfio::VfioContainerOps;
 
-use crate::device::InitDevice;
+use crate::device::device_manager::DeviceManager;
+use crate::device::device_manager::irq_allocation::IrqAllocation;
 use crate::device::error::InitDeviceError;
-use crate::device::irq_allocation::IrqAllocation;
 use crate::service::monitor::builder::MonitorServerBuilder;
 
-impl InitDevice for DeviceManager {
-    fn init_devices(
+impl DeviceManager {
+    pub fn init_arch(
         &mut self,
+        vfio_container: &dyn VfioContainerOps,
         _monitor_server_builder: &mut MonitorServerBuilder,
         _mm: Arc<MemoryAddressSpace>,
         devices: &[Device],
@@ -38,6 +39,10 @@ impl InitDevice for DeviceManager {
         let i8042 = I8042::new(irq_chip);
         let pci_rc = PciRootComplexPio::default();
 
+        for device in devices {
+            self.init_device(vfio_container, &pci_rc, device)?;
+        }
+
         self.register_pio_device(Box::new(uart8250_com1))?;
         self.register_pio_device(Box::new(uart8250_com2))?;
         self.register_pio_device(Box::new(uart8250_com3))?;
@@ -47,18 +52,6 @@ impl InitDevice for DeviceManager {
         self.register_pio_device(Box::new(dummy))?;
         self.register_pio_device(Box::new(i8042))?;
         self.register_pio_device(Box::new(pci_rc))?;
-
-        for device in devices {
-            match device {
-                Device::GicV3 => todo!(),
-                Device::VirtioMmioBalloon => {
-                    todo!()
-                }
-                Device::VirtioMmioEntropy => todo!(),
-                Device::VirtioPciEntropy => todo!(),
-                Device::VfioPci { .. } => todo!(),
-            }
-        }
 
         Ok(())
     }

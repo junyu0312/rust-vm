@@ -11,4 +11,7 @@ pub enum InitDeviceError {
 
     #[error("Failed to register monitor command for device {device}")]
     RegisterMonitorCommand { device: String },
+
+    #[error("Vfio error: {0} ")]
+    Vfio(#[from] vm_vfio::error::Error),
 }

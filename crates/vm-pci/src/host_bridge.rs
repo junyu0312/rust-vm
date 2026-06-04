@@ -18,9 +18,17 @@ use crate::types::function::PciFunction;
 struct HostBridgeFunction;
 
 impl PciTypeFunctionCommon for HostBridgeFunction {
-    const VENDOR_ID: u16 = 0x1b36; // From qemu log
-    const DEVICE_ID: u16 = 0x0008; // From qemu log
-    const CLASS_CODE: u32 = 0x060000;
+    fn vendor_id(&self) -> u16 {
+        0x1b36 // From qemu log
+    }
+
+    fn device_id(&self) -> u16 {
+        0x0008 // From qemu log   
+    }
+
+    fn class_code(&self) -> u32 {
+        0x060000
+    }
 
     fn legacy_interrupt(&self) -> Option<(u8, u8)> {
         None
@@ -32,7 +40,9 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
 }
 
 impl PciType0Function for HostBridgeFunction {
-    const BAR_SIZE: [Option<u32>; 6] = [None, None, None, None, None, None];
+    fn bar_size(&self) -> [Option<u32>; 6] {
+        [None, None, None, None, None, None]
+    }
 
     fn bar_handler(&self, _bar: Bar) -> Option<Box<dyn BarHandler>> {
         None
