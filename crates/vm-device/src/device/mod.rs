@@ -21,15 +21,17 @@ pub enum Device {
     VirtioMmioBalloon,
     VirtioMmioEntropy,
     VirtioPciEntropy,
+    VfioPci { host: String },
 }
 
 impl Device {
     pub fn is_irq_chip(&self) -> bool {
         match self {
             Device::GicV3 => true,
-            Device::VirtioMmioBalloon | Device::VirtioMmioEntropy | Device::VirtioPciEntropy => {
-                false
-            }
+            Device::VirtioMmioBalloon
+            | Device::VirtioMmioEntropy
+            | Device::VirtioPciEntropy
+            | Device::VfioPci { .. } => false,
         }
     }
 }

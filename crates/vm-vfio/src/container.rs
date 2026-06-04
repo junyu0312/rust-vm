@@ -15,7 +15,10 @@ impl VfioContainer {
         })
     }
 
-    pub fn vfio_dma_map(&self, iova: u64, size: usize, user_addr: *mut u8) -> Result<()> {
+    /// # Safety
+    ///
+    /// vfio_dma_map
+    pub unsafe fn vfio_dma_map(&self, iova: u64, size: usize, user_addr: *mut u8) -> Result<()> {
         unsafe {
             self.container.vfio_dma_map(iova, size, user_addr)?;
         }
