@@ -1,3 +1,6 @@
+#[cfg(target_os = "linux")]
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -23,7 +26,8 @@ pub enum Device {
     VirtioPciEntropy,
     #[cfg(target_os = "linux")]
     VfioPci {
-        host: String,
+        name: String,
+        path: PathBuf,
     },
 }
 
@@ -36,6 +40,14 @@ impl Device {
             }
             #[cfg(target_os = "linux")]
             Device::VfioPci { .. } => false,
+        }
+    }
+
+    pub fn is_vfio_device(&self) -> bool {
+        match self {
+            #[cfg(target_os = "linux")]
+            Device::VfioPci { .. } => true,
+            _ => false,
         }
     }
 }

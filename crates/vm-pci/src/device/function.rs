@@ -10,9 +10,11 @@ pub trait BarHandler: Send + Sync {
 }
 
 pub trait PciTypeFunctionCommon: Send {
-    const VENDOR_ID: u16;
-    const DEVICE_ID: u16;
-    const CLASS_CODE: u32;
+    fn vendor_id(&self) -> u16;
+
+    fn device_id(&self) -> u16;
+
+    fn class_code(&self) -> u32;
 
     /// legacy irq_line, irq_pin
     fn legacy_interrupt(&self) -> Option<(u8, u8)>;

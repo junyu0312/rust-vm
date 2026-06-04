@@ -17,15 +17,14 @@ use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::cpu::vcpu_manager::snapshot::VcpuManagerSnapshot;
 use vm_core::device::mmio::layout::MmioLayout;
-use vm_core::device_manager::DeviceManager;
-use vm_core::device_manager::snapshot::DeviceSnapshot;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
 use vm_device::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::manager::snapshot::MemoryAddressSpaceSnapshot;
 
-use crate::device::InitDevice;
+use crate::device::device_manager::DeviceManager;
+use crate::device::device_manager::snapshot::DeviceSnapshot;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::Vm;
@@ -126,7 +125,7 @@ impl Vm {
                 #[cfg(target_arch = "x86_64")]
                 MmioLayout::default(),
             );
-            device_manager.init_devices(
+            device_manager.init(
                 &mut monitor_server_builder,
                 memory_address_space.clone(),
                 &snap.vm_config.devices,

@@ -1364,6 +1364,8 @@ dependencies = [
  "thiserror",
  "vfio-bindings",
  "vfio-ioctls",
+ "vm-core",
+ "vm-pci",
 ]
 
 [[package]]
@@ -1409,6 +1411,7 @@ dependencies = [
  "vm-mm",
  "vm-pci",
  "vm-snapshot",
+ "vm-vfio",
  "vm-virtio",
  "winnow",
 ]

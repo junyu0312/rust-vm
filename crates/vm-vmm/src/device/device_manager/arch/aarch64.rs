@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::mmio::layout::MmioRange;
-use vm_core::device_manager::DeviceManager;
 use vm_device::device::Device;
 use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;
 use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioMmioBalloonDevice;
@@ -12,18 +11,21 @@ use vm_device::device::virtio::virtio_blk::VirtioMmioBlkDevice;
 use vm_device::device::virtio::virtio_entropy::VirtioEntropy;
 use vm_device::device::virtio::virtio_entropy::VirtioMmioEntropyDevice;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_pci::root_complex::PciRootComplexOps;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
+use vm_vfio::vfio::VfioContainerOps;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
-use crate::device::InitDevice;
+use crate::device::device_manager::DeviceManager;
+use crate::device::device_manager::irq_allocation::IrqAllocation;
 use crate::device::error::InitDeviceError;
-use crate::device::irq_allocation::IrqAllocation;
 use crate::service::monitor::builder::MonitorServerBuilder;
 
-impl InitDevice for DeviceManager {
-    fn init_devices(
+impl DeviceManager {
+    pub fn init_arch(
         &mut self,
+        _vfio_container: &dyn VfioContainerOps,
         monitor_server_builder: &mut MonitorServerBuilder,
         mm: Arc<MemoryAddressSpace>,
         devices: &[Device],

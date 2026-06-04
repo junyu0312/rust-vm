@@ -4,10 +4,10 @@ use vm_bootloader::boot_loader::BootLoaderBuilder;
 use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
 use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::vcpu_manager::VcpuManager;
-use vm_core::device_manager::DeviceManager;
 use vm_mm::manager::MemoryAddressSpace;
 
 use crate::bootloader::error::BootloaderError;
+use crate::device::device_manager::DeviceManager;
 use crate::vm::config::VmConfig;
 
 pub async fn install_bootloader(

@@ -1,6 +1,6 @@
-use crate::device::pio::pio_device::PioDevice;
-use crate::utils::address_space::AddressSpace;
-use crate::utils::address_space::AddressSpaceError;
+use vm_core::device::pio::pio_device::PioDevice;
+use vm_core::utils::address_space::AddressSpace;
+use vm_core::utils::address_space::AddressSpaceError;
 
 #[derive(Default)]
 pub struct PioAddressSpaceManager {

@@ -45,9 +45,17 @@ impl<D> PciTypeFunctionCommon for VirtioPciTransport<D>
 where
     D: VirtioPciDevice,
 {
-    const VENDOR_ID: u16 = VIRTIO_PCI_VENDOR_ID;
-    const DEVICE_ID: u16 = 0x1040 + D::DEVICE_ID;
-    const CLASS_CODE: u32 = D::CLASS_CODE;
+    fn vendor_id(&self) -> u16 {
+        VIRTIO_PCI_VENDOR_ID
+    }
+
+    fn device_id(&self) -> u16 {
+        0x1040 + D::DEVICE_ID
+    }
+
+    fn class_code(&self) -> u32 {
+        D::CLASS_CODE
+    }
 
     fn legacy_interrupt(&self) -> Option<(u8, u8)> {
         let dev = self.dev.lock().unwrap();
@@ -133,22 +141,24 @@ impl<D> PciType0Function for VirtioPciTransport<D>
 where
     D: VirtioPciDevice,
 {
-    const BAR_SIZE: [Option<u32>; 6] = [
-        // virtio_pci_common_cfg
-        Some(0x1000),
-        // virtio_pci_notify_cap
-        Some(0x1000),
-        // virtio_pci_isr_cap
-        Some(0x1000),
-        // device_spec_cfg
-        if D::DEVICE_SPECIFICATION_CONFIGURATION_LEN == 0 {
-            None
-        } else {
-            Some(0x1000)
-        },
-        None,
-        None,
-    ];
+    fn bar_size(&self) -> [Option<u32>; 6] {
+        [
+            // virtio_pci_common_cfg
+            Some(0x1000),
+            // virtio_pci_notify_cap
+            Some(0x1000),
+            // virtio_pci_isr_cap
+            Some(0x1000),
+            // device_spec_cfg
+            if D::DEVICE_SPECIFICATION_CONFIGURATION_LEN == 0 {
+                None
+            } else {
+                Some(0x1000)
+            },
+            None,
+            None,
+        ]
+    }
 
     fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>> {
         match bar {
