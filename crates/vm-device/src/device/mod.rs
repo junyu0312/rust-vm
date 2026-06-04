@@ -21,6 +21,10 @@ pub enum Device {
     VirtioMmioBalloon,
     VirtioMmioEntropy,
     VirtioPciEntropy,
+    #[cfg(target_os = "linux")]
+    VfioPci {
+        host: String,
+    },
 }
 
 impl Device {
@@ -30,6 +34,8 @@ impl Device {
             Device::VirtioMmioBalloon | Device::VirtioMmioEntropy | Device::VirtioPciEntropy => {
                 false
             }
+            #[cfg(target_os = "linux")]
+            Device::VfioPci { .. } => false,
         }
     }
 }

@@ -1,37 +1,10 @@
 use std::path::PathBuf;
 
-use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
-use clap::ValueEnum;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("invalid memory format({0})")]
-    InvalidMemoryFmt(String),
-    #[error("memory too large")]
-    MemoryTooLarge(String),
-}
-
-#[derive(Debug, Clone, ValueEnum)]
-pub enum Device {
-    GicV3,
-    VirtioMmioBalloon,
-    VirtioMmioEntropy,
-    VirtioPciEntropy,
-}
-
-impl From<Device> for vm_device::device::Device {
-    fn from(device: Device) -> Self {
-        match device {
-            Device::GicV3 => vm_device::device::Device::GicV3,
-            Device::VirtioMmioBalloon => vm_device::device::Device::VirtioMmioBalloon,
-            Device::VirtioMmioEntropy => vm_device::device::Device::VirtioMmioEntropy,
-            Device::VirtioPciEntropy => vm_device::device::Device::VirtioPciEntropy,
-        }
-    }
-}
+pub mod device;
+pub mod json;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
@@ -40,80 +13,14 @@ pub struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
-
 pub enum Command {
-    Create(CreateArgs),
-    Snapshot(SnapshotArgs),
-}
+    Json {
+        #[arg(long)]
+        path: PathBuf,
+    },
 
-#[derive(Debug, Args)]
-pub struct CreateArgs {
-    #[arg(long)]
-    pub cpus: usize,
-
-    #[arg(short, long)]
-    pub memory: String,
-
-    #[arg(long)]
-    pub device: Vec<Device>,
-
-    #[arg(short, long)]
-    pub kernel: PathBuf,
-
-    #[arg(long)]
-    pub cmdline: Option<String>,
-
-    #[arg(short, long)]
-    pub initramfs: Option<PathBuf>,
-
-    #[arg(long)]
-    pub gdb: Option<u16>,
-}
-
-#[derive(Debug, Args)]
-pub struct SnapshotArgs {
-    #[arg(long)]
-    pub path: PathBuf,
-}
-
-pub fn parse_memory(s: &str) -> Result<usize, Error> {
-    let s = s.trim().to_lowercase();
-
-    let pos = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
-
-    let num_part = &s[..pos];
-    let unit_part = &s[pos..];
-
-    let num = num_part
-        .parse::<usize>()
-        .map_err(|_| Error::InvalidMemoryFmt(s.to_string()))?;
-
-    let shift = match unit_part.trim() {
-        "" => 0,
-        "k" => 10,
-        "m" => 20,
-        "g" => 30,
-        _ => return Err(Error::InvalidMemoryFmt(s.to_string())),
-    };
-
-    let bytes = num
-        .checked_shl(shift)
-        .ok_or(Error::MemoryTooLarge(s.to_string()))?;
-
-    Ok(bytes)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_memory() -> anyhow::Result<()> {
-        assert_eq!(parse_memory("1")?, 1);
-        assert_eq!(parse_memory("1K")?, 1 << 10);
-        assert_eq!(parse_memory("1M")?, 1 << 20);
-        assert_eq!(parse_memory("1G")?, 1 << 30);
-
-        Ok(())
-    }
+    Snapshot {
+        #[arg(long)]
+        path: PathBuf,
+    },
 }

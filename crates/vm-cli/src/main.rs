@@ -1,18 +1,20 @@
 #![deny(warnings)]
 
+use std::fs;
+
 use clap::Parser;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 use vm_core::virtualization::hypervisor::Hypervisor;
-use vm_vmm::vm::config::VmConfig;
 use vm_vmm::vmm::Vmm;
 
 use crate::cmd::Cli;
 use crate::cmd::Command;
-use crate::cmd::parse_memory;
+use crate::cmd::json::CreateArgs;
 use crate::term::term_init;
 
 mod cmd;
+mod error;
 mod term;
 
 fn build_hypervisor() -> anyhow::Result<Box<dyn Hypervisor>> {
@@ -33,24 +35,20 @@ async fn build_and_run_vm(args: Command) -> anyhow::Result<()> {
     let mut vmm = Vmm::new(hypervisor);
 
     match args {
-        Command::Create(args) => {
-            vmm.create_vm_from_config(VmConfig {
-                memory_size: parse_memory(&args.memory)?,
-                vcpus: args.cpus,
-                devices: args.device.into_iter().map(Into::into).collect(),
-                gdb_port: args.gdb,
-                kernel: args.kernel,
-                initramfs: args.initramfs,
-                cmdline: args.cmdline,
-            })
-            .await?;
+        Command::Json { path } => {
+            let json = fs::read(path)?;
+            let json = serde_json::from_slice::<CreateArgs>(&json)?;
+
+            debug!("create vm from json: {:?}", json);
+
+            vmm.create_vm_from_config(json.try_into()?).await?;
 
             vmm.try_boot().await?;
         }
-        Command::Snapshot(args) => {
-            debug!("import snapshot from {:?}", args.path);
+        Command::Snapshot { path } => {
+            debug!("import snapshot from {:?}", path);
 
-            vmm.create_vm_from_snapshot(&args.path).await?;
+            vmm.create_vm_from_snapshot(&path).await?;
 
             debug!("vm is booting");
 
