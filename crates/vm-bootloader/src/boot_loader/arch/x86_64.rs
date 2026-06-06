@@ -8,6 +8,8 @@ use vm_core::arch::x86_64::layout::CMDLINE_START;
 use vm_core::arch::x86_64::layout::GDT_START;
 use vm_core::arch::x86_64::layout::INITRD_START;
 use vm_core::arch::x86_64::layout::KERNEL_START;
+use vm_core::arch::x86_64::layout::MMIO_LEN;
+use vm_core::arch::x86_64::layout::MMIO_START;
 use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_mm::manager::MemoryAddressSpace;
@@ -59,6 +61,8 @@ impl BootLoader for X86_64BootLoader {
             initrd_start: INITRD_START,
             cmdline_start: CMDLINE_START,
             memory_size: ram_size,
+            mmio_start: MMIO_START as u64,
+            mmio_length: MMIO_LEN as u64,
         };
 
         let load_result = kernel_loader.load(&params, memory)?;

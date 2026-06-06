@@ -4,3 +4,5 @@ pub const BOOT_PARAMS_START: u32 = 0x0000_7000;
 pub const CMDLINE_START: u32 = 0x0001_0000;
 pub const KERNEL_START: u32 = 0x0010_0000;
 pub const INITRD_START: u32 = 0x1000_0000;
+pub const MMIO_START: u32 = 0xfffc_0000;
+pub const MMIO_LEN: u32 = 0x0004_0000;
