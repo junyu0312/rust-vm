@@ -1,4 +1,5 @@
-use zerocopy::{Immutable, IntoBytes};
+use zerocopy::Immutable;
+use zerocopy::IntoBytes;
 
 #[derive(Default, Immutable, IntoBytes)]
 #[repr(C, packed)]

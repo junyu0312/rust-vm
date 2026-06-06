@@ -1,7 +1,17 @@
-use zerocopy::{Immutable, IntoBytes};
+use zerocopy::Immutable;
+use zerocopy::IntoBytes;
 
+use crate::acpi::CREATOR_ID;
+use crate::acpi::CREATOR_REVISION;
+use crate::acpi::HYPERVISOR_VENDOR_ID;
+use crate::acpi::OEM_REVISION;
+use crate::acpi::OEM_TABLE_ID;
+use crate::acpi::OEMID;
 use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::r#type::generic_address_structure_format::GenericAddressStructureFormat;
+use crate::acpi::utils::checksum;
+
+const HW_REDUCED_ACPI: u32 = 20;
 
 #[derive(Default, Immutable, IntoBytes)]
 #[repr(C, packed)]
@@ -64,4 +74,41 @@ pub struct Fadt {
     hypervisor_vendor_id: [u8; 8],
 }
 
-impl Fadt {}
+impl Fadt {
+    pub fn new(x_dsdt: u64) -> Self {
+        let mut raw = Fadt {
+            header: CommonHeader {
+                signature: *b"FACP",
+                length: size_of::<Fadt>().try_into().unwrap(),
+                revision: 6,
+                checksum: 0,
+                oem_id: OEMID,
+                oem_table_id: OEM_TABLE_ID,
+                oem_revision: OEM_REVISION,
+                creator_id: CREATOR_ID,
+                creator_revision: CREATOR_REVISION,
+            },
+            flags: 1 << HW_REDUCED_ACPI,
+            fadt_minor_version: 5, // ACPI 6.6 specification says it is 5.
+            x_dsdt,
+            hypervisor_vendor_id: HYPERVISOR_VENDOR_ID,
+            ..Default::default()
+        };
+
+        raw.header.checksum = checksum(raw.as_bytes());
+
+        raw
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fadt() {
+        let fadt = Fadt::new(0x12345678);
+
+        assert_eq!(checksum(fadt.as_bytes()), 0);
+    }
+}
