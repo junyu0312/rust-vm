@@ -1,4 +1,4 @@
-use crate::acpi::r#type::common_header::CommonHeader;
+use crate::apic::r#type::common_header::CommonHeader;
 
 pub struct Dsdt {
     header: CommonHeader,

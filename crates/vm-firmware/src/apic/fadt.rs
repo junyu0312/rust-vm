@@ -1,5 +1,5 @@
-use crate::acpi::r#type::common_header::CommonHeader;
-use crate::acpi::r#type::generic_address_structure_format::GenericAddressStructureFormat;
+use crate::apic::r#type::common_header::CommonHeader;
+use crate::apic::r#type::generic_address_structure_format::GenericAddressStructureFormat;
 
 pub struct Fadt {
     header: CommonHeader,

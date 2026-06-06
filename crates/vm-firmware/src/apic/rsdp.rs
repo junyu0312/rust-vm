@@ -1,8 +1,8 @@
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 
-use crate::acpi::OEMID;
-use crate::acpi::utils::checksum;
+use crate::apic::OEMID;
+use crate::apic::utils::checksum;
 
 /// Root System Description Pointer
 #[derive(Immutable, IntoBytes)]
