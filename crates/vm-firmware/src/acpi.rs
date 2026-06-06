@@ -1,4 +1,5 @@
-pub(crate) mod r#type;
+mod r#type;
+mod utils;
 
 pub mod dsdt;
 pub mod fadt;
