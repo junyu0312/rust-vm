@@ -1,6 +1,10 @@
-use crate::apic::r#type::common_header::CommonHeader;
-use crate::apic::r#type::generic_address_structure_format::GenericAddressStructureFormat;
+use zerocopy::{Immutable, IntoBytes};
 
+use crate::acpi::r#type::common_header::CommonHeader;
+use crate::acpi::r#type::generic_address_structure_format::GenericAddressStructureFormat;
+
+#[derive(Default, Immutable, IntoBytes)]
+#[repr(C, packed)]
 pub struct Fadt {
     header: CommonHeader,
     firmware_ctrl: u32,
@@ -59,3 +63,5 @@ pub struct Fadt {
     sleep_status_reg: GenericAddressStructureFormat,
     hypervisor_vendor_id: [u8; 8],
 }
+
+impl Fadt {}

@@ -1,12 +1,12 @@
 use zerocopy::IntoBytes;
 
-use crate::apic::CREATOR_ID;
-use crate::apic::CREATOR_REVISION;
-use crate::apic::OEM_REVISION;
-use crate::apic::OEM_TABLE_ID;
-use crate::apic::OEMID;
-use crate::apic::r#type::common_header::CommonHeader;
-use crate::apic::utils::checksum;
+use crate::acpi::CREATOR_ID;
+use crate::acpi::CREATOR_REVISION;
+use crate::acpi::OEM_REVISION;
+use crate::acpi::OEM_TABLE_ID;
+use crate::acpi::OEMID;
+use crate::acpi::r#type::common_header::CommonHeader;
+use crate::acpi::utils::checksum;
 
 /// Differentiated System Description Table
 pub struct Dsdt {

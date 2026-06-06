@@ -1,7 +1,7 @@
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 
-#[derive(Immutable, IntoBytes)]
+#[derive(Default, Immutable, IntoBytes)]
 #[repr(C, packed)]
 pub struct CommonHeader {
     pub(crate) signature: [u8; 4],
