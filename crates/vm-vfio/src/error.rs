@@ -5,7 +5,6 @@ pub enum Error {
     #[error("Vfio is supported only on Linux")]
     NotSupport,
 
-    #[cfg(target_os = "linux")]
     #[error("{0}")]
     Vfio(#[from] vfio_ioctls::VfioError),
 

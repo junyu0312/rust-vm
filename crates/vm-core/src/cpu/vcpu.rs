@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::WeakSender;
 use tracing::error;
 #[cfg(target_arch = "x86_64")]
-use vm_arch::x86_64::gdt::Gdt;
+use vm_firmware::x86_64::gdt::Gdt;
 
 use crate::arch::registers::ArchCoreRegisters;
 use crate::arch::registers::ArchRegisters;

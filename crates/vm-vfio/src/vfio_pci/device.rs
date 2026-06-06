@@ -6,17 +6,19 @@ use vm_pci::types::device::PciDevice;
 use vm_pci::types::function::PciFunction;
 
 use crate::error::Result;
-use crate::vfio::VfioDeviceOps;
+use crate::vfio::device::VfioDevice;
 use crate::vfio_pci::function::VfioPciFunction;
 
 pub struct VfioPciDevice {
     name: String,
-    _vfio_device: Box<dyn VfioDeviceOps>,
+    _vfio_device: VfioDevice,
     function: Type0Function<VfioPciFunction>,
 }
 
 impl VfioPciDevice {
-    pub fn new(name: String, vfio_device: Box<dyn VfioDeviceOps>) -> Result<Self> {
+    pub fn new(name: String, vfio_device: VfioDevice) -> Result<Self> {
+        vfio_device.reset()?;
+
         let function = Type0Function::new(VfioPciFunction)?;
 
         Ok(VfioPciDevice {

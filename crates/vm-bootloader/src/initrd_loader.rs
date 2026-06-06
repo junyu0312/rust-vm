@@ -8,6 +8,7 @@ use vm_mm::manager::MemoryAddressSpace;
 pub enum Error {
     #[error("Read failed")]
     ReadFailed,
+
     #[error("Copy initrd failed")]
     CopyFailed,
 }

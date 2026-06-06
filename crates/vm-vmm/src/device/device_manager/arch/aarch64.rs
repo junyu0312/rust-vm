@@ -13,7 +13,6 @@ use vm_device::device::virtio::virtio_entropy::VirtioMmioEntropyDevice;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::PciRootComplexOps;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
-use vm_vfio::vfio::VfioContainerOps;
 use vm_virtio::transport::VirtioDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
@@ -25,7 +24,6 @@ use crate::service::monitor::builder::MonitorServerBuilder;
 impl DeviceManager {
     pub fn init_arch(
         &mut self,
-        _vfio_container: &dyn VfioContainerOps,
         monitor_server_builder: &mut MonitorServerBuilder,
         mm: Arc<MemoryAddressSpace>,
         devices: &[Device],

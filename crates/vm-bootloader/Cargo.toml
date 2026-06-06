@@ -13,4 +13,4 @@ vm-mm.workspace = true
 zerocopy.workspace = true
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
-vm-arch.workspace = true
+vm-firmware.workspace = true

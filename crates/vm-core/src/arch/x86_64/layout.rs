@@ -1,76 +1,8 @@
-use crate::arch::layout::Error;
-use crate::arch::layout::MemoryLayout;
-
 pub const RAM_BASE: u64 = 0x0000_0000;
 pub const GDT_START: u32 = 0x0000_0500;
 pub const BOOT_PARAMS_START: u32 = 0x0000_7000;
 pub const CMDLINE_START: u32 = 0x0001_0000;
 pub const KERNEL_START: u32 = 0x0010_0000;
 pub const INITRD_START: u32 = 0x1000_0000;
-
-type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Clone)]
-pub struct X86_64Layout {}
-
-impl MemoryLayout for X86_64Layout {
-    fn get_mmio_start(&self) -> u64 {
-        todo!()
-    }
-
-    fn get_mmio_len(&self) -> usize {
-        todo!()
-    }
-
-    fn get_ram_base(&self) -> u64 {
-        todo!()
-    }
-
-    fn set_ram_size(&self, _len: u64) -> Result<()> {
-        todo!()
-    }
-
-    fn get_ram_size(&self) -> Result<u64> {
-        todo!()
-    }
-
-    fn set_kernel(&self, _kernel_start: u64, _kernel_len: usize, _start_pc: u64) -> Result<()> {
-        todo!()
-    }
-
-    fn get_kernel_start(&self) -> Result<u64> {
-        todo!()
-    }
-
-    fn get_kernel_len(&self) -> Result<usize> {
-        todo!()
-    }
-
-    fn get_start_pc(&self) -> Result<u64> {
-        todo!()
-    }
-
-    fn get_initrd_start(&self) -> u64 {
-        todo!()
-    }
-
-    fn set_initrd_len(&self, _len: usize) -> Result<()> {
-        todo!()
-    }
-
-    fn get_initrd_len(&self) -> Result<usize> {
-        todo!()
-    }
-
-    fn get_dtb_start(&self) -> u64 {
-        todo!()
-    }
-
-    fn set_dtb_len(&self, _len: usize) -> Result<()> {
-        todo!()
-    }
-
-    fn validate(&self) -> Result<()> {
-        todo!()
-    }
-}
+pub const MMIO_START: u32 = 0xfffc_0000;
+pub const MMIO_LEN: u32 = 0x0004_0000;

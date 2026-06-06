@@ -4,8 +4,8 @@ use std::path::Path;
 use std::slice;
 
 use tracing::debug;
-use vm_arch::x86_64::gdt::Gdt;
-use vm_arch::x86_64::gdt::GdtEntry;
+use vm_firmware::x86_64::gdt::Gdt;
+use vm_firmware::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::FromZeros;
 use zerocopy::IntoBytes;
@@ -34,6 +34,8 @@ pub struct BzImageBootParams {
     pub initrd_start: u32,
     pub cmdline_start: u32,
     pub memory_size: u64,
+    pub mmio_start: u64,
+    pub mmio_length: u64,
 }
 
 pub struct BzImage {
@@ -183,24 +185,31 @@ impl BzImage {
         })
     }
 
-    fn setup_e820(&self, params: &BzImageBootParams, boot_params: &mut BootParams) -> Result<()> {
-        boot_params.e820_entries = 3;
-        boot_params.e820_table[0] = BootE820Entry {
-            addr: 0,
-            size: 0x9efff,
-            ty: E820Type::Ram as u32,
-        };
-        boot_params.e820_table[1] = BootE820Entry {
-            addr: 0x9f000,
-            size: 0x61000,
+    fn setup_e820(
+        &self,
+        mm: &MemoryAddressSpace,
+        params: &BzImageBootParams,
+        boot_params: &mut BootParams,
+    ) -> Result<()> {
+        let mut index = 0;
+
+        for region in mm.regions().values() {
+            boot_params.e820_table[index] = BootE820Entry {
+                addr: region.gpa,
+                size: region.len() as u64,
+                ty: E820Type::Ram as u32,
+            };
+            index += 1;
+        }
+
+        boot_params.e820_table[index] = BootE820Entry {
+            addr: params.mmio_start,
+            size: params.mmio_length,
             ty: E820Type::Reserved as u32,
         };
+        index += 1;
 
-        boot_params.e820_table[2] = BootE820Entry {
-            addr: params.kernel_start as u64,
-            size: params.memory_size - 0x100000,
-            ty: E820Type::Ram as u32,
-        };
+        boot_params.e820_entries = index as u8;
 
         Ok(())
     }
@@ -232,7 +241,7 @@ impl KernelLoader for BzImage {
     ) -> Result<LoadResult> {
         let mut boot_params = BootParams::new_zeroed();
 
-        self.setup_e820(params, &mut boot_params)?;
+        self.setup_e820(memory, params, &mut boot_params)?;
         let load_result = self.setup_hdr(params, &mut boot_params, memory)?;
         let gdt = self.setup_gdt(params, memory)?;
 

@@ -4,7 +4,6 @@ use std::slice::Iter;
 use async_trait::async_trait;
 use thiserror::Error;
 use vm_core::arch::irq::InterruptController;
-use vm_core::arch::layout;
 use vm_core::cpu::error::CpuError;
 use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::mmio::mmio_device::MmioDevice;
@@ -31,9 +30,6 @@ pub enum Error {
 
     #[error("Setup boot cpu error: {0}")]
     SetupBootCpuError(#[from] CpuError),
-
-    #[error("Layout error, reason: {0}")]
-    LayoutError(#[from] layout::Error),
 
     #[error("{0}")]
     GenerateDtb(#[from] vm_fdt::Error),

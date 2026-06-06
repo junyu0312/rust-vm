@@ -26,7 +26,6 @@ use vm_device::device::Device;
 use vm_mm::allocator::Allocator;
 use vm_mm::allocator::std_allocator::StdAllocator;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_mm::memory_container::MemoryContainer;
 use vm_mm::region::MemoryRegion;
 
 #[cfg(target_arch = "aarch64")]
@@ -67,15 +66,18 @@ impl Vm {
         {
             let memory_region = StdAllocator.alloc(vm_config.memory_size, Some(PAGE_SIZE))?;
 
-            vm_instance.set_user_memory_region(
-                memory_region.hva() as _,
-                RAM_BASE,
-                vm_config.memory_size,
-                SetUserMemoryRegionFlags::ReadWriteExec,
-            )?;
             memory_address_space
                 .try_insert(MemoryRegion::new(RAM_BASE, Box::new(memory_region)))
                 .map_err(|_| VmError::MemoryRegionOverlap)?;
+
+            for region in memory_address_space.regions().values() {
+                vm_instance.set_user_memory_region(
+                    region.hva() as u64,
+                    region.gpa,
+                    region.len(),
+                    SetUserMemoryRegionFlags::ReadWriteExec,
+                )?;
+            }
         }
 
         let memory_address_space = Arc::new(memory_address_space);

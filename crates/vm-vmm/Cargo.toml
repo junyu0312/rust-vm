@@ -25,12 +25,14 @@ vm-device = { workspace = true }
 vm-mm = { workspace = true }
 vm-pci = { workspace = true }
 vm-snapshot = { workspace = true }
-vm-vfio = { workspace = true }
 vm-virtio = { workspace = true }
 winnow = { workspace = true }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 strum = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+vm-vfio = { workspace = true }
 
 [features]
 kvm = []
