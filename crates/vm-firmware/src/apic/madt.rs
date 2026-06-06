@@ -19,10 +19,15 @@ pub struct Madt {
 
 impl Madt {
     pub fn new(local_interrupt_controller_address: u32, interrupt_controllers: Vec<u8>) -> Self {
+        let length = size_of::<CommonHeader>()
+            + size_of::<u32>()
+            + size_of::<u32>()
+            + interrupt_controllers.len();
+
         let mut raw = Madt {
             header: CommonHeader {
                 signature: *b"APIC",
-                length: 0,
+                length: length.try_into().unwrap(),
                 revision: 6,
                 checksum: 0,
                 oem_id: OEMID,
@@ -38,8 +43,6 @@ impl Madt {
             flags: 0,
             interrupt_controllers: interrupt_controllers.clone(),
         };
-
-        raw.header.length = size_of_val(&raw).try_into().unwrap();
 
         let flags = raw.flags;
         raw.header.checksum = checksum(
@@ -64,13 +67,13 @@ mod tests {
     fn test_madt() {
         let local_interrupt_controller_address = 0xdeadbeef;
         let interrupt_controllers = vec![0x0, 0x1, 0x2, 0x3];
-        let rsdp = Madt::new(
+        let madt = Madt::new(
             local_interrupt_controller_address,
             interrupt_controllers.clone(),
         );
 
-        let header = rsdp.header;
-        let flags = rsdp.flags;
+        let header = madt.header;
+        let flags = madt.flags;
         assert_eq!(
             checksum(
                 &[
@@ -86,12 +89,9 @@ mod tests {
         let length = header.length;
         assert_eq!(
             length,
-            (size_of::<CommonHeader>()
-                + size_of_val(&local_interrupt_controller_address)
-                + size_of_val(&flags)
-                + size_of_val(&interrupt_controllers))
-            .try_into()
-            .unwrap()
+            (size_of::<CommonHeader>() + size_of::<u32>() * 2 + interrupt_controllers.len())
+                .try_into()
+                .unwrap()
         );
     }
 }

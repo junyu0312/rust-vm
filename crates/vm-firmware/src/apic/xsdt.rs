@@ -19,12 +19,12 @@ pub struct Xsdt {
 
 impl Xsdt {
     pub fn new(entry: Vec<u64>) -> Self {
+        let length = size_of::<CommonHeader>() + entry.as_bytes().len();
+
         let mut raw = Xsdt {
             header: CommonHeader {
                 signature: *b"XSDT",
-                length: (size_of::<CommonHeader>() + entry.as_bytes().len())
-                    .try_into()
-                    .unwrap(),
+                length: length.try_into().unwrap(),
                 revision: 1,
                 checksum: 0,
                 oem_id: OEMID,
@@ -48,10 +48,17 @@ mod tests {
 
     #[test]
     fn test_xsdt() {
-        let rsdp = Xsdt::new(vec![0x00000000, 0x11111111]);
-        let header = rsdp.header;
-        let entry = rsdp.entry;
+        let xsdt = Xsdt::new(vec![0x00000000, 0x11111111]);
+        let header = xsdt.header;
+        let entry = xsdt.entry;
 
         assert_eq!(checksum(&[header.as_bytes(), entry.as_bytes()].concat()), 0);
+        let length = header.length;
+        assert_eq!(
+            length,
+            (size_of::<CommonHeader>() + entry.as_bytes().len())
+                .try_into()
+                .unwrap()
+        );
     }
 }
