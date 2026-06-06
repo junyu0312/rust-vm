@@ -1,7 +1,7 @@
 use gdbstub_arch::x86::reg::X86_64CoreRegs;
 use serde::Deserialize;
 use serde::Serialize;
-use vm_arch::x86_64::gdt::Gdt;
+use vm_firmware::x86_64::gdt::Gdt;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct X86_64Segment {

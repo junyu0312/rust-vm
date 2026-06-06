@@ -1,6 +1,6 @@
 use thiserror::Error;
 #[cfg(target_arch = "x86_64")]
-use vm_arch::x86_64::gdt::Gdt;
+use vm_firmware::x86_64::gdt::Gdt;
 use vm_mm::manager::MemoryAddressSpace;
 
 pub mod linux;

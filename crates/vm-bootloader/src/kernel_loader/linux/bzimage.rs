@@ -4,8 +4,8 @@ use std::path::Path;
 use std::slice;
 
 use tracing::debug;
-use vm_arch::x86_64::gdt::Gdt;
-use vm_arch::x86_64::gdt::GdtEntry;
+use vm_firmware::x86_64::gdt::Gdt;
+use vm_firmware::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::FromZeros;
 use zerocopy::IntoBytes;
