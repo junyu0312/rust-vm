@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::slice::Iter;
 use std::slice::IterMut;
 use std::sync::Arc;
@@ -12,9 +11,8 @@ use vm_core::utils::address_space::AddressSpaceError;
 use vm_device::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::PciRootComplexOps;
-use vm_vfio::vfio::VfioContainer;
-use vm_vfio::vfio::VfioContainerOps;
-use vm_vfio::vfio_pci::device::VfioPciDevice;
+#[cfg(target_os = "linux")]
+use vm_vfio::vfio::container::VfioContainer;
 
 use crate::device::device_manager::pio::PioAddressSpaceManager;
 use crate::device::error::InitDeviceError;
@@ -26,10 +24,14 @@ mod arch;
 mod irq_allocation;
 mod mmio;
 mod pio;
+#[cfg(target_os = "linux")]
+mod vfio;
 
 pub struct DeviceManager {
     pub pio_manager: PioAddressSpaceManager,
     pub mmio_manager: MmioAddressSpaceManager,
+    #[cfg(target_os = "linux")]
+    vfio_container: Option<VfioContainer>,
 }
 
 impl DeviceManager {
@@ -37,6 +39,8 @@ impl DeviceManager {
         DeviceManager {
             pio_manager: PioAddressSpaceManager::default(),
             mmio_manager: MmioAddressSpaceManager::new(mmio_layout),
+            #[cfg(target_os = "linux")]
+            vfio_container: None,
         }
     }
 
@@ -62,26 +66,8 @@ impl DeviceManager {
         self.mmio_manager.devices_mut()
     }
 
-    fn init_vfio_container(&mut self) -> Result<VfioContainer, InitDeviceError> {
-        Ok(VfioContainer::new()?)
-    }
-
-    fn init_vfio_device(
-        &self,
-        name: String,
-        container: &dyn VfioContainerOps,
-        path: &Path,
-    ) -> Result<VfioPciDevice, InitDeviceError> {
-        let vfio_device = container.new_device(path)?;
-
-        let vfio_pci_device = VfioPciDevice::new(name, vfio_device)?;
-
-        Ok(vfio_pci_device)
-    }
-
     fn init_device(
         &self,
-        vfio_container: &dyn VfioContainerOps,
         pci_root_complex: &dyn PciRootComplexOps,
         device: &Device,
     ) -> Result<(), InitDeviceError> {
@@ -92,6 +78,10 @@ impl DeviceManager {
             Device::VirtioPciEntropy => todo!(),
             #[cfg(target_os = "linux")]
             Device::VfioPci { name, path } => {
+                let vfio_container = &self
+                    .vfio_container
+                    .as_ref()
+                    .ok_or(InitDeviceError::VfioNotSupport)?;
                 let dev = self.init_vfio_device(name.to_string(), vfio_container, path)?;
                 pci_root_complex
                     .register_device(Box::new(dev))
@@ -109,15 +99,10 @@ impl DeviceManager {
         devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<(), InitDeviceError> {
-        let vfio_container = self.init_vfio_container()?;
+        #[cfg(target_os = "linux")]
+        self.init_vfio()?;
 
-        self.init_arch(
-            &vfio_container,
-            monitor_server_builder,
-            mm,
-            devices,
-            irq_chip,
-        )?;
+        self.init_arch(monitor_server_builder, mm, devices, irq_chip)?;
 
         Ok(())
     }

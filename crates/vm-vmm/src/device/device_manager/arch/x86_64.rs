@@ -10,7 +10,6 @@ use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::pio::PciRootComplexPio;
-use vm_vfio::vfio::VfioContainerOps;
 
 use crate::device::device_manager::DeviceManager;
 use crate::device::device_manager::irq_allocation::IrqAllocation;
@@ -20,7 +19,6 @@ use crate::service::monitor::builder::MonitorServerBuilder;
 impl DeviceManager {
     pub fn init_arch(
         &mut self,
-        vfio_container: &dyn VfioContainerOps,
         _monitor_server_builder: &mut MonitorServerBuilder,
         _mm: Arc<MemoryAddressSpace>,
         devices: &[Device],
@@ -40,7 +38,7 @@ impl DeviceManager {
         let pci_rc = PciRootComplexPio::default();
 
         for device in devices {
-            self.init_device(vfio_container, &pci_rc, device)?;
+            self.init_device(&pci_rc, device)?;
         }
 
         self.register_pio_device(Box::new(uart8250_com1))?;

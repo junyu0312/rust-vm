@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-thiserror = { workspace = true }
-vm-core = { workspace = true }
-vm-pci = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+thiserror = { workspace = true }
 vfio-bindings = { workspace = true }
 vfio-ioctls = { workspace = true }
+vm-core = { workspace = true }
+vm-pci = { workspace = true }
