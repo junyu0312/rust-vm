@@ -1,6 +1,7 @@
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 
+use crate::acpi::OEMID;
 use crate::acpi::utils::checksum;
 
 /// Root System Description Pointer
@@ -23,7 +24,7 @@ impl Rsdp {
         let mut raw = Rsdp {
             signature: *b"RSD PTR ",
             checksum: 0,
-            oem_id: *b"JUNYUZ",
+            oem_id: OEMID,
             revision: 2,
             rsdt_addr: 0, // ignored, using xsdt in revision 2
             length: size_of::<Rsdp>().try_into().unwrap(),
