@@ -1,3 +1,4 @@
+use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::IntoBytes;
 
 use crate::acpi::CREATOR_ID;
@@ -5,11 +6,12 @@ use crate::acpi::CREATOR_REVISION;
 use crate::acpi::OEM_REVISION;
 use crate::acpi::OEM_TABLE_ID;
 use crate::acpi::OEMID;
+use crate::acpi::acpi_table::get_address;
+use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::utils::checksum;
 
 /// Extended System Description Table
-#[repr(C, packed)]
 pub struct Xsdt {
     header: CommonHeader,
     entry: Vec<u64>,
@@ -31,12 +33,26 @@ impl Xsdt {
                 creator_id: CREATOR_ID,
                 creator_revision: CREATOR_REVISION,
             },
-            entry: entry.clone(),
+            entry,
         };
 
-        raw.header.checksum = checksum(&[raw.header.as_bytes(), entry.as_bytes()].concat());
+        raw.header.checksum = checksum(&[raw.header.as_bytes(), raw.entry.as_bytes()].concat());
 
         raw
+    }
+
+    pub fn len(&self) -> usize {
+        self.header.length as usize
+    }
+
+    pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
+        let address = get_address(self.len());
+        memory.copy_from_slice(
+            address,
+            &[self.header.as_bytes(), self.entry.as_bytes()].concat(),
+        )?;
+
+        Ok(address)
     }
 }
 
@@ -47,14 +63,14 @@ mod tests {
     #[test]
     fn test_xsdt() {
         let xsdt = Xsdt::new(vec![0x00000000, 0x11111111]);
-        let header = xsdt.header;
-        let entry = xsdt.entry;
 
-        assert_eq!(checksum(&[header.as_bytes(), entry.as_bytes()].concat()), 0);
-        let length = header.length;
         assert_eq!(
-            length,
-            (size_of::<CommonHeader>() + entry.as_bytes().len())
+            checksum(&[xsdt.header.as_bytes(), xsdt.entry.as_bytes()].concat()),
+            0
+        );
+        assert_eq!(
+            xsdt.len(),
+            (size_of::<CommonHeader>() + xsdt.entry.as_bytes().len())
                 .try_into()
                 .unwrap()
         );

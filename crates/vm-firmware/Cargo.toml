@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+thiserror = { workspace = true }
+vm-mm = { workspace = true }
 zerocopy = { workspace = true }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
+bitflags = { workspace = true }
 kvm-bindings = { workspace = true }

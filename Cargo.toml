@@ -3,6 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
+acpi_tables = "0.2.1"
 anyhow = "1.0.100"
 applevisor = "1.0.0"
 applevisor-sys = "1.0.0"

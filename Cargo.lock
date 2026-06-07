@@ -1298,7 +1298,10 @@ checksum = "7e21282841a059bb62627ce8441c491f09603622cd5a21c43bfedc85a2952f23"
 name = "vm-firmware"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.10.0",
  "kvm-bindings",
+ "thiserror",
+ "vm-mm",
  "zerocopy",
 ]
 

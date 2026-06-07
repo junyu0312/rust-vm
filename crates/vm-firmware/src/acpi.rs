@@ -8,8 +8,6 @@ const HYPERVISOR_VENDOR_ID: [u8; 8] = *b"RSVMHYPV";
 mod r#type;
 mod utils;
 
-pub mod dsdt;
-pub mod fadt;
-pub mod madt;
-pub mod rsdp;
-pub mod xsdt;
+pub mod acpi_table;
+pub mod builder;
+pub mod error;

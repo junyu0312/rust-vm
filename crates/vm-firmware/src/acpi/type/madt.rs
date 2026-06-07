@@ -1,3 +1,4 @@
+use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::IntoBytes;
 
 use crate::acpi::CREATOR_ID;
@@ -5,11 +6,12 @@ use crate::acpi::CREATOR_REVISION;
 use crate::acpi::OEM_REVISION;
 use crate::acpi::OEM_TABLE_ID;
 use crate::acpi::OEMID;
+use crate::acpi::acpi_table::get_address;
+use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::utils::checksum;
 
 /// Multiple APIC Description Table
-#[repr(C, packed)]
 pub struct Madt {
     header: CommonHeader,
     local_interrupt_controller_address: u32,
@@ -41,7 +43,7 @@ impl Madt {
             // The 8259 vectors must be disabled (that is, masked) when enabling the ACPI APIC operation.`
             // TODO: 0 or 1?
             flags: 0,
-            interrupt_controllers: interrupt_controllers.clone(),
+            interrupt_controllers,
         };
 
         let flags = raw.flags;
@@ -50,12 +52,32 @@ impl Madt {
                 raw.header.as_bytes(),
                 local_interrupt_controller_address.as_bytes(),
                 flags.as_bytes(),
-                interrupt_controllers.as_bytes(),
+                raw.interrupt_controllers.as_bytes(),
             ]
             .concat(),
         );
 
         raw
+    }
+
+    pub fn len(&self) -> usize {
+        self.header.length as usize
+    }
+
+    pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
+        let address = get_address(self.len());
+        memory.copy_from_slice(
+            address,
+            &[
+                self.header.as_bytes(),
+                self.local_interrupt_controller_address.as_bytes(),
+                self.flags.as_bytes(),
+                self.interrupt_controllers.as_bytes(),
+            ]
+            .concat(),
+        )?;
+
+        Ok(address)
     }
 }
 
@@ -65,31 +87,23 @@ mod tests {
 
     #[test]
     fn test_madt() {
-        let local_interrupt_controller_address = 0xdeadbeef;
-        let interrupt_controllers = vec![0x0, 0x1, 0x2, 0x3];
-        let madt = Madt::new(
-            local_interrupt_controller_address,
-            interrupt_controllers.clone(),
-        );
+        let madt = Madt::new(0xdeadbeef, vec![0x0, 0x1, 0x2, 0x3]);
 
-        let header = madt.header;
-        let flags = madt.flags;
         assert_eq!(
             checksum(
                 &[
-                    header.as_bytes(),
-                    local_interrupt_controller_address.as_bytes(),
-                    flags.as_bytes(),
-                    interrupt_controllers.as_bytes(),
+                    madt.header.as_bytes(),
+                    madt.local_interrupt_controller_address.as_bytes(),
+                    madt.flags.as_bytes(),
+                    madt.interrupt_controllers.as_bytes(),
                 ]
                 .concat(),
             ),
             0
         );
-        let length = header.length;
         assert_eq!(
-            length,
-            (size_of::<CommonHeader>() + size_of::<u32>() * 2 + interrupt_controllers.len())
+            madt.len(),
+            (size_of::<CommonHeader>() + size_of::<u32>() * 2 + madt.interrupt_controllers.len())
                 .try_into()
                 .unwrap()
         );
