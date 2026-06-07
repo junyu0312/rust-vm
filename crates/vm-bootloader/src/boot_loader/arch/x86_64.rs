@@ -3,6 +3,7 @@ use std::slice::Iter;
 
 use async_trait::async_trait;
 use vm_core::arch::irq::InterruptController;
+use vm_core::arch::x86_64::layout::ACPI_RSDT_START;
 use vm_core::arch::x86_64::layout::BOOT_PARAMS_START;
 use vm_core::arch::x86_64::layout::CMDLINE_START;
 use vm_core::arch::x86_64::layout::GDT_START;
@@ -42,7 +43,7 @@ impl BootLoader for X86_64BootLoader {
     async fn load(
         &self,
         ram_size: u64,
-        _vcpus: usize,
+        vcpus: usize,
         boot_vcpu: &mut Vcpu,
         memory: &MemoryAddressSpace,
         _irq_chip: &dyn InterruptController,
@@ -55,7 +56,9 @@ impl BootLoader for X86_64BootLoader {
         )?;
 
         let params = BzImageBootParams {
+            vcpus,
             gdt_start: GDT_START,
+            acpi_rsdt_addr: ACPI_RSDT_START,
             boot_params_start: BOOT_PARAMS_START,
             kernel_start: KERNEL_START,
             initrd_start: INITRD_START,

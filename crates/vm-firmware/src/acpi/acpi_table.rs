@@ -5,32 +5,35 @@ use crate::acpi::r#type::dsdt::Dsdt;
 use crate::acpi::r#type::fadt::Fadt;
 use crate::acpi::r#type::madt::Madt;
 use crate::acpi::r#type::mcfg::Mcfg;
+use crate::acpi::r#type::mcfg::PciRangeEntry;
 use crate::acpi::r#type::rsdp::Rsdp;
 use crate::acpi::r#type::xsdt::Xsdt;
 
-pub fn get_address(len: usize) -> u64 {
+pub fn get_address(_len: usize) -> u64 {
     todo!()
 }
 
-fn reserve_address(hint_address: u64, len: usize) -> u64 {
+fn reserve_address(_hint_address: u64, _len: usize) -> u64 {
     todo!()
 }
 
 pub struct AcpiTable {
-    pub apic_base_address: u32,
-    pub interrupt_controllers: Vec<u8>,
+    pub(crate) definition_block: Vec<u8>,
+    pub(crate) apic_base_address: u32,
+    pub(crate) interrupt_controllers: Vec<u8>,
+    pub(crate) pci_range_entry: PciRangeEntry, // We only support one yet
 }
 
 impl AcpiTable {
     pub fn install(
-        &self,
-        guest_memory_allocator: impl FnMut(usize) -> Option<u64>,
+        self,
+        _guest_memory_allocator: (),
         memory: &MemoryAddressSpace,
-        hint_rsdp_address: u64,
+        rsdp_address: u64,
     ) -> Result<(), AcpiError> {
-        reserve_address(hint_rsdp_address, size_of::<Rsdp>());
+        reserve_address(rsdp_address, size_of::<Rsdp>());
 
-        let dsdt = Dsdt::new(todo!());
+        let dsdt = Dsdt::new(self.definition_block);
         let dsdt_address = dsdt.install(memory)?;
 
         let fadt = Fadt::new(dsdt_address);
@@ -39,14 +42,14 @@ impl AcpiTable {
         let madt = Madt::new(self.apic_base_address, self.interrupt_controllers);
         let madt_address = madt.install(memory)?;
 
-        let mcfg = Mcfg::new(todo!());
+        let mcfg = Mcfg::new(vec![self.pci_range_entry]);
         let mcfg_address = mcfg.install(memory)?;
 
         let xsdt = Xsdt::new(vec![fadt_address, madt_address, mcfg_address]);
         let xsdt_address = xsdt.install(memory)?;
 
         let rsdp = Rsdp::new(xsdt_address);
-        rsdp.install(memory, hint_rsdp_address)?;
+        rsdp.install(memory, rsdp_address)?;
 
         Ok(())
     }

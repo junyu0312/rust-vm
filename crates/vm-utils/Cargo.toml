@@ -1,0 +1,8 @@
+[package]
+name = "vm-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rangemap = { workspace = true }
+thiserror = { workspace = true }

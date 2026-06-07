@@ -43,6 +43,7 @@ impl Rsdp {
         raw
     }
 
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.length as usize
     }

@@ -1,4 +1,5 @@
 use thiserror::Error;
+use vm_firmware::acpi::error::AcpiError;
 #[cfg(target_arch = "x86_64")]
 use vm_firmware::x86_64::gdt::Gdt;
 use vm_mm::manager::MemoryAddressSpace;
@@ -7,6 +8,9 @@ pub mod linux;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("Too much vcpu")]
+    VcpuExceedsAcpiCapability,
+
     #[error("Read failed")]
     ReadFailed,
 
@@ -50,6 +54,9 @@ pub enum Error {
     #[cfg(target_arch = "x86_64")]
     #[error("Copy cmdline into memory failed")]
     CopyCmdlineFailed,
+
+    #[error("Acpi error: {0}")]
+    Acpi(#[from] AcpiError),
 
     #[cfg(target_arch = "x86_64")]
     #[error("Copy gdt into memory failed")]
