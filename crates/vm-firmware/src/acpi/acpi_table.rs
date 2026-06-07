@@ -1,5 +1,4 @@
 use vm_mm::manager::MemoryAddressSpace;
-use zerocopy::IntoBytes;
 
 use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::dsdt::Dsdt;
@@ -41,7 +40,7 @@ impl AcpiTable {
         let madt_address = madt.install(memory)?;
 
         let mcfg = Mcfg::new(todo!());
-        let mcfg_address = mcfg.install(&memory)?;
+        let mcfg_address = mcfg.install(memory)?;
 
         let xsdt = Xsdt::new(vec![fadt_address, madt_address, mcfg_address]);
         let xsdt_address = xsdt.install(memory)?;
