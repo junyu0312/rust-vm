@@ -5,6 +5,7 @@ use vm_bootloader::boot_loader::arch::aarch64::AArch64BootLoader;
 use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::bootloader::error::BootloaderError;
 use crate::device::device_manager::DeviceManager;
@@ -13,6 +14,7 @@ use crate::vm::config::VmConfig;
 pub async fn install_bootloader(
     vm_config: &VmConfig,
     vcpu_manager: &Mutex<VcpuManager>,
+    ram_allocator: &mut RangeAllocator<u64>,
     memory_address_space: &MemoryAddressSpace,
     irq_chip: &dyn InterruptController,
     device_manager: &DeviceManager,
@@ -31,6 +33,7 @@ pub async fn install_bootloader(
             vm_config.memory_size as u64,
             vm_config.vcpus,
             boot_vcpu,
+            ram_allocator,
             memory_address_space,
             irq_chip,
             device_manager.mmio_devices(),

@@ -27,6 +27,7 @@ use vm_mm::allocator::Allocator;
 use vm_mm::allocator::std_allocator::StdAllocator;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_mm::region::MemoryRegion;
+use vm_utils::range_allocator::RangeAllocator;
 
 #[cfg(target_arch = "aarch64")]
 use crate::bootloader::aarch64::install_bootloader;
@@ -58,6 +59,8 @@ impl Vm {
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
         vm_config: VmConfig,
     ) -> Result<Self, VmmError> {
+        let mut ram_allocator = RangeAllocator::default();
+
         let mut monitor_server_builder = MonitorServerBuilder::default();
 
         let vm_instance = hypervisor.create_vm()?;
@@ -132,6 +135,7 @@ impl Vm {
         install_bootloader(
             &vm_config,
             &vcpu_manager,
+            &mut ram_allocator,
             &memory_address_space,
             irq_chip.as_ref(),
             device_manager.as_ref(),

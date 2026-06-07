@@ -8,6 +8,7 @@ use vm_firmware::acpi::builder::AcpiTableBuilder;
 use vm_firmware::x86_64::gdt::Gdt;
 use vm_firmware::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 use zerocopy::FromZeros;
 use zerocopy::IntoBytes;
 
@@ -190,6 +191,7 @@ impl BzImage {
 
     fn setup_acpi(
         &self,
+        ram_allocator: &mut RangeAllocator<u64>,
         mm: &MemoryAddressSpace,
         params: &BzImageBootParams,
         boot_params: &mut BootParams,
@@ -203,8 +205,10 @@ impl BzImage {
             )?
             .build()?;
 
-        acpi.install(todo!(), mm, params.acpi_rsdt_addr as u64)?;
+        acpi.install(ram_allocator, mm, params.acpi_rsdt_addr as u64)?;
         boot_params.acpi_rsdp_addr = params.acpi_rsdt_addr as u64;
+
+        Ok(())
     }
 
     fn setup_e820(
@@ -258,12 +262,13 @@ impl KernelLoader for BzImage {
 
     fn load(
         &mut self,
-        params: &Self::BootParams,
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
+        params: &Self::BootParams,
     ) -> Result<LoadResult> {
         let mut boot_params = BootParams::new_zeroed();
 
-        self.setup_acpi(memory, params, &mut boot_params)?;
+        self.setup_acpi(ram_allocator, memory, params, &mut boot_params)?;
         self.setup_e820(memory, params, &mut boot_params)?;
 
         let load_result = self.setup_hdr(params, &mut boot_params, memory)?;

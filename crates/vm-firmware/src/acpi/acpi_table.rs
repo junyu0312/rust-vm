@@ -1,4 +1,5 @@
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::dsdt::Dsdt;
@@ -8,14 +9,6 @@ use crate::acpi::r#type::mcfg::Mcfg;
 use crate::acpi::r#type::mcfg::PciRangeEntry;
 use crate::acpi::r#type::rsdp::Rsdp;
 use crate::acpi::r#type::xsdt::Xsdt;
-
-pub fn get_address(_len: usize) -> u64 {
-    todo!()
-}
-
-fn reserve_address(_hint_address: u64, _len: usize) -> u64 {
-    todo!()
-}
 
 pub struct AcpiTable {
     pub(crate) definition_block: Vec<u8>,
@@ -27,26 +20,26 @@ pub struct AcpiTable {
 impl AcpiTable {
     pub fn install(
         self,
-        _guest_memory_allocator: (),
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         rsdp_address: u64,
     ) -> Result<(), AcpiError> {
-        reserve_address(rsdp_address, size_of::<Rsdp>());
+        ram_allocator.reserve(rsdp_address, size_of::<Rsdp>())?;
 
         let dsdt = Dsdt::new(self.definition_block);
-        let dsdt_address = dsdt.install(memory)?;
+        let dsdt_address = dsdt.install(ram_allocator, memory)?;
 
         let fadt = Fadt::new(dsdt_address);
-        let fadt_address = fadt.install(memory)?;
+        let fadt_address = fadt.install(ram_allocator, memory)?;
 
         let madt = Madt::new(self.apic_base_address, self.interrupt_controllers);
-        let madt_address = madt.install(memory)?;
+        let madt_address = madt.install(ram_allocator, memory)?;
 
         let mcfg = Mcfg::new(vec![self.pci_range_entry]);
-        let mcfg_address = mcfg.install(memory)?;
+        let mcfg_address = mcfg.install(ram_allocator, memory)?;
 
         let xsdt = Xsdt::new(vec![fadt_address, madt_address, mcfg_address]);
-        let xsdt_address = xsdt.install(memory)?;
+        let xsdt_address = xsdt.install(ram_allocator, memory)?;
 
         let rsdp = Rsdp::new(xsdt_address);
         rsdp.install(memory, rsdp_address)?;

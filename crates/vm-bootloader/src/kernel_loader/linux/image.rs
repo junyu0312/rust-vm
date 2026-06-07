@@ -7,6 +7,7 @@ use std::path::Path;
 
 use tracing::debug;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 use zerocopy::FromBytes;
 
 use crate::kernel_loader::Error;
@@ -84,8 +85,9 @@ impl KernelLoader for Image {
 
     fn load(
         &mut self,
-        boot_params: &AArch64BootParams,
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
+        boot_params: &AArch64BootParams,
     ) -> Result<LoadResult> {
         let header = self.get_header()?;
 

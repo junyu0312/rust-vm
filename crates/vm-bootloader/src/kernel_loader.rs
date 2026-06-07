@@ -3,6 +3,7 @@ use vm_firmware::acpi::error::AcpiError;
 #[cfg(target_arch = "x86_64")]
 use vm_firmware::x86_64::gdt::Gdt;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 
 pub mod linux;
 
@@ -78,7 +79,8 @@ pub trait KernelLoader {
 
     fn load(
         &mut self,
-        boot_params: &Self::BootParams,
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
+        boot_params: &Self::BootParams,
     ) -> Result<LoadResult>;
 }
