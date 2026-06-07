@@ -1299,6 +1299,8 @@ name = "vm-firmware"
 version = "0.1.0"
 dependencies = [
  "kvm-bindings",
+ "thiserror",
+ "vm-mm",
  "zerocopy",
 ]
 

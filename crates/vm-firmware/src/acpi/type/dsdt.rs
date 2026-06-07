@@ -1,3 +1,4 @@
+use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::IntoBytes;
 
 use crate::acpi::CREATOR_ID;
@@ -5,6 +6,8 @@ use crate::acpi::CREATOR_REVISION;
 use crate::acpi::OEM_REVISION;
 use crate::acpi::OEM_TABLE_ID;
 use crate::acpi::OEMID;
+use crate::acpi::acpi_table::get_address;
+use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::utils::checksum;
 
@@ -38,6 +41,22 @@ impl Dsdt {
 
         raw
     }
+
+    pub fn len(&self) -> usize {
+        self.header.length as usize
+    }
+
+    pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
+        let address = get_address(self.len());
+        memory
+            .copy_from_slice(
+                address,
+                &[self.header.as_bytes(), self.definition_block.as_bytes()].concat(),
+            )
+            .map_err(|_| AcpiError::CopyToMemory)?;
+
+        Ok(address)
+    }
 }
 
 #[cfg(test)]
@@ -46,17 +65,15 @@ mod tests {
 
     #[test]
     fn test_dsdt() {
-        let definition_block = vec![0x0, 0x1, 0x2, 0x3];
-        let dsdt = Dsdt::new(definition_block.clone());
+        let dsdt = Dsdt::new(vec![0x0, 0x1, 0x2, 0x3]);
 
         assert_eq!(
-            checksum(&[dsdt.header.as_bytes(), &definition_block].concat()),
+            checksum(&[dsdt.header.as_bytes(), &dsdt.definition_block].concat()),
             0
         );
-        let length = dsdt.header.length;
         assert_eq!(
-            length,
-            (size_of::<CommonHeader>() + definition_block.len())
+            dsdt.len(),
+            (size_of::<CommonHeader>() + dsdt.definition_block.len())
                 .try_into()
                 .unwrap()
         );

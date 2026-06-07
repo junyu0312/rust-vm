@@ -1,7 +1,9 @@
+use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 
 use crate::acpi::OEMID;
+use crate::acpi::error::AcpiError;
 use crate::acpi::utils::checksum;
 
 /// Root System Description Pointer
@@ -40,6 +42,18 @@ impl Rsdp {
 
         raw
     }
+
+    pub fn len(&self) -> usize {
+        self.length as usize
+    }
+
+    pub fn install(&self, memory: &MemoryAddressSpace, rsdp_address: u64) -> Result<(), AcpiError> {
+        memory
+            .copy_from_slice(rsdp_address, self.as_bytes())
+            .map_err(|_| AcpiError::CopyToMemory)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -52,5 +66,6 @@ mod tests {
 
         assert_eq!(checksum(&rsdp.as_bytes()[0..20]), 0);
         assert_eq!(checksum(rsdp.as_bytes()), 0);
+        assert_eq!(rsdp.len(), size_of::<Rsdp>());
     }
 }

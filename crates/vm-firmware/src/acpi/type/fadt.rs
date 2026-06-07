@@ -1,3 +1,4 @@
+use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 
@@ -7,6 +8,8 @@ use crate::acpi::HYPERVISOR_VENDOR_ID;
 use crate::acpi::OEM_REVISION;
 use crate::acpi::OEM_TABLE_ID;
 use crate::acpi::OEMID;
+use crate::acpi::acpi_table::get_address;
+use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::r#type::generic_address_structure_format::GenericAddressStructureFormat;
 use crate::acpi::utils::checksum;
@@ -99,6 +102,19 @@ impl Fadt {
 
         raw
     }
+
+    pub fn len(&self) -> usize {
+        self.header.length as usize
+    }
+
+    pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
+        let address = get_address(self.len());
+        memory
+            .copy_from_slice(address, self.as_bytes())
+            .map_err(|_| AcpiError::CopyToMemory)?;
+
+        Ok(address)
+    }
 }
 
 #[cfg(test)]
@@ -110,5 +126,6 @@ mod tests {
         let fadt = Fadt::new(0x12345678);
 
         assert_eq!(checksum(fadt.as_bytes()), 0);
+        assert_eq!(fadt.len(), fadt.as_bytes().len());
     }
 }
