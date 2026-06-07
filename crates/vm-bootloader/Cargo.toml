@@ -9,8 +9,6 @@ thiserror.workspace = true
 tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
+vm-firmware.workspace = true
 vm-mm.workspace = true
 zerocopy.workspace = true
-
-[target.'cfg(target_arch = "x86_64")'.dependencies]
-vm-firmware.workspace = true
