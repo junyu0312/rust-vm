@@ -27,11 +27,11 @@ pub struct AcpiTable {
 impl AcpiTable {
     pub fn install(
         self,
-        _guest_memory_allocator: impl FnMut(usize) -> Option<u64>,
+        _guest_memory_allocator: (),
         memory: &MemoryAddressSpace,
-        hint_rsdp_address: u64,
+        rsdp_address: u64,
     ) -> Result<(), AcpiError> {
-        reserve_address(hint_rsdp_address, size_of::<Rsdp>());
+        reserve_address(rsdp_address, size_of::<Rsdp>());
 
         let dsdt = Dsdt::new(self.definition_block);
         let dsdt_address = dsdt.install(memory)?;
@@ -49,7 +49,7 @@ impl AcpiTable {
         let xsdt_address = xsdt.install(memory)?;
 
         let rsdp = Rsdp::new(xsdt_address);
-        rsdp.install(memory, hint_rsdp_address)?;
+        rsdp.install(memory, rsdp_address)?;
 
         Ok(())
     }

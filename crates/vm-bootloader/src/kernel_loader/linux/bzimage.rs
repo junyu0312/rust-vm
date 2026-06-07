@@ -4,6 +4,7 @@ use std::path::Path;
 use std::slice;
 
 use tracing::debug;
+use vm_firmware::acpi::builder::AcpiTableBuilder;
 use vm_firmware::x86_64::gdt::Gdt;
 use vm_firmware::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
@@ -27,7 +28,9 @@ fn to_gpa(cs: u16, ip: u16) -> u32 {
 }
 
 pub struct BzImageBootParams {
+    pub vcpus: usize,
     pub gdt_start: u32,
+    pub acpi_rsdt_addr: u32,
     pub boot_params_start: u32,
     pub kernel_start: u32,
     // pub heap_end: u32,
@@ -185,6 +188,25 @@ impl BzImage {
         })
     }
 
+    fn setup_acpi(
+        &self,
+        mm: &MemoryAddressSpace,
+        params: &BzImageBootParams,
+        boot_params: &mut BootParams,
+    ) -> Result<()> {
+        let acpi = AcpiTableBuilder::default()
+            .set_vcpus(
+                params
+                    .vcpus
+                    .try_into()
+                    .map_err(|_| Error::VcpuExceedsAcpiCapability)?,
+            )?
+            .build()?;
+
+        acpi.install(todo!(), mm, params.acpi_rsdt_addr as u64)?;
+        boot_params.acpi_rsdp_addr = params.acpi_rsdt_addr as u64;
+    }
+
     fn setup_e820(
         &self,
         mm: &MemoryAddressSpace,
@@ -241,7 +263,9 @@ impl KernelLoader for BzImage {
     ) -> Result<LoadResult> {
         let mut boot_params = BootParams::new_zeroed();
 
+        self.setup_acpi(memory, params, &mut boot_params)?;
         self.setup_e820(memory, params, &mut boot_params)?;
+
         let load_result = self.setup_hdr(params, &mut boot_params, memory)?;
         let gdt = self.setup_gdt(params, memory)?;
 
