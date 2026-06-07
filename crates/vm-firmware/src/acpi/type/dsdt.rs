@@ -1,4 +1,5 @@
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 use zerocopy::IntoBytes;
 
 use crate::acpi::CREATOR_ID;
@@ -6,7 +7,6 @@ use crate::acpi::CREATOR_REVISION;
 use crate::acpi::OEM_REVISION;
 use crate::acpi::OEM_TABLE_ID;
 use crate::acpi::OEMID;
-use crate::acpi::acpi_table::get_address;
 use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::utils::checksum;
@@ -46,8 +46,12 @@ impl Dsdt {
         self.header.length as usize
     }
 
-    pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
-        let address = get_address(self.len());
+    pub fn install(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        memory: &MemoryAddressSpace,
+    ) -> Result<u64, AcpiError> {
+        let address = ram_allocator.alloc(self.len())?;
         memory.copy_from_slice(
             address,
             &[self.header.as_bytes(), self.definition_block.as_bytes()].concat(),
@@ -71,9 +75,7 @@ mod tests {
         );
         assert_eq!(
             dsdt.len(),
-            (size_of::<CommonHeader>() + dsdt.definition_block.len())
-                .try_into()
-                .unwrap()
+            size_of::<CommonHeader>() + dsdt.definition_block.len()
         );
     }
 }

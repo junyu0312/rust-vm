@@ -10,6 +10,7 @@ use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_fdt::FdtWriter;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
@@ -34,6 +35,7 @@ impl AArch64BootLoader {
     fn load_image(
         &self,
         ram_size: u64,
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
     ) -> Result<kernel_loader::LoadResult> {
         let mut image =
@@ -44,7 +46,7 @@ impl AArch64BootLoader {
             ram_size,
         };
         let load_result = image
-            .load(&boot_params, memory)
+            .load(ram_allocator, memory, &boot_params)
             .map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
 
         Ok(load_result)
@@ -231,6 +233,7 @@ impl BootLoader for AArch64BootLoader {
         ram_size: u64,
         vcpus: usize,
         boot_vcpu: &mut Vcpu,
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn MmioDevice>>,
@@ -238,7 +241,7 @@ impl BootLoader for AArch64BootLoader {
         let kernel_loader;
         let initrd_loader;
         {
-            kernel_loader = self.load_image(ram_size, memory)?;
+            kernel_loader = self.load_image(ram_size, ram_allocator, memory)?;
             initrd_loader = self.load_initrd(memory)?;
         }
 

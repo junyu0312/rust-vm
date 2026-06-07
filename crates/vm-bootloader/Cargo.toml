@@ -11,4 +11,5 @@ vm-core.workspace = true
 vm-fdt.workspace = true
 vm-firmware.workspace = true
 vm-mm.workspace = true
+vm-utils.workspace = true
 zerocopy.workspace = true

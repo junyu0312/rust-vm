@@ -14,6 +14,7 @@ use vm_core::arch::x86_64::layout::MMIO_START;
 use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
@@ -45,6 +46,7 @@ impl BootLoader for X86_64BootLoader {
         ram_size: u64,
         vcpus: usize,
         boot_vcpu: &mut Vcpu,
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         _irq_chip: &dyn InterruptController,
         _devices: Iter<'_, Box<dyn MmioDevice>>,
@@ -68,7 +70,7 @@ impl BootLoader for X86_64BootLoader {
             mmio_length: MMIO_LEN as u64,
         };
 
-        let load_result = kernel_loader.load(&params, memory)?;
+        let load_result = kernel_loader.load(ram_allocator, memory, &params)?;
 
         boot_vcpu
             .setup_vcpu(

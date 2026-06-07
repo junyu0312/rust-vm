@@ -11,6 +11,9 @@ pub enum AcpiError {
     #[error("Acpi implementation does not support arch {0} yet")]
     ArchNotSupport(&'static str),
 
+    #[error("Failed to alloc memory for acpi")]
+    AllocMemory(#[from] vm_utils::range_allocator::Error),
+
     #[error("Failed to copy ACPI table to guest memory")]
     CopyToMemory(#[from] vm_mm::error::Error),
 }
