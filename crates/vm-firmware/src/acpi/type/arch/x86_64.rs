@@ -5,7 +5,7 @@ use zerocopy::IntoBytes;
 bitflags! {
     pub struct LocalApicFlag: u32 {
         const ENABLED = 1 << 0;
-         const ONLINE_CAPABLE = 1 << 0;
+        const ONLINE_CAPABLE = 1 << 1;
     }
 }
 
