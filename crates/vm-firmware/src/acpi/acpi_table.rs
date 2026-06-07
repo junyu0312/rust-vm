@@ -1,5 +1,7 @@
 use vm_mm::manager::MemoryAddressSpace;
+use zerocopy::IntoBytes;
 
+use crate::acpi::OEMID;
 use crate::acpi::error::AcpiError;
 use crate::acpi::r#type::dsdt::Dsdt;
 use crate::acpi::r#type::fadt::Fadt;
@@ -16,7 +18,9 @@ fn reserve_address(hint_address: u64, len: usize) -> u64 {
     todo!()
 }
 
-pub struct AcpiTable {}
+pub struct AcpiTable {
+    pub apic_base_address: u32,
+}
 
 impl AcpiTable {
     pub fn install(
@@ -33,7 +37,7 @@ impl AcpiTable {
         let fadt = Fadt::new(dsdt_address);
         let fadt_address = fadt.install(memory)?;
 
-        let madt = Madt::new(todo!(), todo!());
+        let madt = Madt::new(self.apic_base_address, todo!());
         let madt_address = madt.install(memory)?;
 
         let mcfg = Mcfg::new(todo!());

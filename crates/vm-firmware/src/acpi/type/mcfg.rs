@@ -79,17 +79,15 @@ impl Mcfg {
 
     pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
         let address = get_address(self.len());
-        memory
-            .copy_from_slice(
-                address,
-                &[
-                    self.header.as_bytes(),
-                    self.reserved.as_bytes(),
-                    self.entry.as_bytes(),
-                ]
-                .concat(),
-            )
-            .map_err(|_| AcpiError::CopyToMemory)?;
+        memory.copy_from_slice(
+            address,
+            &[
+                self.header.as_bytes(),
+                self.reserved.as_bytes(),
+                self.entry.as_bytes(),
+            ]
+            .concat(),
+        )?;
 
         Ok(address)
     }

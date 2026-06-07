@@ -43,7 +43,7 @@ impl Madt {
             // The 8259 vectors must be disabled (that is, masked) when enabling the ACPI APIC operation.`
             // TODO: 0 or 1?
             flags: 0,
-            interrupt_controllers: interrupt_controllers.clone(),
+            interrupt_controllers,
         };
 
         let flags = raw.flags;
@@ -52,7 +52,7 @@ impl Madt {
                 raw.header.as_bytes(),
                 local_interrupt_controller_address.as_bytes(),
                 flags.as_bytes(),
-                interrupt_controllers.as_bytes(),
+                raw.interrupt_controllers.as_bytes(),
             ]
             .concat(),
         );
@@ -66,18 +66,16 @@ impl Madt {
 
     pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
         let address = get_address(self.len());
-        memory
-            .copy_from_slice(
-                address,
-                &[
-                    self.header.as_bytes(),
-                    self.local_interrupt_controller_address.as_bytes(),
-                    self.flags.as_bytes(),
-                    self.interrupt_controllers.as_bytes(),
-                ]
-                .concat(),
-            )
-            .map_err(|_| AcpiError::CopyToMemory)?;
+        memory.copy_from_slice(
+            address,
+            &[
+                self.header.as_bytes(),
+                self.local_interrupt_controller_address.as_bytes(),
+                self.flags.as_bytes(),
+                self.interrupt_controllers.as_bytes(),
+            ]
+            .concat(),
+        )?;
 
         Ok(address)
     }

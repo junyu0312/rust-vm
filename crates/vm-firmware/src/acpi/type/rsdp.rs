@@ -48,9 +48,7 @@ impl Rsdp {
     }
 
     pub fn install(&self, memory: &MemoryAddressSpace, rsdp_address: u64) -> Result<(), AcpiError> {
-        memory
-            .copy_from_slice(rsdp_address, self.as_bytes())
-            .map_err(|_| AcpiError::CopyToMemory)?;
+        memory.copy_from_slice(rsdp_address, self.as_bytes())?;
 
         Ok(())
     }

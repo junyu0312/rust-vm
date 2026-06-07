@@ -109,9 +109,7 @@ impl Fadt {
 
     pub fn install(&self, memory: &MemoryAddressSpace) -> Result<u64, AcpiError> {
         let address = get_address(self.len());
-        memory
-            .copy_from_slice(address, self.as_bytes())
-            .map_err(|_| AcpiError::CopyToMemory)?;
+        memory.copy_from_slice(address, self.as_bytes())?;
 
         Ok(address)
     }
