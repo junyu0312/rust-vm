@@ -1,3 +1,4 @@
+pub(crate) mod arch;
 pub(crate) mod common_header;
 pub(crate) mod dsdt;
 pub(crate) mod fadt;
