@@ -17,20 +17,21 @@ fn reserve_address(hint_address: u64, len: usize) -> u64 {
 }
 
 pub struct AcpiTable {
-    pub apic_base_address: u32,
-    pub interrupt_controllers: Vec<u8>,
+    pub(crate) definition_block: Vec<u8>,
+    pub(crate) apic_base_address: u32,
+    pub(crate) interrupt_controllers: Vec<u8>,
 }
 
 impl AcpiTable {
     pub fn install(
-        &self,
+        self,
         guest_memory_allocator: impl FnMut(usize) -> Option<u64>,
         memory: &MemoryAddressSpace,
         hint_rsdp_address: u64,
     ) -> Result<(), AcpiError> {
         reserve_address(hint_rsdp_address, size_of::<Rsdp>());
 
-        let dsdt = Dsdt::new(todo!());
+        let dsdt = Dsdt::new(self.definition_block);
         let dsdt_address = dsdt.install(memory)?;
 
         let fadt = Fadt::new(dsdt_address);

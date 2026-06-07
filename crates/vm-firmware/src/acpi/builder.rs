@@ -6,6 +6,7 @@ use crate::acpi::error::AcpiError;
 #[derive(Default)]
 pub struct AcpiTableBuilder {
     vcpus: OnceCell<u8>,
+    definition_block: OnceCell<Vec<u8>>,
     apic_base_address: OnceCell<u32>,
 
     #[cfg(target_arch = "x86_64")]
@@ -17,6 +18,14 @@ impl AcpiTableBuilder {
         self.vcpus
             .set(vcpus)
             .map_err(|_| AcpiError::FieldAlreadySet("vcpus"))?;
+
+        Ok(())
+    }
+
+    pub fn set_definition_block(&mut self, definition_block: Vec<u8>) -> Result<(), AcpiError> {
+        self.definition_block
+            .set(definition_block)
+            .map_err(|_| AcpiError::FieldAlreadySet("definition_block"))?;
 
         Ok(())
     }
@@ -42,6 +51,10 @@ impl AcpiTableBuilder {
         let interrupt_controllers = self.setup_arch_interrupt_controllers()?;
 
         let table = AcpiTable {
+            definition_block: self
+                .definition_block
+                .take()
+                .ok_or_else(|| AcpiError::FieldNotSet("definition_block"))?,
             apic_base_address: self
                 .apic_base_address
                 .take()
