@@ -45,7 +45,7 @@ impl AcpiTableBuilder {
             apic_base_address: self
                 .apic_base_address
                 .take()
-                .ok_or_else(|| AcpiError::FieldNotSet("acpi_base_address"))?,
+                .ok_or_else(|| AcpiError::FieldNotSet("apic_base_address"))?,
             interrupt_controllers,
         };
 

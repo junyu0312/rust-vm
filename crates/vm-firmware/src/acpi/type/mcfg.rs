@@ -13,6 +13,7 @@ use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::utils::checksum;
 
 #[derive(Clone, Immutable, IntoBytes)]
+#[repr(C, packed)]
 pub struct PciRangeEntry {
     base_address: u64,
     segment: u16,
