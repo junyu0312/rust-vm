@@ -2,12 +2,14 @@ use std::cell::OnceCell;
 
 use crate::acpi::acpi_table::AcpiTable;
 use crate::acpi::error::AcpiError;
+use crate::acpi::r#type::mcfg::PciRangeEntry;
 
 #[derive(Default)]
 pub struct AcpiTableBuilder {
     vcpus: OnceCell<u8>,
     definition_block: OnceCell<Vec<u8>>,
     apic_base_address: OnceCell<u32>,
+    pci_mmio_base_addr: OnceCell<u64>,
 
     #[cfg(target_arch = "x86_64")]
     io_apic_address: OnceCell<u32>,
@@ -47,8 +49,20 @@ impl AcpiTableBuilder {
         Ok(())
     }
 
+    pub fn set_pci_mmio_base_addr(&mut self, base_address: u64) -> Result<(), AcpiError> {
+        self.pci_mmio_base_addr
+            .set(base_address)
+            .map_err(|_| AcpiError::FieldAlreadySet("set_pci_mmio_base_addr"))?;
+
+        Ok(())
+    }
+
     pub fn build(mut self) -> Result<AcpiTable, AcpiError> {
         let interrupt_controllers = self.setup_arch_interrupt_controllers()?;
+        let pci_mmio_base_addr = self
+            .pci_mmio_base_addr
+            .take()
+            .ok_or_else(|| AcpiError::FieldNotSet("pci_mmio_configuration_space"))?;
 
         let table = AcpiTable {
             definition_block: self
@@ -60,6 +74,7 @@ impl AcpiTableBuilder {
                 .take()
                 .ok_or_else(|| AcpiError::FieldNotSet("apic_base_address"))?,
             interrupt_controllers,
+            pci_range_entry: PciRangeEntry::new(pci_mmio_base_addr, 0, 0, 0),
         };
 
         Ok(table)
