@@ -23,8 +23,14 @@ pub fn handle_vm_exit(
             handler.io_in(port, data)?;
             Ok(VmExitResult::Ok)
         }
-        VcpuExit::MmioRead(..) => todo!(),
-        VcpuExit::MmioWrite(..) => todo!(),
+        VcpuExit::MmioRead(addr, buf) => {
+            handler.mmio_read(addr, buf.len(), buf)?;
+            Ok(VmExitResult::Ok)
+        }
+        VcpuExit::MmioWrite(addr, buf) => {
+            handler.mmio_write(addr, buf.len(), buf)?;
+            Ok(VmExitResult::Ok)
+        }
         VcpuExit::Unknown => todo!(),
         VcpuExit::Exception => todo!(),
         VcpuExit::Hypercall(..) => todo!(),
