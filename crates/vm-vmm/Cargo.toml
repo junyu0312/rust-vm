@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = { workspace = true }
 gdbstub = { workspace = true }
 gdbstub_arch = { workspace = true }
 kvm-bindings = { workspace = true, optional = true }
