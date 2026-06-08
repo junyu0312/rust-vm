@@ -1,4 +1,4 @@
-#![cfg_attr(target_arch = "aarch64", deny(warnings))]
+#![deny(warnings)]
 
 pub mod device;
 pub mod error;

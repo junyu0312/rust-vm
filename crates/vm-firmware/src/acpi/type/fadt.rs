@@ -14,8 +14,6 @@ use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::r#type::generic_address_structure_format::GenericAddressStructureFormat;
 use crate::acpi::utils::checksum;
 
-const HW_REDUCED_ACPI: u32 = 20;
-
 #[derive(Default, Immutable, IntoBytes)]
 #[repr(C, packed)]
 pub struct Fadt {
@@ -91,7 +89,7 @@ impl Fadt {
                 creator_id: CREATOR_ID,
                 creator_revision: CREATOR_REVISION,
             },
-            flags: 1 << HW_REDUCED_ACPI,
+            flags: 0,
             fadt_minor_version: 5, // ACPI 6.6 specification says it is 5.
             x_dsdt,
             hypervisor_vendor_id: HYPERVISOR_VENDOR_ID,

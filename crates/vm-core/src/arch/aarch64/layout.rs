@@ -1,7 +1,11 @@
 use static_assertions::const_assert_eq;
 
-pub const MMIO_START: u64 = 0x0900_0000;
-pub const MMIO_LEN: usize = 0x2700_0000;
+pub const MMIO_START: u32 = 0x0900_0000;
+pub const MMIO_LEN: u32 = 0x2700_0000;
+pub const ECAM_BASE: u32 = 0x1000_0000;
+pub const ECAM_LENGTH: u32 = 0x1000_0000;
+pub const PCI_BAR_MMIO_WINDOW_START: u32 = 0x2000_0000;
+pub const PCI_BAR_MMIO_WINDOW_LENGTH: u32 = 0x1000_0000;
 pub const GIC_DISTRIBUTOR: u64 = 0x3000_0000;
 pub const GIC_REDISTRIBUTOR: u64 = 0x3001_0000;
 pub const GIC_MSI: u64 = 0x3a00_0000;

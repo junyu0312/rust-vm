@@ -9,7 +9,6 @@ pub struct MonitorServerBuilder {
 }
 
 impl MonitorServerBuilder {
-    #[allow(unused)]
     pub fn register_command_handler(
         &mut self,
         name: &str,

@@ -5,6 +5,7 @@ pub const GDT_START: u32 = 0x0000_0500;
 pub const BOOT_PARAMS_START: u32 = 0x0000_7000;
 pub const CMDLINE_START: u32 = 0x0001_0000;
 pub const ACPI_RSDT_START: u32 = 0x000e_0000;
+pub const ACPI_MAX_LEN: u32 = 0x20000;
 pub const KERNEL_START: u32 = 0x0010_0000;
 pub const INITRD_START: u32 = 0x1000_0000;
 
@@ -23,6 +24,7 @@ pub const ECAM_LENGTH: u32 = 0x0010_0000;
 pub const IOAPIC_ADDR: u32 = 0xfec0_0000;
 pub const APIC_ADDR: u32 = 0xfee0_0000;
 
+const_assert!(KERNEL_START >= ACPI_RSDT_START + ACPI_MAX_LEN);
 const_assert!(PCI_BAR_MMIO_WINDOW_START >= MMIO_START + MMIO_LEN);
 const_assert!(ECAM_BASE >= PCI_BAR_MMIO_WINDOW_START + PCI_BAR_MMIO_WINDOW_LENGTH);
 const_assert!(IOAPIC_ADDR >= ECAM_BASE + ECAM_LENGTH);

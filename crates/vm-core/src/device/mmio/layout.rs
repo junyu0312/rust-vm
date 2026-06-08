@@ -9,18 +9,10 @@ pub struct MmioLayout {
 }
 
 impl MmioLayout {
-    pub fn new(mmio_start: u64, mmio_len: usize) -> Self {
-        let mut address_space = AddressSpace::default();
-        address_space
-            .try_insert(
-                Range {
-                    start: mmio_start,
-                    len: mmio_len,
-                },
-                (),
-            )
+    pub fn try_insert(&mut self, start: u64, len: usize) {
+        self.address_space
+            .try_insert(Range { start, len }, ())
             .unwrap();
-        MmioLayout { address_space }
     }
 
     pub fn includes(&self, range: Range<u64>) -> bool {

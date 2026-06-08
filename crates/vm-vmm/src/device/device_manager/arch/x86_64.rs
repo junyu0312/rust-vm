@@ -2,27 +2,25 @@ use std::hint::black_box;
 use std::sync::Arc;
 
 use vm_core::arch::irq::InterruptController;
-use vm_device::device::Device;
 use vm_device::device::cmos::Cmos;
 use vm_device::device::dummy::Dummy;
 use vm_device::device::i8042::I8042;
 use vm_device::device::post_debug::PostDebug;
 use vm_device::device::uart8250::Uart8250;
 use vm_mm::manager::MemoryAddressSpace;
-use vm_pci::root_complex::pio::PciRootComplexPio;
+use vm_pci::root_complex::pci_root_complex::PciRootComplex;
 
 use crate::device::device_manager::DeviceManager;
 use crate::device::device_manager::irq_allocation::IrqAllocation;
 use crate::device::error::InitDeviceError;
-use crate::service::monitor::builder::MonitorServerBuilder;
 
 impl DeviceManager {
     pub fn init_arch(
         &mut self,
-        _monitor_server_builder: &mut MonitorServerBuilder,
+        _irq_allocation: &mut IrqAllocation,
         _mm: Arc<MemoryAddressSpace>,
-        devices: &[Device],
         irq_chip: Arc<dyn InterruptController>,
+        _pci_root_complex: &mut PciRootComplex,
     ) -> Result<(), InitDeviceError> {
         let mut irq_allocation = IrqAllocation::new(0);
         black_box(irq_allocation.alloc());
@@ -35,11 +33,6 @@ impl DeviceManager {
         let post_debug = PostDebug;
         let dummy = Dummy;
         let i8042 = I8042::new(irq_chip);
-        let pci_rc = PciRootComplexPio::default();
-
-        for device in devices {
-            self.init_device(&pci_rc, device)?;
-        }
 
         self.register_pio_device(Box::new(uart8250_com1))?;
         self.register_pio_device(Box::new(uart8250_com2))?;
@@ -49,7 +42,6 @@ impl DeviceManager {
         self.register_pio_device(Box::new(post_debug))?;
         self.register_pio_device(Box::new(dummy))?;
         self.register_pio_device(Box::new(i8042))?;
-        self.register_pio_device(Box::new(pci_rc))?;
 
         Ok(())
     }

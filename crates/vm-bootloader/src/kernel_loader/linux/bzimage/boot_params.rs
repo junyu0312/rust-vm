@@ -153,6 +153,7 @@ pub struct SetupHeader {
     pub kernel_info_offset: u32,
 }
 
+#[allow(dead_code)]
 #[repr(u32)]
 pub enum E820Type {
     Ram = 1,
