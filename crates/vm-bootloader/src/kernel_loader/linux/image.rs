@@ -85,7 +85,7 @@ impl KernelLoader for Image {
 
     fn load(
         &mut self,
-        ram_allocator: &mut RangeAllocator<u64>,
+        _ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         boot_params: &AArch64BootParams,
     ) -> Result<LoadResult> {

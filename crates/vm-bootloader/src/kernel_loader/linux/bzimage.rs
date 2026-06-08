@@ -30,16 +30,22 @@ fn to_gpa(cs: u16, ip: u16) -> u32 {
 
 pub struct BzImageBootParams {
     pub vcpus: usize,
-    pub gdt_start: u32,
-    pub acpi_rsdt_addr: u32,
-    pub boot_params_start: u32,
-    pub kernel_start: u32,
-    // pub heap_end: u32,
-    pub initrd_start: u32,
-    pub cmdline_start: u32,
     pub memory_size: u64,
-    pub mmio_start: u64,
-    pub mmio_length: u64,
+    pub gdt_start: u32,
+    pub boot_params_start: u32,
+    // pub heap_end: u32,
+    pub cmdline_start: u32,
+    pub acpi_rsdt_addr: u32,
+    pub kernel_start: u32,
+    pub initrd_start: u32,
+    pub mmio_start: u32,
+    pub mmio_length: u32,
+    pub pci_bar_mmio_window_start: u32,
+    pub pci_bar_mmio_window_length: u32,
+    pub ecam_base: u32,
+    pub ecam_length: u32,
+    pub ioapic_base_addr: u32,
+    pub apic_base_addr: u32,
 }
 
 pub struct BzImage {
@@ -203,6 +209,9 @@ impl BzImage {
                     .try_into()
                     .map_err(|_| Error::VcpuExceedsAcpiCapability)?,
             )?
+            .set_apic_base_address(params.apic_base_addr)?
+            .set_io_apic_address(params.ioapic_base_addr)?
+            .set_pci_mmio_base_addr(params.ecam_base as u64)?
             .build()?;
 
         acpi.install(ram_allocator, mm, params.acpi_rsdt_addr as u64)?;
@@ -229,8 +238,22 @@ impl BzImage {
         }
 
         boot_params.e820_table[index] = BootE820Entry {
-            addr: params.mmio_start,
-            size: params.mmio_length,
+            addr: params.mmio_start as u64,
+            size: params.mmio_length as u64,
+            ty: E820Type::Reserved as u32,
+        };
+        index += 1;
+
+        boot_params.e820_table[index] = BootE820Entry {
+            addr: params.pci_bar_mmio_window_start as u64,
+            size: params.pci_bar_mmio_window_length as u64,
+            ty: E820Type::Reserved as u32,
+        };
+        index += 1;
+
+        boot_params.e820_table[index] = BootE820Entry {
+            addr: params.ecam_base as u64,
+            size: params.ecam_length as u64,
             ty: E820Type::Reserved as u32,
         };
         index += 1;

@@ -4,13 +4,19 @@ use std::slice::Iter;
 use async_trait::async_trait;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::x86_64::layout::ACPI_RSDT_START;
+use vm_core::arch::x86_64::layout::APIC_ADDR;
 use vm_core::arch::x86_64::layout::BOOT_PARAMS_START;
 use vm_core::arch::x86_64::layout::CMDLINE_START;
+use vm_core::arch::x86_64::layout::ECAM_BASE;
+use vm_core::arch::x86_64::layout::ECAM_LENGTH;
 use vm_core::arch::x86_64::layout::GDT_START;
 use vm_core::arch::x86_64::layout::INITRD_START;
+use vm_core::arch::x86_64::layout::IOAPIC_ADDR;
 use vm_core::arch::x86_64::layout::KERNEL_START;
 use vm_core::arch::x86_64::layout::MMIO_LEN;
 use vm_core::arch::x86_64::layout::MMIO_START;
+use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_LENGTH;
+use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_START;
 use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::mmio::mmio_device::MmioDevice;
 use vm_mm::manager::MemoryAddressSpace;
@@ -59,15 +65,21 @@ impl BootLoader for X86_64BootLoader {
 
         let params = BzImageBootParams {
             vcpus,
+            memory_size: ram_size,
             gdt_start: GDT_START,
-            acpi_rsdt_addr: ACPI_RSDT_START,
             boot_params_start: BOOT_PARAMS_START,
+            cmdline_start: CMDLINE_START,
+            acpi_rsdt_addr: ACPI_RSDT_START,
             kernel_start: KERNEL_START,
             initrd_start: INITRD_START,
-            cmdline_start: CMDLINE_START,
-            memory_size: ram_size,
-            mmio_start: MMIO_START as u64,
-            mmio_length: MMIO_LEN as u64,
+            mmio_start: MMIO_START,
+            mmio_length: MMIO_LEN,
+            pci_bar_mmio_window_start: PCI_BAR_MMIO_WINDOW_START,
+            pci_bar_mmio_window_length: PCI_BAR_MMIO_WINDOW_LENGTH,
+            ecam_base: ECAM_BASE,
+            ecam_length: ECAM_LENGTH,
+            ioapic_base_addr: IOAPIC_ADDR,
+            apic_base_addr: APIC_ADDR,
         };
 
         let load_result = kernel_loader.load(ram_allocator, memory, &params)?;
