@@ -1,5 +1,3 @@
-use crate::types::interrupt::InterruptMapEntryArch;
-
 pub struct InterruptMapEntryAArch64 {
     pub pci_addr_high: u32,
     pub pci_addr_mid: u32,
@@ -13,8 +11,8 @@ pub struct InterruptMapEntryAArch64 {
     pub gic_irq_flags: u32,
 }
 
-impl InterruptMapEntryArch for InterruptMapEntryAArch64 {
-    fn to_vec(&self) -> Vec<u32> {
+impl InterruptMapEntryAArch64 {
+    pub fn to_vec(&self) -> Vec<u32> {
         [
             self.pci_addr_high,
             self.pci_addr_mid,

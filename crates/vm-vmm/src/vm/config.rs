@@ -15,6 +15,10 @@ use vm_core::arch::aarch64::layout::MMIO_START;
 use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
+use vm_core::arch::x86_64::layout::MMIO_LEN;
+#[cfg(target_arch = "x86_64")]
+use vm_core::arch::x86_64::layout::MMIO_START;
+#[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
 use vm_core::device::mmio::layout::MmioLayout;
@@ -92,12 +96,25 @@ impl Vm {
                 todo!()
             };
 
-        let mut device_manager = DeviceManager::new(
-            #[cfg(target_arch = "aarch64")]
-            MmioLayout::new(MMIO_START, MMIO_LEN),
+        let mut mmio_layout = MmioLayout::default();
+        {
+            mmio_layout.try_insert(MMIO_START as u64, MMIO_LEN as usize);
+
             #[cfg(target_arch = "x86_64")]
-            MmioLayout::default(),
-        );
+            {
+                use vm_core::arch::x86_64::layout::ECAM_BASE;
+                use vm_core::arch::x86_64::layout::ECAM_LENGTH;
+                use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_LENGTH;
+                use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_START;
+
+                mmio_layout.try_insert(
+                    PCI_BAR_MMIO_WINDOW_START as u64,
+                    PCI_BAR_MMIO_WINDOW_LENGTH as usize,
+                );
+                mmio_layout.try_insert(ECAM_BASE as u64, ECAM_LENGTH as usize);
+            }
+        }
+        let mut device_manager = DeviceManager::new(mmio_layout);
         device_manager.init(
             &mut monitor_server_builder,
             memory_address_space.clone(),

@@ -2,7 +2,6 @@ use vm_core::arch::irq::Phandle;
 use vm_fdt::FdtWriter;
 
 use crate::root_complex::mmio::PciRootComplexMmio;
-use crate::types::interrupt::InterruptMapEntryArch;
 
 impl PciRootComplexMmio {
     pub fn generate_device_tree_arch(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {

@@ -1,9 +1,8 @@
-// #![deny(warnings)]
-
-mod bootloader;
-mod device;
-mod firmware;
-mod service;
+#![deny(warnings)]
 
 pub mod vm;
 pub mod vmm;
+
+mod bootloader;
+mod device;
+mod service;

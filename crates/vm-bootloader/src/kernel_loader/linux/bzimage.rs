@@ -24,18 +24,16 @@ mod boot_params;
 
 const MINIMAL_VERSION: u16 = 0x206;
 
-fn to_gpa(cs: u16, ip: u16) -> u32 {
-    ((cs as u32) << 4) + ip as u32
-}
-
 pub struct BzImageBootParams {
     pub vcpus: usize,
     pub memory_size: u64,
+    pub definition_block: Vec<u8>,
     pub gdt_start: u32,
     pub boot_params_start: u32,
     // pub heap_end: u32,
     pub cmdline_start: u32,
     pub acpi_rsdt_addr: u32,
+    pub acpi_max_length: u32,
     pub kernel_start: u32,
     pub initrd_start: u32,
     pub mmio_start: u32,
@@ -197,11 +195,18 @@ impl BzImage {
 
     fn setup_acpi(
         &self,
-        ram_allocator: &mut RangeAllocator<u64>,
         mm: &MemoryAddressSpace,
         params: &BzImageBootParams,
         boot_params: &mut BootParams,
     ) -> Result<()> {
+        let mut acpi_ram_allocator = RangeAllocator::<u64>::default();
+        acpi_ram_allocator
+            .insert(
+                params.acpi_rsdt_addr as u64,
+                params.acpi_max_length as usize,
+            )
+            .unwrap();
+
         let acpi = AcpiTableBuilder::default()
             .set_vcpus(
                 params
@@ -209,12 +214,13 @@ impl BzImage {
                     .try_into()
                     .map_err(|_| Error::VcpuExceedsAcpiCapability)?,
             )?
+            .set_definition_block(params.definition_block.clone())?
             .set_apic_base_address(params.apic_base_addr)?
             .set_io_apic_address(params.ioapic_base_addr)?
             .set_pci_mmio_base_addr(params.ecam_base as u64)?
             .build()?;
 
-        acpi.install(ram_allocator, mm, params.acpi_rsdt_addr as u64)?;
+        acpi.install(&mut acpi_ram_allocator, mm, params.acpi_rsdt_addr as u64)?;
         boot_params.acpi_rsdp_addr = params.acpi_rsdt_addr as u64;
 
         Ok(())
@@ -236,6 +242,13 @@ impl BzImage {
             };
             index += 1;
         }
+
+        boot_params.e820_table[index] = BootE820Entry {
+            addr: params.acpi_rsdt_addr as u64,
+            size: params.acpi_max_length as u64,
+            ty: E820Type::Acpi as u32,
+        };
+        index += 1;
 
         boot_params.e820_table[index] = BootE820Entry {
             addr: params.mmio_start as u64,
@@ -285,21 +298,17 @@ impl KernelLoader for BzImage {
 
     fn load(
         &mut self,
-        ram_allocator: &mut RangeAllocator<u64>,
+        _ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         params: &Self::BootParams,
     ) -> Result<LoadResult> {
         let mut boot_params = BootParams::new_zeroed();
 
-        self.setup_acpi(ram_allocator, memory, params, &mut boot_params)?;
+        self.setup_acpi(memory, params, &mut boot_params)?;
         self.setup_e820(memory, params, &mut boot_params)?;
 
         let load_result = self.setup_hdr(params, &mut boot_params, memory)?;
         let gdt = self.setup_gdt(params, memory)?;
-
-        if false {
-            todo!("setup acpi_rsdp_addr");
-        }
 
         Ok(LoadResult {
             start_pc: load_result.start_pc,

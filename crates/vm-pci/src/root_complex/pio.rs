@@ -1,26 +1,31 @@
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use vm_core::device::Device;
 use vm_core::device::pio::pio_device::PioDevice;
 use vm_core::device::pio::pio_device::PortRange;
 
-use crate::root_complex::PciRootComplexOps;
 use crate::root_complex::pci_root_complex::PciRootComplex;
 use crate::root_complex::pio::config_addr::ConfigAddress;
-use crate::types::device::PciDevice;
 
 mod config_addr;
 
 const CONFIG_ADDRESS: u16 = 0xcf8;
 const CONFIG_DATA: u16 = 0xcfc;
 
-#[derive(Default)]
 pub struct PciRootComplexPio {
     config_address: Mutex<ConfigAddress>,
-    internal: Mutex<PciRootComplex>,
+    internal: Arc<Mutex<PciRootComplex>>,
 }
 
 impl PciRootComplexPio {
+    pub fn new(pci_root_complex: Arc<Mutex<PciRootComplex>>) -> Self {
+        PciRootComplexPio {
+            config_address: Default::default(),
+            internal: pci_root_complex,
+        }
+    }
+
     fn handle_out_config_address(&self, offset: u8, data: &[u8]) {
         self.config_address.lock().unwrap().write(offset, data);
     }
@@ -114,11 +119,5 @@ impl PioDevice for PciRootComplexPio {
         } else {
             panic!("pci: 0x{:x}", port);
         }
-    }
-}
-
-impl PciRootComplexOps for PciRootComplexPio {
-    fn register_device(&self, device: Box<dyn PciDevice>) -> Result<(), Box<dyn PciDevice>> {
-        self.internal.lock().unwrap().register_device(device)
     }
 }
