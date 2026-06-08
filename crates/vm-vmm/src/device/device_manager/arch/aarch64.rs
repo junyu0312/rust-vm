@@ -25,7 +25,10 @@ impl DeviceManager {
         {
             let pl011 = Pl011::new(
                 MmioRange {
-                    start: 0x0900_0000,
+                    start: self
+                        .mmio_allocator
+                        .alloc(0x1000)
+                        .map_err(|_| InitDeviceError::AllocMmioRange)?,
                     len: 0x1000,
                 },
                 irq_allocation.alloc(),
@@ -54,7 +57,10 @@ impl DeviceManager {
                     mm.clone(),
                 )),
                 MmioRange {
-                    start: 0x0900_1000,
+                    start: self
+                        .mmio_allocator
+                        .alloc(0x1000)
+                        .map_err(|_| InitDeviceError::AllocMmioRange)?,
                     len: 0x1000,
                 },
             );

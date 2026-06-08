@@ -9,6 +9,9 @@ pub enum InitDeviceError {
     #[error("Pci device error: {0}")]
     PciDevice(#[from] vm_pci::error::Error),
 
+    #[error("Failed to alloc mmio range")]
+    AllocMmioRange,
+
     #[error("Failed to register monitor command for device {device}")]
     RegisterMonitorCommand { device: String },
 
