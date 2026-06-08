@@ -19,6 +19,7 @@ use vm_device::device::virtio::virtio_entropy::VirtioMmioEntropyDevice;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex::mmio::PciRootComplexMmio;
 use vm_pci::root_complex::pci_root_complex::PciRootComplex;
+use vm_utils::range_allocator::RangeAllocator;
 #[cfg(target_os = "linux")]
 use vm_vfio::vfio::container::VfioContainer;
 use vm_virtio::transport::VirtioDev;
@@ -41,6 +42,7 @@ mod pio;
 mod vfio;
 
 pub struct DeviceManager {
+    mmio_allocator: RangeAllocator<u64>,
     pub pio_manager: PioAddressSpaceManager,
     pub mmio_manager: MmioAddressSpaceManager,
     #[cfg(target_os = "linux")]
@@ -48,8 +50,10 @@ pub struct DeviceManager {
 }
 
 impl DeviceManager {
-    pub fn new(mmio_layout: MmioLayout) -> Self {
+    /// mmio_allocator: Range of mmio, excludes ECAM and Pci config space window
+    pub fn new(mmio_layout: MmioLayout, mmio_allocator: RangeAllocator<u64>) -> Self {
         DeviceManager {
+            mmio_allocator,
             pio_manager: PioAddressSpaceManager::default(),
             mmio_manager: MmioAddressSpaceManager::new(mmio_layout),
             #[cfg(target_os = "linux")]
@@ -105,12 +109,13 @@ impl DeviceManager {
                         device: "balloon".to_string(),
                     })?;
 
-                // TODO: use mmio allocator?
                 let virtio_mmio_balloon = VirtioMmioBalloonDevice::new(
                     dev,
                     MmioRange {
-                        // TODO
-                        start: 0x0900_2000,
+                        start: self
+                            .mmio_allocator
+                            .alloc(0x1000)
+                            .map_err(|_| InitDeviceError::AllocMmioRange)?,
                         len: 0x1000,
                     },
                 );
@@ -124,8 +129,10 @@ impl DeviceManager {
                         mm.clone(),
                     )),
                     MmioRange {
-                        // TODO
-                        start: 0x0900_3000,
+                        start: self
+                            .mmio_allocator
+                            .alloc(0x1000)
+                            .map_err(|_| InitDeviceError::AllocMmioRange)?,
                         len: 0x1000,
                     },
                 );
