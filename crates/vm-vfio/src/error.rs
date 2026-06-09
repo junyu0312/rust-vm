@@ -5,6 +5,12 @@ pub enum Error {
     #[error("Vfio is supported only on Linux")]
     NotSupport,
 
+    #[error("No pci config region")]
+    NoPciConfigRegion,
+
+    #[error("Failed to process vfio pci header")]
+    PciHeader,
+
     #[error("{0}")]
     Vfio(#[from] vfio_ioctls::VfioError),
 

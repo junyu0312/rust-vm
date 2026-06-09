@@ -13,7 +13,7 @@ use crate::types::configuration_space::status::PciStatus;
 
 pub mod capability;
 
-pub(crate) mod header;
+pub mod header;
 mod status;
 
 pub struct ConfigurationSpace {
