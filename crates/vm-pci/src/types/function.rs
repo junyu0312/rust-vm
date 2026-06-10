@@ -3,7 +3,7 @@ use vm_core::device::mmio::layout::MmioRange;
 use crate::device::function::BarHandler;
 use crate::types::interrupt::InterruptMapEntry;
 
-mod type0;
+pub mod type0;
 
 pub enum EcamUpdateCallback {
     UpdateMmioRouter {

@@ -13,7 +13,7 @@ use crate::types::configuration_space::status::PciStatus;
 
 pub mod capability;
 
-pub(crate) mod header;
+pub mod header;
 mod status;
 
 pub struct ConfigurationSpace {
@@ -24,8 +24,8 @@ pub struct ConfigurationSpace {
     next_available_ext_capability_pointer: u16,
 }
 
-impl ConfigurationSpace {
-    pub(crate) fn new() -> Self {
+impl Default for ConfigurationSpace {
+    fn default() -> Self {
         ConfigurationSpace {
             buf: [0; 4096],
             last_capability_next_pointer: CommonHeaderOffset::CapabilityPointer as u8,
@@ -34,6 +34,16 @@ impl ConfigurationSpace {
             next_available_ext_capability_pointer: CommonHeaderOffset::ExtendedCapabilityStart
                 as u16,
         }
+    }
+}
+
+impl ConfigurationSpace {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.buf
+    }
+
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        &mut self.buf
     }
 
     pub(crate) fn init<T>(&mut self, function: &T, header_type: u8)
@@ -53,18 +63,25 @@ impl ConfigurationSpace {
         self.as_header_mut::<HeaderCommon>()
     }
 
-    pub(crate) fn as_header_mut<T>(&mut self) -> &mut T
+    pub fn as_header<T>(&self) -> &T
+    where
+        T: IntoBytes + FromBytes + KnownLayout + Immutable,
+    {
+        T::ref_from_bytes(&self.buf[0..size_of::<T>()]).unwrap()
+    }
+
+    pub fn as_header_mut<T>(&mut self) -> &mut T
     where
         T: IntoBytes + FromBytes + KnownLayout + Immutable,
     {
         T::mut_from_bytes(&mut self.buf[0..size_of::<T>()]).unwrap()
     }
 
-    pub(crate) fn read(&self, offset: u16, buf: &mut [u8]) {
+    pub fn read(&self, offset: u16, buf: &mut [u8]) {
         buf.copy_from_slice(&self.buf[offset as usize..offset as usize + buf.len()]);
     }
 
-    pub(crate) fn write(&mut self, offset: u16, buf: &[u8]) {
+    pub fn write(&mut self, offset: u16, buf: &[u8]) {
         self.buf[offset as usize..offset as usize + buf.len()].copy_from_slice(buf);
     }
 
@@ -133,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_standard_capability_allocation() -> Result<(), Error> {
-        let mut cfg = ConfigurationSpace::new();
+        let mut cfg = ConfigurationSpace::default();
 
         let first_cap_offset;
         let first_cap_len;
@@ -207,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_extended_capability_allocation() -> Result<(), Error> {
-        let mut cfg = ConfigurationSpace::new();
+        let mut cfg = ConfigurationSpace::default();
 
         let cap_id1 = 0x1234;
         let cap_version1 = 1;
