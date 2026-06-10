@@ -51,7 +51,7 @@ where
     T: PciType0Function,
 {
     pub fn new(function: T) -> Result<Self, Error> {
-        let mut configuration_space = ConfigurationSpace::new();
+        let mut configuration_space = ConfigurationSpace::default();
         configuration_space.init(&function, 0);
         function.init_capability(&mut configuration_space)?;
 

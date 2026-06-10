@@ -1,4 +1,4 @@
-// #![deny(warnings)]
+#![deny(warnings)]
 
 #[cfg(target_os = "linux")]
 pub mod error;

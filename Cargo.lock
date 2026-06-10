@@ -1389,7 +1389,6 @@ dependencies = [
  "vfio-ioctls",
  "vm-core",
  "vm-pci",
- "vm-utils",
  "zerocopy",
 ]
 

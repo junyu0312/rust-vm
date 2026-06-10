@@ -24,8 +24,8 @@ pub struct ConfigurationSpace {
     next_available_ext_capability_pointer: u16,
 }
 
-impl ConfigurationSpace {
-    pub fn new() -> Self {
+impl Default for ConfigurationSpace {
+    fn default() -> Self {
         ConfigurationSpace {
             buf: [0; 4096],
             last_capability_next_pointer: CommonHeaderOffset::CapabilityPointer as u8,
@@ -35,7 +35,9 @@ impl ConfigurationSpace {
                 as u16,
         }
     }
+}
 
+impl ConfigurationSpace {
     pub fn as_bytes(&self) -> &[u8] {
         &self.buf
     }
@@ -148,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_standard_capability_allocation() -> Result<(), Error> {
-        let mut cfg = ConfigurationSpace::new();
+        let mut cfg = ConfigurationSpace::default();
 
         let first_cap_offset;
         let first_cap_len;
@@ -222,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_extended_capability_allocation() -> Result<(), Error> {
-        let mut cfg = ConfigurationSpace::new();
+        let mut cfg = ConfigurationSpace::default();
 
         let cap_id1 = 0x1234;
         let cap_version1 = 1;

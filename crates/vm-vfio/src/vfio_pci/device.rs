@@ -31,7 +31,7 @@ impl VfioPciDevice {
     pub fn new(name: String, vfio_device: VfioDevice) -> Result<Self> {
         vfio_device.reset()?;
 
-        let mut configuration_space = ConfigurationSpace::new();
+        let mut configuration_space = ConfigurationSpace::default();
 
         // Copy header from device
         {
