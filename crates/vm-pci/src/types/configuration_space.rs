@@ -25,7 +25,7 @@ pub struct ConfigurationSpace {
 }
 
 impl ConfigurationSpace {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         ConfigurationSpace {
             buf: [0; 4096],
             last_capability_next_pointer: CommonHeaderOffset::CapabilityPointer as u8,
@@ -34,6 +34,14 @@ impl ConfigurationSpace {
             next_available_ext_capability_pointer: CommonHeaderOffset::ExtendedCapabilityStart
                 as u16,
         }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.buf
+    }
+
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        &mut self.buf
     }
 
     pub(crate) fn init<T>(&mut self, function: &T, header_type: u8)
@@ -53,18 +61,25 @@ impl ConfigurationSpace {
         self.as_header_mut::<HeaderCommon>()
     }
 
-    pub(crate) fn as_header_mut<T>(&mut self) -> &mut T
+    pub fn as_header<T>(&self) -> &T
+    where
+        T: IntoBytes + FromBytes + KnownLayout + Immutable,
+    {
+        T::ref_from_bytes(&self.buf[0..size_of::<T>()]).unwrap()
+    }
+
+    pub fn as_header_mut<T>(&mut self) -> &mut T
     where
         T: IntoBytes + FromBytes + KnownLayout + Immutable,
     {
         T::mut_from_bytes(&mut self.buf[0..size_of::<T>()]).unwrap()
     }
 
-    pub(crate) fn read(&self, offset: u16, buf: &mut [u8]) {
+    pub fn read(&self, offset: u16, buf: &mut [u8]) {
         buf.copy_from_slice(&self.buf[offset as usize..offset as usize + buf.len()]);
     }
 
-    pub(crate) fn write(&mut self, offset: u16, buf: &[u8]) {
+    pub fn write(&mut self, offset: u16, buf: &[u8]) {
         self.buf[offset as usize..offset as usize + buf.len()].copy_from_slice(buf);
     }
 

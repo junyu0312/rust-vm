@@ -8,11 +8,14 @@ pub enum Error {
     #[error("Region {0} does not exists")]
     RegionNotExists(usize),
 
-    #[error("Failed to process vfio pci header")]
-    PciHeader,
-
     #[error("Pci device is not endpoint")]
     VfioPciDeviceIsNotEndpoint,
+
+    #[error("Pci bar({0}) has invalid type({1:x}")]
+    InvalidMmioBarType(usize, u32),
+
+    #[error("Failed to get info for 64-bit mmio bar({0})")]
+    Invalid64BitMemoryBar(usize),
 
     // #[error("The length of bar {bar} too large {size}")]
     // BarRegionTooLarge { bar: usize, size: u64 },

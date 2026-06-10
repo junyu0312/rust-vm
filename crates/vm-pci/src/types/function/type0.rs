@@ -12,7 +12,7 @@ mod arch;
 
 #[derive(FromRepr)]
 #[repr(u16)]
-enum Type0HeaderOffset {
+pub enum Type0HeaderOffset {
     VendorId = 0x00,
     DeviceId = 0x02,
     Command = 0x04,
