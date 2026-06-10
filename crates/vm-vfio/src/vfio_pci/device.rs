@@ -16,6 +16,7 @@ use crate::error::Error;
 use crate::error::Result;
 use crate::vfio::device::VfioDevice;
 use crate::vfio_pci::function::VfioBarInfo;
+use crate::vfio_pci::function::VfioBarResource;
 use crate::vfio_pci::function::VfioPciFunction;
 
 pub struct VfioPciDevice {
@@ -29,27 +30,43 @@ impl VfioPciDevice {
         vfio_device.reset()?;
 
         let header = {
-            let pci_config_region = vfio_device
-                .get_region_info(VFIO_PCI_CONFIG_REGION_INDEX)
-                .ok_or(Error::NoPciConfigRegion)?;
+            let pci_config_region = vfio_device.get_region_info(VFIO_PCI_CONFIG_REGION_INDEX)?;
 
             let mut buf = vec![0; pci_config_region.size as usize];
             vfio_device.region_read(VFIO_PCI_CONFIG_REGION_INDEX, &mut buf, 0)?;
+
             assert!(pci_config_region.flags & VFIO_REGION_INFO_FLAG_READ != 0);
             assert!(pci_config_region.flags & VFIO_REGION_INFO_FLAG_WRITE != 0);
 
             let header = Type0Header::read_from_bytes(&mut buf[..size_of::<Type0Header>()])
                 .map_err(|_| Error::PciHeader)?;
 
+            if header.common.header_type != 0 {
+                return Err(Error::VfioPciDeviceIsNotEndpoint);
+            }
+
             header
         };
 
         let mut bar_info = [const { None }; 6];
         {
-            for region in VFIO_PCI_BAR0_REGION_INDEX..=VFIO_PCI_BAR5_REGION_INDEX {
-                if let Some(pci_config_region) = vfio_device.get_region_info(region) {
-                    bar_info[region as usize] = Some(VfioBarInfo {
-                        size: pci_config_region.size,
+            for index in VFIO_PCI_BAR0_REGION_INDEX..=VFIO_PCI_BAR5_REGION_INDEX {
+                let region = vfio_device.get_region_info(index)?;
+
+                if region.size > 0 {
+                    let bar = header.bar[index as usize];
+
+                    let is_mmio = bar & 0x1 == 0;
+
+                    println!("bar size: {}", region.size);
+                    bar_info[index as usize] = Some(VfioBarInfo {
+                        size: region.size,
+                        // TODO: We should alloc resource from vmm/pci mananger
+                        resource: if is_mmio {
+                            VfioBarResource::Mmio
+                        } else {
+                            VfioBarResource::Pio
+                        },
                     });
                 }
             }

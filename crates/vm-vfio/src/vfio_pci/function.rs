@@ -10,8 +10,17 @@ use vm_pci::device::function::type0::PciType0Function;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
 
+#[derive(Debug)]
+pub enum VfioBarResource {
+    Pio,
+    Mmio,
+}
+
+#[derive(Debug)]
 pub struct VfioBarInfo {
     pub(crate) size: u64,
+    #[allow(dead_code)]
+    pub(crate) resource: VfioBarResource,
 }
 
 pub struct VfioPciFunction {
@@ -49,6 +58,18 @@ impl PciTypeFunctionCommon for VfioPciFunction {
     }
 }
 
+struct MockBarHandler {}
+
+impl BarHandler for MockBarHandler {
+    fn read(&self, _offset: u64, _data: &mut [u8]) {
+        todo!()
+    }
+
+    fn write(&self, _offset: u64, _data: &[u8]) {
+        todo!()
+    }
+}
+
 impl PciType0Function for VfioPciFunction {
     fn bar_size(&self) -> [Option<u32>; 6] {
         array::from_fn(|i| {
@@ -58,8 +79,51 @@ impl PciType0Function for VfioPciFunction {
         })
     }
 
-    fn bar_handler(&self, _bar: Bar) -> Option<Box<dyn BarHandler>> {
-        todo!()
+    fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>> {
+        match bar {
+            Bar::Bar0 => {
+                if let Some(_bar) = &self.bars[0] {
+                    Some(Box::new(MockBarHandler {}))
+                } else {
+                    unreachable!()
+                }
+            }
+            Bar::Bar1 => {
+                if let Some(_bar) = &self.bars[1] {
+                    Some(Box::new(MockBarHandler {}))
+                } else {
+                    unreachable!()
+                }
+            }
+            Bar::Bar2 => {
+                if let Some(_bar) = &self.bars[2] {
+                    Some(Box::new(MockBarHandler {}))
+                } else {
+                    unreachable!()
+                }
+            }
+            Bar::Bar3 => {
+                if let Some(_bar) = &self.bars[3] {
+                    Some(Box::new(MockBarHandler {}))
+                } else {
+                    unreachable!()
+                }
+            }
+            Bar::Bar4 => {
+                if let Some(_bar) = &self.bars[4] {
+                    Some(Box::new(MockBarHandler {}))
+                } else {
+                    unreachable!()
+                }
+            }
+            Bar::Bar5 => {
+                if let Some(_bar) = &self.bars[5] {
+                    Some(Box::new(MockBarHandler {}))
+                } else {
+                    unreachable!()
+                }
+            }
+        }
     }
 
     fn pause(&self) -> Result<(), DeviceSnapshotError> {

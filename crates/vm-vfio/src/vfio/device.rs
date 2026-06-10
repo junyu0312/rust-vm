@@ -2,6 +2,7 @@ use std::path::Path;
 
 use vfio_ioctls::VfioRegionInfoCap;
 
+use crate::error::Error;
 use crate::error::Result;
 use crate::vfio::container::VfioContainer;
 
@@ -35,9 +36,9 @@ impl VfioDevice {
         self.device.num_regions() as usize
     }
 
-    pub(crate) fn get_region_info(&self, index: u32) -> Option<VfioRegionInfo> {
+    pub(crate) fn get_region_info(&self, index: u32) -> Result<VfioRegionInfo> {
         if index as usize >= self.num_regions() {
-            return None;
+            return Err(Error::RegionNotExists(index as usize));
         }
 
         let flags = self.device.get_region_flags(index);
@@ -45,7 +46,7 @@ impl VfioDevice {
         let size = self.device.get_region_size(index);
         let offset = self.device.get_region_offset(index);
 
-        Some(VfioRegionInfo {
+        Ok(VfioRegionInfo {
             flags,
             _caps: caps,
             size,
