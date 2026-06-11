@@ -1,8 +1,6 @@
 use tracing::debug;
 use tracing::error;
 use tracing::warn;
-use vm_core::device::mmio::layout::MmioRange;
-use vm_core::device::mmio::mmio_device::MmioHandler;
 
 use crate::device::VirtioDevice;
 use crate::result::Result as VirtioResult;
@@ -96,15 +94,11 @@ where
     }
 }
 
-impl<D> MmioHandler for VirtioMmioTransport<D>
+impl<D> VirtioMmioTransport<D>
 where
     D: VirtioDevice,
 {
-    fn mmio_range(&self) -> MmioRange {
-        self.mmio_range
-    }
-
-    fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
+    pub fn read(&self, offset: u64, data: &mut [u8]) {
         let dev = self.dev.lock().unwrap();
 
         let Ok(offset) = usize::try_from(offset) else {
@@ -113,22 +107,32 @@ where
         };
         if offset < CONFIGURATION_SPACE_OFFSET {
             if let Some(reg) = MmioControlRegister::from_repr(offset as u16) {
-                assert_eq!(len, data.len()); // TODO: mmio_read can remove the `len` argument in the future
                 if data.len() == 4 {
                     let val = self.read_reg(&dev, reg);
 
-                    debug!(name = D::NAME, ?reg, len, val, "virtio-mmio read");
+                    debug!(
+                        name = D::NAME,
+                        ?reg,
+                        len = data.len(),
+                        val,
+                        "virtio-mmio read"
+                    );
 
                     data.copy_from_slice(&val.to_le_bytes());
                 } else {
-                    warn!(name = D::NAME, ?reg, len, "invalid virtio-mmio access size");
+                    warn!(
+                        name = D::NAME,
+                        ?reg,
+                        len = data.len(),
+                        "invalid virtio-mmio access size"
+                    );
                     debug_assert!(false);
                 }
             } else {
                 warn!(
                     name = D::NAME,
                     offset,
-                    len,
+                    len = data.len(),
                     ?data,
                     "read from invalid offset of the virtio-mmio device"
                 );
@@ -142,10 +146,16 @@ where
         }
     }
 
-    fn mmio_write(&self, offset: u64, len: usize, data: &[u8]) {
+    pub fn write(&self, offset: u64, data: &[u8]) {
         let mut dev = self.dev.lock().unwrap();
 
-        debug!(name = D::NAME, offset, len, ?data, "virtio-mmio write");
+        debug!(
+            name = D::NAME,
+            offset,
+            len = data.len(),
+            ?data,
+            "virtio-mmio write"
+        );
 
         let Ok(offset) = usize::try_from(offset) else {
             warn!(name = D::NAME, offset, "offset too large");
@@ -153,7 +163,6 @@ where
         };
         if offset < CONFIGURATION_SPACE_OFFSET {
             if let Some(reg) = MmioControlRegister::from_repr(offset as u16) {
-                assert_eq!(len, data.len());
                 if data.len() == 4 {
                     if let Err(err) =
                         self.write_reg(&mut dev, reg, u32::from_le_bytes(data.try_into().unwrap()))
@@ -162,7 +171,7 @@ where
                             name = D::NAME,
                             ?err,
                             offset,
-                            len,
+                            len = data.len(),
                             ?data,
                             "error while writing virtio-mmio control register"
                         );
@@ -170,14 +179,19 @@ where
                         debug_assert!(false)
                     }
                 } else {
-                    warn!(name = D::NAME, ?reg, len, "invalid virtio-mmio access size");
+                    warn!(
+                        name = D::NAME,
+                        ?reg,
+                        len = data.len(),
+                        "invalid virtio-mmio access size"
+                    );
                     debug_assert!(false);
                 }
             } else {
                 warn!(
                     name = D::NAME,
                     offset,
-                    len,
+                    len = data.len(),
                     ?data,
                     "write to invalid offset of the virtio-mmio device"
                 );

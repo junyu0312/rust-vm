@@ -1,4 +1,5 @@
 use thiserror::Error;
+use vm_utils::range_allocator::RangeAllocatorError;
 
 #[derive(Error, Debug)]
 pub enum AcpiError {
@@ -12,7 +13,7 @@ pub enum AcpiError {
     ArchNotSupport(&'static str),
 
     #[error("Failed to alloc memory for acpi")]
-    AllocMemory(#[from] vm_utils::range_allocator::Error),
+    AllocMemory(#[from] RangeAllocatorError),
 
     #[error("Failed to copy ACPI table to guest memory")]
     CopyToMemory(#[from] vm_mm::error::Error),

@@ -1,21 +1,22 @@
+use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_core::device::mmio::layout::MmioRange;
+use vm_core::device::error::DeviceError;
 use vm_core::device::mmio::mmio_device::MmioHandler;
 
 use crate::root_complex::pci_root_complex::PciRootComplex;
 
 pub struct DeviceMmioHandler {
-    gpa_mmio_range: MmioRange,
-    pci_mmio_range: MmioRange,
+    gpa_mmio_range: Range<u64>,
+    pci_mmio_range: Range<u64>,
     rc: Arc<Mutex<PciRootComplex>>,
 }
 
 impl DeviceMmioHandler {
     pub fn new(
-        gpa_mmio_range: MmioRange,
-        pci_mmio_range: MmioRange,
+        gpa_mmio_range: Range<u64>,
+        pci_mmio_range: Range<u64>,
         rc: Arc<Mutex<PciRootComplex>>,
     ) -> Self {
         DeviceMmioHandler {
@@ -27,8 +28,8 @@ impl DeviceMmioHandler {
 }
 
 impl MmioHandler for DeviceMmioHandler {
-    fn mmio_range(&self) -> MmioRange {
-        self.gpa_mmio_range // Must be gpa_mmio_range for dispatch vm_exit
+    fn mmio_range(&self) -> Result<Range<u64>, DeviceError> {
+        Ok(self.gpa_mmio_range.clone()) // Must be gpa_mmio_range for dispatch vm_exit
     }
 
     // offset is mmio pa - self.gpa_mmio_range.start already

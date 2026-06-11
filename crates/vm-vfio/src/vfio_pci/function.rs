@@ -107,6 +107,14 @@ impl PciFunction for VfioPciFunction {
             }
         }
     }
+
+    fn bar_read(&self, _bar: u8, _offset: u64, _buf: &mut [u8]) {
+        unreachable!()
+    }
+
+    fn bar_write(&self, _bar: u8, _offset: u64, _buf: &[u8]) {
+        unreachable!()
+    }
 }
 /*
 impl PciTypeFunctionCommon for VfioPciFunction {

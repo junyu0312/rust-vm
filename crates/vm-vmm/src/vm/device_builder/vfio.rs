@@ -4,24 +4,30 @@ use vm_vfio::vfio::container::VfioContainer;
 use vm_vfio::vfio::device::VfioDevice;
 use vm_vfio::vfio_pci::device::VfioPciDevice;
 
-use crate::device::device_manager::DeviceManager;
 use crate::device::error::InitDeviceError;
+use crate::vm::device_builder::DeviceManagerBuilder;
 
-impl DeviceManager {
+impl<'a> DeviceManagerBuilder<'a> {
     pub fn init_vfio(&mut self) -> Result<(), InitDeviceError> {
         let vfio_container = VfioContainer::new()?;
 
-        self.vfio_container = Some(vfio_container);
+        self.vfio_container
+            .set(vfio_container)
+            .map_err(|_| InitDeviceError::VfioAlreadtInit)?;
 
         Ok(())
     }
 
     pub fn init_vfio_device(
-        &self,
+        &mut self,
         name: String,
-        container: &VfioContainer,
         path: &Path,
     ) -> Result<VfioPciDevice, InitDeviceError> {
+        let container = self
+            .vfio_container
+            .get()
+            .ok_or(InitDeviceError::VfioContainerNotInit)?;
+
         let vfio_device = VfioDevice::new(path, container)?;
 
         let vfio_pci_device = VfioPciDevice::new(name, vfio_device)?;

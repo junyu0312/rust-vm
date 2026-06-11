@@ -1262,6 +1262,7 @@ dependencies = [
 name = "vm-core"
 version = "0.1.0"
 dependencies = [
+ "acpi_tables",
  "anyhow",
  "applevisor",
  "applevisor-sys",
@@ -1283,6 +1284,7 @@ dependencies = [
  "vm-fdt",
  "vm-firmware",
  "vm-mm",
+ "vm-utils",
 ]
 
 [[package]]
@@ -1305,6 +1307,7 @@ dependencies = [
  "vm-mm",
  "vm-pci",
  "vm-snapshot",
+ "vm-utils",
  "vm-virtio",
  "zerocopy",
 ]
@@ -1370,11 +1373,15 @@ dependencies = [
 name = "vm-pci"
 version = "0.1.0"
 dependencies = [
+ "acpi_tables",
+ "rangemap",
  "strum_macros",
  "thiserror",
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-firmware",
+ "vm-utils",
  "zerocopy",
 ]
 
@@ -1406,6 +1413,7 @@ dependencies = [
 name = "vm-virtio"
 version = "0.1.0"
 dependencies = [
+ "acpi_tables",
  "bitflags 2.10.0",
  "strum_macros",
  "thiserror",
@@ -1416,6 +1424,7 @@ dependencies = [
  "vm-mm",
  "vm-pci",
  "vm-snapshot",
+ "vm-utils",
  "zerocopy",
 ]
 
@@ -1430,6 +1439,7 @@ dependencies = [
  "lazy_static",
  "maplit",
  "postcard",
+ "rangemap",
  "serde",
  "serde_json",
  "strum",

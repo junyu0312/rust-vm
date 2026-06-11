@@ -9,11 +9,7 @@ pub struct PciBus {
 
 impl PciBus {
     pub fn get_device(&self, device_number: u8) -> Option<&dyn PciDevice> {
-        self.devices.get(&device_number).map(Box::as_ref)
-    }
-
-    pub fn get_device_mut(&mut self, device_number: u8) -> Option<&mut (dyn PciDevice + 'static)> {
-        self.devices.get_mut(&device_number).map(Box::as_mut)
+        self.devices.get(&device_number).map(|dev| dev.as_ref())
     }
 
     pub fn devices(&self) -> impl Iterator<Item = (&u8, &dyn PciDevice)> {

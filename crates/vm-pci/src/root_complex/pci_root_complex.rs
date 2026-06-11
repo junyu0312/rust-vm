@@ -7,6 +7,7 @@ use vm_core::device::error::DeviceSnapshotError;
 use crate::bus::PciBus;
 use crate::host_bridge::new_host_bridge;
 use crate::root_complex::mmio_router::MmioRouter;
+
 use crate::types::device::PciDevice;
 use crate::types::function::EcamUpdateCallback;
 
@@ -48,45 +49,33 @@ impl PciRootComplex {
         Ok(())
     }
 
-    fn get_device(&self, bus_number: u8, device_number: u8) -> Option<&dyn PciDevice> {
+    pub fn get_device(&self, bus_number: u8, device_number: u8) -> Option<&dyn PciDevice> {
         self.bus
             .get(bus_number as usize)
             .and_then(|bus| bus.get_device(device_number))
     }
 
-    fn get_device_mut(
-        &mut self,
-        bus_number: u8,
-        device_number: u8,
-    ) -> Option<&mut (dyn PciDevice + 'static)> {
-        self.bus
-            .get_mut(bus_number as usize)
-            .and_then(|bus| bus.get_device_mut(device_number))
-    }
-
     pub fn handle_ecam_read(&self, bus: u8, device: u8, func: u8, offset: u16, data: &mut [u8]) {
-        let Some(function) = self
-            .get_device(bus, device)
-            .and_then(|dev| dev.get_function(func))
-        else {
+        if let Some(dev) = self.get_device(bus, device)
+            && let Some(function) = dev.get_function(func)
+        {
+            function.ecam_read(offset, data);
+
+            debug!(bus, device, func, offset, ?data, "ecam read");
+        } else {
             // When a configuration access attempts to select a device that does not exist,
             // the host bridge will complete the access without error, dropping all data on
             // writes and returning all ones on reads.
             data.fill(0xff);
-            return;
-        };
-
-        function.ecam_read(offset, data);
-
-        debug!(bus, device, func, offset, ?data, "ecam read");
+        }
     }
 
     pub fn handle_ecam_write(&mut self, bus: u8, device: u8, func: u8, offset: u16, data: &[u8]) {
         debug!(bus, device, func, offset, data, "ecam write");
 
         let Some(function) = self
-            .get_device_mut(bus, device)
-            .and_then(|dev| dev.get_function_mut(func))
+            .get_device(bus, device)
+            .and_then(|dev| dev.get_function(func))
         else {
             return;
         };
@@ -96,15 +85,9 @@ impl PciRootComplex {
                 EcamUpdateCallback::UpdateMmioRouter {
                     bar,
                     pci_address_range,
-                    handler,
-                } => self.mmio_router.register_handler(
-                    pci_address_range,
-                    bus,
-                    device,
-                    func,
-                    bar,
-                    handler,
-                ),
+                } => self
+                    .mmio_router
+                    .register_handler(pci_address_range, bus, device, func, bar),
             }
         }
     }

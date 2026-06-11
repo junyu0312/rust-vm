@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::device::error::DeviceError;
+
 #[derive(Error, Debug)]
 pub enum VmExitHandlerError {
     #[error("no device found for port {0:#x}")]
@@ -17,6 +19,9 @@ pub enum VmExitHandlerError {
         addr: u64,
     },
 
+    #[error("Device error: {0}")]
+    Device(#[from] DeviceError),
+
     #[cfg(target_arch = "aarch64")]
     #[error("{0}")]
     SmcError(#[from] crate::arch::aarch64::firmware::psci::error::PsciError),
@@ -27,11 +32,11 @@ pub trait VmExit: Send + Sync {
 
     fn io_out(&self, port: u16, data: &[u8]) -> Result<(), VmExitHandlerError>;
 
-    fn mmio_read(&self, addr: u64, len: usize, data: &mut [u8]) -> Result<(), VmExitHandlerError>;
+    fn mmio_read(&self, addr: u64, data: &mut [u8]) -> Result<(), VmExitHandlerError>;
 
-    fn mmio_write(&self, addr: u64, len: usize, data: &[u8]) -> Result<(), VmExitHandlerError>;
+    fn mmio_write(&self, addr: u64, data: &[u8]) -> Result<(), VmExitHandlerError>;
 
-    fn in_mmio_region(&self, addr: u64) -> bool;
+    // fn in_mmio_region(&self, addr: u64) -> bool;
 
     #[cfg(target_arch = "aarch64")]
     fn call_smc(

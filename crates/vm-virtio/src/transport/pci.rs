@@ -6,7 +6,6 @@ use std::sync::Mutex;
 
 use vm_core::device::Device;
 use vm_core::device::error::DeviceSnapshotError;
-use vm_pci::device::function::BarHandler;
 use vm_pci::device::function::PciTypeFunctionCommon;
 use vm_pci::device::function::type0::Bar;
 use vm_pci::device::function::type0::PciType0Function;
@@ -18,10 +17,6 @@ use vm_pci::types::function::PciFunction;
 
 use crate::device::VirtioDevice;
 use crate::transport::VirtioDev;
-use crate::transport::pci::common_config_handler::CommonConfigHandler;
-use crate::transport::pci::device_handler::DeviceHandler;
-use crate::transport::pci::isr_handler::IsrHandler;
-use crate::transport::pci::notify_handler::NotifyHandler;
 use crate::types::pci::VirtioPciCap;
 use crate::types::pci::VirtioPciCapCfgType;
 use crate::types::pci::VirtioPciCommonCfg;
@@ -160,21 +155,23 @@ where
         ]
     }
 
-    fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>> {
+    fn bar_read(&self, bar: Bar, offset: u64, buf: &mut [u8]) {
         match bar {
-            Bar::Bar0 => Some(Box::new(CommonConfigHandler {
-                dev: self.dev.clone(),
-            })),
-            Bar::Bar1 => Some(Box::new(NotifyHandler {
-                dev: self.dev.clone(),
-            })),
-            Bar::Bar2 => Some(Box::new(IsrHandler {
-                dev: self.dev.clone(),
-            })),
-            Bar::Bar3 => Some(Box::new(DeviceHandler {
-                dev: self.dev.clone(),
-            })),
-            _ => None,
+            Bar::Bar0 => self.read_common_config(offset, buf),
+            Bar::Bar1 => self.read_notify(offset, buf),
+            Bar::Bar2 => self.read_isr(offset, buf),
+            Bar::Bar3 => self.read_device(offset, buf),
+            _ => unreachable!(),
+        }
+    }
+
+    fn bar_write(&self, bar: Bar, offset: u64, buf: &[u8]) {
+        match bar {
+            Bar::Bar0 => self.write_common_config(offset, buf),
+            Bar::Bar1 => self.write_notify(offset, buf),
+            Bar::Bar2 => self.write_isr(offset, buf),
+            Bar::Bar3 => self.write_device(offset, buf),
+            _ => unreachable!(),
         }
     }
 

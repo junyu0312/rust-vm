@@ -1,4 +1,5 @@
 use thiserror::Error;
+use vm_utils::range_allocator::RangeAllocatorError;
 
 #[derive(Error, Debug)]
 pub enum DeviceSnapshotError {
@@ -13,4 +14,22 @@ pub enum DeviceSnapshotError {
 
     #[error("device {0} does not support snapshot")]
     DeviceNotSupportSnapshot(String),
+}
+
+#[derive(Error, Debug)]
+pub enum DeviceError {
+    #[error("Failed to alloc resource")]
+    AllocResource,
+
+    #[error("Failed to alloc resource")]
+    AllocResourceErr(#[from] RangeAllocatorError),
+
+    #[error("Mmio range is empty")]
+    MmioRangeIsEmpty,
+
+    #[error("Unknown device")]
+    UnknownDevice,
+
+    #[error("Failed to write fdt: {0}")]
+    Fdt(#[from] vm_fdt::Error),
 }

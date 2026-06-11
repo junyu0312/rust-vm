@@ -1,10 +1,12 @@
+use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
+use vm_core::device::error::DeviceError;
 use vm_core::device::pio::pio_device::PioDevice;
-use vm_core::device::pio::pio_device::PortRange;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::device::i8042::command::I8042Cmd;
 use crate::device::i8042::controller_cfg::ControllerConfigurationByte;
@@ -171,31 +173,16 @@ impl I8042Raw {
 pub struct I8042(Arc<Mutex<I8042Raw>>);
 
 impl I8042 {
-    pub fn new(irq: Arc<dyn InterruptController>) -> Self {
+    pub fn new(
+        pio_allocator: &mut RangeAllocator<u16>,
+        irq: Arc<dyn InterruptController>,
+    ) -> Result<Self, DeviceError> {
+        let _ = pio_allocator.reserve(DATA_PORT, 1)?;
+        let _ = pio_allocator.reserve(REGISTER_PORT, 1)?;
+
         let i8042 = Arc::new(Mutex::new(I8042Raw::new(irq)));
 
-        // thread::spawn({
-        //     let raw = i8042.clone();
-        //     move || {
-        //         let stdin = io::stdin();
-        //         let mut handle = stdin.lock();
-        //         let mut buffer = [0u8; 1];
-
-        //         while let Ok(n) = handle.read(&mut buffer) {
-        //             if n == 0 {
-        //                 break;
-        //             }
-        //             let mut raw = raw.lock().unwrap();
-        //             if let Some(bytes) = SCANCODE_SET2_MAP.get(&buffer[0]) {
-        //                 for &b in bytes {
-        //                     raw.push_kbd(b);
-        //                 }
-        //             }
-        //         }
-        //     }
-        // });
-
-        I8042(i8042)
+        Ok(I8042(i8042))
     }
 }
 
@@ -206,17 +193,8 @@ impl Device for I8042 {
 }
 
 impl PioDevice for I8042 {
-    fn ports(&self) -> Vec<PortRange> {
-        vec![
-            PortRange {
-                start: DATA_PORT,
-                len: 1,
-            },
-            PortRange {
-                start: REGISTER_PORT,
-                len: 1,
-            },
-        ]
+    fn ports(&self) -> Vec<Range<u16>> {
+        vec![DATA_PORT..DATA_PORT + 1, REGISTER_PORT..REGISTER_PORT + 1]
     }
 
     fn io_in(&self, port: u16, data: &mut [u8]) {

@@ -1,32 +1,30 @@
+use std::ops::Range;
+
+use rangemap::RangeMap;
 use tracing::debug;
-use tracing::warn;
-use vm_core::device::mmio::layout::MmioRange;
-use vm_core::utils::address_space::AddressSpace;
 
-use crate::device::function::BarHandler;
-
-struct Destination {
-    bus: u8,
-    device: u8,
-    function: u8,
-    bar: u8,
-    handler: Box<dyn BarHandler>,
+#[derive(Clone, PartialEq)]
+pub struct Destination {
+    pub(crate) bus: u8,
+    pub(crate) device: u8,
+    pub(crate) function: u8,
+    pub(crate) bar: u8,
+    pub(crate) pci_address_start: u64,
 }
 
 #[derive(Default)]
 pub struct MmioRouter {
-    pci_address_space: AddressSpace<u64, Destination>,
+    pci_address_space: RangeMap<u64, Destination>,
 }
 
 impl MmioRouter {
     pub fn register_handler(
         &mut self,
-        pci_address_range: MmioRange,
+        pci_address_range: Range<u64>,
         bus: u8,
         device: u8,
         function: u8,
         bar: u8,
-        handler: Box<dyn BarHandler>,
     ) {
         debug!(
             bus,
@@ -37,32 +35,19 @@ impl MmioRouter {
             "update mmio handler"
         );
 
-        if self
-            .pci_address_space
-            .try_insert(
-                pci_address_range,
-                Destination {
-                    bus,
-                    device,
-                    function,
-                    bar,
-                    handler,
-                },
-            )
-            .is_err()
-        {
-            warn!("remap range: {:?} ignored", pci_address_range);
-        }
+        self.pci_address_space.insert(
+            pci_address_range.clone(),
+            Destination {
+                bus,
+                device,
+                function,
+                bar,
+                pci_address_start: pci_address_range.start,
+            },
+        );
     }
 
-    pub fn get_handler(&self, pci_address: u64) -> Option<(MmioRange, &dyn BarHandler)> {
-        let (range, dst) = self
-            .pci_address_space
-            .try_get_value_by_key(pci_address)
-            .unwrap();
-
-        debug!(pci_address, dst.bus, dst.device, dst.function, dst.bar);
-
-        Some((range, dst.handler.as_ref()))
+    pub fn get_handler(&self, pci_address: u64) -> Option<Destination> {
+        self.pci_address_space.get(&pci_address).cloned()
     }
 }

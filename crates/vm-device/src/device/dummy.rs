@@ -1,43 +1,44 @@
+use std::ops::Range;
+
 use vm_core::device::Device;
+use vm_core::device::error::DeviceError;
 use vm_core::device::pio::pio_device::PioDevice;
-use vm_core::device::pio::pio_device::PortRange;
+use vm_utils::range_allocator::RangeAllocator;
 
 pub struct Dummy;
+
+impl Dummy {
+    pub fn new(pio_allocator: &mut RangeAllocator<u16>) -> Result<Self, DeviceError> {
+        let _ = pio_allocator.reserve(0x1004, 1)?;
+        let _ = pio_allocator.reserve(0x1006, 1)?;
+        let _ = pio_allocator.reserve(0x87, 1)?;
+
+        Ok(Dummy)
+    }
+}
 
 impl Device for Dummy {
     fn name(&self) -> String {
         "dummy".to_string()
     }
+
+    fn support_pio_transport(&self) -> Option<&dyn PioDevice> {
+        Some(self)
+    }
+
+    fn support_pio_transport_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        Some(self)
+    }
 }
 
 impl PioDevice for Dummy {
-    fn ports(&self) -> Vec<PortRange> {
-        // 0x40, 0x42, 0x43: PIT
+    fn ports(&self) -> Vec<Range<u16>> {
         vec![
-            // PortRange {
-            //     start: 0x40,
-            //     len: 1,
-            // },
-            // PortRange {
-            //     start: 0x42,
-            //     len: 1,
-            // },
-            // PortRange {
-            //     start: 0x43,
-            //     len: 1,
-            // },
-            PortRange {
-                start: 0x87,
-                len: 1,
-            },
-            PortRange {
-                start: 0x1000,
-                len: 4,
-            },
-            PortRange {
-                start: 0x1004,
-                len: 4,
-            },
+            // acpi pm1a
+            0x1004..0x1005,
+            0x1006..0x1007,
+            // TODO
+            0x87..0x88,
         ]
     }
 

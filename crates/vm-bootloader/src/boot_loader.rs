@@ -6,7 +6,8 @@ use thiserror::Error;
 use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::error::CpuError;
 use vm_core::cpu::vcpu::Vcpu;
-use vm_core::device::mmio::mmio_device::MmioDevice;
+use vm_core::device::Device;
+use vm_core::device::error::DeviceError;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 
@@ -34,6 +35,9 @@ pub enum Error {
 
     #[error("{0}")]
     GenerateDtb(#[from] vm_fdt::Error),
+
+    #[error("Device error: {0}")]
+    DeviceError(#[from] DeviceError),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -56,6 +60,6 @@ pub trait BootLoader {
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
-        devices: Iter<'_, Box<dyn MmioDevice>>,
+        devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<()>;
 }

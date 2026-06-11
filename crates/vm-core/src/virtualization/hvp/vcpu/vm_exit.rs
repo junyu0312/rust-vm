@@ -97,7 +97,6 @@ pub fn to_vm_exit(
                         Ok(VmExitReason::MMWrite {
                             gpa: far_el2,
                             buf: (data.to_le_bytes()[0..len]).to_vec(),
-                            len,
                         })
                     } else {
                         Ok(VmExitReason::MMRead {

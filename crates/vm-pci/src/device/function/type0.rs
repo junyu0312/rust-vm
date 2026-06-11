@@ -6,7 +6,6 @@ use std::sync::Mutex;
 use strum_macros::FromRepr;
 use vm_core::device::error::DeviceSnapshotError;
 
-use crate::device::function::BarHandler;
 use crate::device::function::PciTypeFunctionCommon;
 use crate::error::Error;
 use crate::types::configuration_space::ConfigurationSpace;
@@ -26,7 +25,9 @@ pub enum Bar {
 pub trait PciType0Function: PciTypeFunctionCommon {
     fn bar_size(&self) -> [Option<u32>; 6];
 
-    fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>>;
+    fn bar_read(&self, bar: Bar, offset: u64, buf: &mut [u8]);
+
+    fn bar_write(&self, bar: Bar, offset: u64, buf: &[u8]);
 
     fn pause(&self) -> Result<(), DeviceSnapshotError>;
 

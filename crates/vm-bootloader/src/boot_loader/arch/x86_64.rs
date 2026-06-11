@@ -1,13 +1,6 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
-use acpi_tables::Aml;
-use acpi_tables::aml::AddressSpace;
-use acpi_tables::aml::AddressSpaceCacheable;
-use acpi_tables::aml::Device;
-use acpi_tables::aml::Memory32Fixed;
-use acpi_tables::aml::Name;
-use acpi_tables::aml::ResourceTemplate;
 use async_trait::async_trait;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::x86_64::layout::ACPI_MAX_LEN;
@@ -26,7 +19,7 @@ use vm_core::arch::x86_64::layout::MMIO_START;
 use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_LENGTH;
 use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_START;
 use vm_core::cpu::vcpu::Vcpu;
-use vm_core::device::mmio::mmio_device::MmioDevice;
+use vm_core::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 
@@ -36,36 +29,6 @@ use crate::boot_loader::Result;
 use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::linux::bzimage::BzImage;
 use crate::kernel_loader::linux::bzimage::BzImageBootParams;
-
-fn build_definition_block() -> Vec<u8> {
-    let mut block = vec![];
-
-    Device::new(
-        "_SB_.PCI0".into(),
-        vec![
-            &Name::new("_HID".into(), &"PNP0A08"),
-            &Name::new("_CID".into(), &"PNP0A03"),
-            &Name::new(
-                "_CRS".into(),
-                &ResourceTemplate::new(vec![
-                    &AddressSpace::new_bus_number(0u16, 0u16),
-                    &Memory32Fixed::new(true, ECAM_BASE, ECAM_LENGTH),
-                    &AddressSpace::new_memory(
-                        AddressSpaceCacheable::NotCacheable,
-                        true,
-                        PCI_BAR_MMIO_WINDOW_START,
-                        PCI_BAR_MMIO_WINDOW_START + PCI_BAR_MMIO_WINDOW_LENGTH - 1,
-                        None,
-                    ),
-                    &AddressSpace::new_io(0x2000u16, 0x2fffu16, None),
-                ]),
-            ),
-        ],
-    )
-    .to_aml_bytes(&mut block);
-
-    block
-}
 
 pub struct X86_64BootLoader {
     kernel: PathBuf,
@@ -93,7 +56,7 @@ impl BootLoader for X86_64BootLoader {
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         _irq_chip: &dyn InterruptController,
-        _devices: Iter<'_, Box<dyn MmioDevice>>,
+        devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<()> {
         let mut kernel_loader = BzImage::new(
             &self.kernel,
@@ -101,10 +64,17 @@ impl BootLoader for X86_64BootLoader {
             self.cmdline.as_deref(),
         )?;
 
+        let mut definition_block = vec![];
+        for device in devices {
+            if let Some(aml) = device.support_aml() {
+                aml.to_aml_bytes(&mut definition_block);
+            }
+        }
+
         let params = BzImageBootParams {
             vcpus,
             memory_size: ram_size,
-            definition_block: build_definition_block(),
+            definition_block,
             gdt_start: GDT_START,
             boot_params_start: BOOT_PARAMS_START,
             cmdline_start: CMDLINE_START,

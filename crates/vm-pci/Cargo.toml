@@ -4,9 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+acpi_tables.workspace = true
+rangemap.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 vm-core.workspace = true
 vm-fdt.workspace = true
+vm-utils.workspace = true
 zerocopy.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+vm-firmware.workspace = true

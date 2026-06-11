@@ -8,7 +8,7 @@ use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 
 use crate::bootloader::error::BootloaderError;
-use crate::device::device_manager::DeviceManager;
+use crate::device::device_manager_v2::DeviceManagerV2;
 use crate::vm::config::VmConfig;
 
 pub async fn install_bootloader(
@@ -17,7 +17,7 @@ pub async fn install_bootloader(
     ram_allocator: &mut RangeAllocator<u64>,
     memory_address_space: &MemoryAddressSpace,
     irq_chip: &dyn InterruptController,
-    device_manager: &DeviceManager,
+    device_manager: &DeviceManagerV2,
 ) -> Result<(), BootloaderError> {
     let bootloader = AArch64BootLoader::new(
         vm_config.kernel.clone(),
@@ -36,7 +36,7 @@ pub async fn install_bootloader(
             ram_allocator,
             memory_address_space,
             irq_chip,
-            device_manager.mmio_devices(),
+            device_manager.iter(),
         )
         .await?;
 

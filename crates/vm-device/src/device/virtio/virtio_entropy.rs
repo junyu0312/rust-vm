@@ -15,7 +15,6 @@ use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
 use vm_virtio::result::VirtioError;
 use vm_virtio::transport::VirtioDev;
-use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::transport::pci::VirtioPciDevice;
 use vm_virtio::types::device::entropy::VirtioEntropyConfig;
 use vm_virtio::types::device::entropy::VirtioEntropyVirtqueue;
@@ -32,7 +31,6 @@ fn requestq_handler() -> VirtqueueHandlerFn<VirtioEntropy> {
 
         let buf = desc.addr(mm).unwrap().as_ptr();
 
-        // println!("entropy len: {} {desc_id}", len);
         assert!(desc.flags & VIRTQ_DESC_F_WRITE != 0);
 
         unsafe {
@@ -129,5 +127,3 @@ impl VirtioPciDevice for VirtioEntropy {
     const CLASS_CODE: u32 = 0x00ff00;
     const IRQ_PIN: u8 = InterruptPin::INTB as u8;
 }
-
-pub type VirtioMmioEntropyDevice = VirtioMmioTransport<VirtioEntropy>;
