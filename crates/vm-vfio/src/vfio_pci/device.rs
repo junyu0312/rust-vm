@@ -53,6 +53,17 @@ impl VfioPciDevice {
                 return Err(Error::VfioPciDeviceIsNotEndpoint);
             }
 
+            // clear address
+            for index in 0..6 {
+                if header.bar[index] & PCI_BASE_ADDRESS_SPACE == 0 {
+                    // Memory
+                    header.bar[index] &= 0xf;
+                } else {
+                    // Io
+                    header.bar[index] &= 0x3;
+                }
+            }
+
             // TODO: Should we emulate irq_line?
             // TODO: Should we reconstruct cap?
             // TODO: Should we emulate status?
