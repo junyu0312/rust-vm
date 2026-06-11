@@ -1,6 +1,13 @@
 use std::path::PathBuf;
 use std::slice::Iter;
 
+use acpi_tables::Aml;
+use acpi_tables::aml::AddressSpace;
+use acpi_tables::aml::AddressSpaceCacheable;
+use acpi_tables::aml::Device;
+use acpi_tables::aml::Memory32Fixed;
+use acpi_tables::aml::Name;
+use acpi_tables::aml::ResourceTemplate;
 use async_trait::async_trait;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::x86_64::layout::ACPI_MAX_LEN;
@@ -29,6 +36,37 @@ use crate::boot_loader::Result;
 use crate::kernel_loader::KernelLoader;
 use crate::kernel_loader::linux::bzimage::BzImage;
 use crate::kernel_loader::linux::bzimage::BzImageBootParams;
+
+fn build_definition_block() -> Vec<u8> {
+    let mut block = vec![];
+
+    Device::new(
+        "_SB_.PCI0".into(),
+        vec![
+            &Name::new("_HID".into(), &"PNP0A08"),
+            &Name::new("_CID".into(), &"PNP0A03"),
+            &Name::new("_BBN".into(), &0u32),
+            &Name::new(
+                "_CRS".into(),
+                &ResourceTemplate::new(vec![
+                    &AddressSpace::new_bus_number(0u16, 0u16),
+                    &Memory32Fixed::new(true, ECAM_BASE, ECAM_LENGTH),
+                    &AddressSpace::new_memory(
+                        AddressSpaceCacheable::NotCacheable,
+                        true,
+                        PCI_BAR_MMIO_WINDOW_START,
+                        PCI_BAR_MMIO_WINDOW_START + PCI_BAR_MMIO_WINDOW_LENGTH,
+                        None,
+                    ),
+                    &AddressSpace::new_io(0x2000u16, 0x2fffu16, None),
+                ]),
+            ),
+        ],
+    )
+    .to_aml_bytes(&mut block);
+
+    block
+}
 
 pub struct X86_64BootLoader {
     kernel: PathBuf,
@@ -67,7 +105,7 @@ impl BootLoader for X86_64BootLoader {
         let params = BzImageBootParams {
             vcpus,
             memory_size: ram_size,
-            definition_block: vec![], // TODO
+            definition_block: build_definition_block(),
             gdt_start: GDT_START,
             boot_params_start: BOOT_PARAMS_START,
             cmdline_start: CMDLINE_START,

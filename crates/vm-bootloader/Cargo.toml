@@ -13,3 +13,6 @@ vm-firmware.workspace = true
 vm-mm.workspace = true
 vm-utils.workspace = true
 zerocopy.workspace = true
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+acpi_tables.workspace = true

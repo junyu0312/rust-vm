@@ -64,6 +64,7 @@ impl VfioPciDevice {
                 }
             }
 
+            // TODO: Rom
             // TODO: Should we emulate irq_line?
             // TODO: Should we reconstruct cap?
             // TODO: Should we emulate status?
