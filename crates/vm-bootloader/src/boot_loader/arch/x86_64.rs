@@ -54,7 +54,7 @@ fn build_definition_block() -> Vec<u8> {
                         AddressSpaceCacheable::NotCacheable,
                         true,
                         PCI_BAR_MMIO_WINDOW_START,
-                        PCI_BAR_MMIO_WINDOW_START + PCI_BAR_MMIO_WINDOW_LENGTH,
+                        PCI_BAR_MMIO_WINDOW_START + PCI_BAR_MMIO_WINDOW_LENGTH - 1,
                         None,
                     ),
                     &AddressSpace::new_io(0x2000u16, 0x2fffu16, None),
