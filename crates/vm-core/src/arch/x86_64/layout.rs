@@ -24,6 +24,12 @@ pub const ECAM_LENGTH: u32 = 0x0010_0000;
 pub const IOAPIC_ADDR: u32 = 0xfec0_0000;
 pub const APIC_ADDR: u32 = 0xfee0_0000;
 
+pub const IO_PORT_START: u16 = 0x0000;
+pub const IO_PORT_LEN: usize = 0x4000;
+
+pub const PCI_IO_PORT_WINDOW_START: u16 = 0x2000;
+pub const PCI_IO_PORT_WINDOW_LENGTH: u16 = 0x2000;
+
 const_assert!(KERNEL_START >= ACPI_RSDT_START + ACPI_MAX_LEN);
 const_assert!(PCI_BAR_MMIO_WINDOW_START >= MMIO_START + MMIO_LEN);
 const_assert!(ECAM_BASE >= PCI_BAR_MMIO_WINDOW_START + PCI_BAR_MMIO_WINDOW_LENGTH);

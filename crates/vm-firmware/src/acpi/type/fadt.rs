@@ -120,7 +120,7 @@ impl Fadt {
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
     ) -> Result<u64, AcpiError> {
-        let address = ram_allocator.alloc(self.len())?;
+        let address = ram_allocator.alloc(self.len())?.start;
         memory.copy_from_slice(address, self.as_bytes())?;
 
         Ok(address)

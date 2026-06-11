@@ -1,6 +1,7 @@
+use std::ops::Range;
+
 use tracing::debug;
 use tracing::warn;
-use vm_core::device::mmio::layout::MmioRange;
 use vm_core::utils::address_space::AddressSpace;
 
 use crate::device::function::BarHandler;
@@ -21,7 +22,7 @@ pub struct MmioRouter {
 impl MmioRouter {
     pub fn register_handler(
         &mut self,
-        pci_address_range: MmioRange,
+        pci_address_range: Range<u64>,
         bus: u8,
         device: u8,
         function: u8,
@@ -40,7 +41,10 @@ impl MmioRouter {
         if self
             .pci_address_space
             .try_insert(
-                pci_address_range,
+                vm_core::utils::address_space::Range {
+                    start: pci_address_range.start,
+                    len: (pci_address_range.end - pci_address_range.start) as usize,
+                },
                 Destination {
                     bus,
                     device,
@@ -55,7 +59,7 @@ impl MmioRouter {
         }
     }
 
-    pub fn get_handler(&self, pci_address: u64) -> Option<(MmioRange, &dyn BarHandler)> {
+    pub fn get_handler(&self, pci_address: u64) -> Option<(Range<u64>, &dyn BarHandler)> {
         let (range, dst) = self
             .pci_address_space
             .try_get_value_by_key(pci_address)
@@ -63,6 +67,9 @@ impl MmioRouter {
 
         debug!(pci_address, dst.bus, dst.device, dst.function, dst.bar);
 
-        Some((range, dst.handler.as_ref()))
+        Some((
+            range.start..range.start + range.len as u64,
+            dst.handler.as_ref(),
+        ))
     }
 }

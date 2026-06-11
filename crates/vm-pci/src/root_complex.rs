@@ -1,5 +1,3 @@
-pub mod mmio;
-pub mod pci_root_complex;
-pub mod pio;
+pub(crate) mod pci_root_complex;
 
 mod mmio_router;

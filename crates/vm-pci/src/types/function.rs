@@ -1,4 +1,4 @@
-use vm_core::device::mmio::layout::MmioRange;
+use std::ops::Range;
 
 use crate::device::function::BarHandler;
 use crate::types::interrupt::InterruptMapEntry;
@@ -8,7 +8,7 @@ pub mod type0;
 pub enum EcamUpdateCallback {
     UpdateMmioRouter {
         bar: u8,
-        pci_address_range: MmioRange,
+        pci_address_range: Range<u64>,
         handler: Box<dyn BarHandler>,
     },
 }

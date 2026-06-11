@@ -8,36 +8,11 @@ use tokio::sync::mpsc;
 #[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::firmware::psci::psci_0_2::Psci02;
 #[cfg(target_arch = "aarch64")]
-use vm_core::arch::aarch64::layout::ECAM_BASE;
-#[cfg(target_arch = "aarch64")]
-use vm_core::arch::aarch64::layout::ECAM_LENGTH;
-#[cfg(target_arch = "aarch64")]
-use vm_core::arch::aarch64::layout::MMIO_LEN;
-#[cfg(target_arch = "aarch64")]
-use vm_core::arch::aarch64::layout::MMIO_START;
-#[cfg(target_arch = "aarch64")]
-use vm_core::arch::aarch64::layout::PCI_BAR_MMIO_WINDOW_LENGTH;
-#[cfg(target_arch = "aarch64")]
-use vm_core::arch::aarch64::layout::PCI_BAR_MMIO_WINDOW_START;
-#[cfg(target_arch = "aarch64")]
 use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::ECAM_BASE;
-#[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::ECAM_LENGTH;
-#[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::MMIO_LEN;
-#[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::MMIO_START;
-#[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_LENGTH;
-#[cfg(target_arch = "x86_64")]
-use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_START;
-#[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::RAM_BASE;
 use vm_core::cpu::vcpu_manager::VcpuManager;
-use vm_core::device::mmio::layout::MmioLayout;
 use vm_core::virtualization::hypervisor::Hypervisor;
 use vm_core::virtualization::vm::SetUserMemoryRegionFlags;
 use vm_core::virtualization::vm::error::VmError;
@@ -53,11 +28,11 @@ use vm_utils::range_allocator::RangeAllocator;
 use crate::bootloader::aarch64::install_bootloader;
 #[cfg(target_arch = "x86_64")]
 use crate::bootloader::x86_64::install_bootloader;
-use crate::device::device_manager::DeviceManager;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::service::monitor::builder::MonitorServerBuilder;
 use crate::vm::PAGE_SIZE;
 use crate::vm::Vm;
+use crate::vm::device_builder::DeviceManagerBuilder;
 use crate::vm::vm_exit_handler::VmExitHandler;
 use crate::vmm::error::VmmError;
 use crate::vmm::handler::VmmCommand;
@@ -112,27 +87,16 @@ impl Vm {
                 todo!()
             };
 
-        let mut mmio_layout = MmioLayout::default();
-        {
-            mmio_layout.try_insert(MMIO_START as u64, MMIO_LEN as usize);
-            mmio_layout.try_insert(
-                PCI_BAR_MMIO_WINDOW_START as u64,
-                PCI_BAR_MMIO_WINDOW_LENGTH as usize,
-            );
-            mmio_layout.try_insert(ECAM_BASE as u64, ECAM_LENGTH as usize);
-        }
-        let mut mmio_allocator = RangeAllocator::<u64>::default();
-        mmio_allocator
-            .insert(MMIO_START as u64, MMIO_LEN as usize)
-            .unwrap();
-        let mut device_manager = DeviceManager::new(mmio_layout, mmio_allocator);
-        device_manager.init(
-            &mut monitor_server_builder,
-            memory_address_space.clone(),
-            &vm_config.devices,
-            irq_chip.clone(),
-        )?;
-        let device_manager = Arc::new(device_manager);
+        let device_manager = {
+            let device_manager = DeviceManagerBuilder::new(
+                irq_chip.clone(),
+                memory_address_space.clone(),
+                &mut monitor_server_builder,
+            )?
+            .build(&vm_config.devices)?;
+
+            Arc::new(device_manager)
+        };
 
         let vcpu_manager = Arc::new(Mutex::new(VcpuManager::new(vm_instance.clone())));
 

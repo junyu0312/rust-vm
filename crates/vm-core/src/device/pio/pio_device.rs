@@ -1,10 +1,7 @@
-use crate::device::Device;
-use crate::utils::address_space::Range;
+use std::ops::Range;
 
-pub type PortRange = Range<u16>;
-
-pub trait PioDevice: Device {
-    fn ports(&self) -> Vec<PortRange>;
+pub trait PioDevice {
+    fn ports(&self) -> Vec<Range<u16>>;
 
     fn io_in(&self, port: u16, data: &mut [u8]);
 

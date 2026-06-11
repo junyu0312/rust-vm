@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+acpi_tables.workspace = true
 bitflags.workspace = true
 strum_macros.workspace = true
 thiserror.workspace = true
@@ -14,4 +15,5 @@ vm-fdt.workspace = true
 vm-mm.workspace = true
 vm-pci.workspace = true
 vm-snapshot.workspace = true
+vm-utils.workspace = true
 zerocopy.workspace = true

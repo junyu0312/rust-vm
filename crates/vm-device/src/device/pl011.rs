@@ -10,6 +10,7 @@ use vm_core::arch::aarch64::irq::GIC_SPI;
 use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
+use vm_core::device::error::DeviceError;
 use vm_core::device::error::DeviceSnapshotError;
 use vm_core::device::mmio::layout::MmioRange;
 use vm_core::device::mmio::mmio_device::MmioDevice;
@@ -23,6 +24,7 @@ use vm_snapshot::helper::write_option_u16;
 use vm_snapshot::helper::write_u8;
 use vm_snapshot::helper::write_u16;
 use vm_snapshot::helper::write_usize;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::device::pl011::cr::Cr;
 use crate::device::pl011::fbrd::Fbrd;
@@ -561,8 +563,8 @@ struct Pl011Handler {
 }
 
 impl MmioHandler for Pl011Handler {
-    fn mmio_range(&self) -> MmioRange {
-        self.mmio_range
+    fn mmio_range(&self) -> Result<MmioRange, DeviceError> {
+        Ok(self.mmio_range)
     }
 
     fn mmio_read(&self, offset: u64, len: usize, data: &mut [u8]) {
@@ -581,7 +583,7 @@ pub struct Pl011 {
 }
 
 impl Pl011 {
-    pub fn new(mmio_range: MmioRange, irq: u32, irq_chip: Arc<dyn InterruptController>) -> Self {
+    pub fn new(irq: u32, irq_chip: Arc<dyn InterruptController>) -> Self {
         let pl011 = Arc::new(Mutex::new(Pl011Internal::new(irq, irq_chip)));
 
         tokio::spawn({
@@ -603,7 +605,7 @@ impl Pl011 {
 
         Pl011 {
             irq,
-            mmio_range,
+            mmio_range: todo!(),
             pl011,
         }
     }
@@ -664,6 +666,13 @@ impl Device for Pl011 {
 }
 
 impl MmioDevice for Pl011 {
+    fn alloc_resource(
+        &mut self,
+        _mmio_allocator: &mut RangeAllocator<u64>,
+    ) -> Result<(), DeviceError> {
+        todo!()
+    }
+
     fn mmio_range_handlers(&self) -> Vec<Box<dyn MmioHandler>> {
         vec![Box::new(Pl011Handler {
             mmio_range: self.mmio_range,
@@ -671,7 +680,7 @@ impl MmioDevice for Pl011 {
         })]
     }
 
-    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
+    fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), DeviceError> {
         let node = fdt.begin_node("uartclk")?;
         fdt.property_string("compatible", "fixed-clock")?;
         fdt.property_u32("#clock-cells", 0)?;
