@@ -45,7 +45,6 @@ fn build_definition_block() -> Vec<u8> {
         vec![
             &Name::new("_HID".into(), &"PNP0A08"),
             &Name::new("_CID".into(), &"PNP0A03"),
-            &Name::new("_BBN".into(), &0u32),
             &Name::new(
                 "_CRS".into(),
                 &ResourceTemplate::new(vec![

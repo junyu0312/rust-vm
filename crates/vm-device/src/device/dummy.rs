@@ -30,6 +30,14 @@ impl PioDevice for Dummy {
                 start: 0x87,
                 len: 1,
             },
+            PortRange {
+                start: 0x1000,
+                len: 4,
+            },
+            PortRange {
+                start: 0x1004,
+                len: 4,
+            },
         ]
     }
 

@@ -75,24 +75,24 @@ impl PciFunctionArch for VfioPciFunction {
     }
 }
 
-fn helper(buf: &[u8]) -> String {
-    match buf.len() {
-        1 => format!("0x{:x}", buf[0]),
-        2 => format!("0x{:x}", u16::from_le_bytes(buf.try_into().unwrap())),
-        4 => format!("0x{:x}", u32::from_le_bytes(buf.try_into().unwrap())),
-        8 => format!("0x{:x}", u64::from_le_bytes(buf.try_into().unwrap())),
-        _ => panic!(),
-    }
-}
+// fn helper(buf: &[u8]) -> String {
+//     match buf.len() {
+//         1 => format!("0x{:x}", buf[0]),
+//         2 => format!("0x{:x}", u16::from_le_bytes(buf.try_into().unwrap())),
+//         4 => format!("0x{:x}", u32::from_le_bytes(buf.try_into().unwrap())),
+//         8 => format!("0x{:x}", u64::from_le_bytes(buf.try_into().unwrap())),
+//         _ => panic!(),
+//     }
+// }
 impl PciFunction for VfioPciFunction {
     fn ecam_read(&self, offset: u16, buf: &mut [u8]) {
         self.configuration_space.lock().unwrap().read(offset, buf);
 
-        println!("read offset 0x{:x}: {:?}", offset, helper(buf));
+        // println!("read offset 0x{:x}: {:?}", offset, helper(buf));
     }
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Option<EcamUpdateCallback> {
-        println!("write offset 0x{:x}: {:?}", offset, helper(buf));
+        // println!("write offset 0x{:x}: {:?}", offset, helper(buf));
 
         match Type0HeaderOffset::from_repr(offset) {
             Some(Type0HeaderOffset::Bar0) => self.write_bar(0, buf),
