@@ -51,7 +51,7 @@ impl Dsdt {
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
     ) -> Result<u64, AcpiError> {
-        let address = ram_allocator.alloc(self.len())?;
+        let address = ram_allocator.alloc(self.len())?.start;
         memory.copy_from_slice(
             address,
             &[self.header.as_bytes(), self.definition_block.as_bytes()].concat(),

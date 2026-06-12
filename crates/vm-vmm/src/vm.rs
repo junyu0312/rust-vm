@@ -15,13 +15,14 @@ use vm_core::virtualization::vm::error::VmError;
 use vm_core::virtualization::vm::state::VmState;
 use vm_mm::manager::MemoryAddressSpace;
 
-use crate::device::device_manager::DeviceManager;
+use crate::device::device_manager_v2::DeviceManagerV2;
 use crate::service::gdbstub::connection::VmGdbStubConnector;
 use crate::vm::config::VmConfig;
 use crate::vmm::error::VmSnapshotError;
 
 pub mod config;
 
+mod device_builder;
 mod snapshot;
 mod vm_exit_handler;
 
@@ -34,7 +35,7 @@ pub struct Vm {
     vcpu_manager: Arc<Mutex<VcpuManager>>,
     memory_address_space: Arc<MemoryAddressSpace>,
     irq_chip: Arc<dyn InterruptController>,
-    device_manager: Arc<DeviceManager>,
+    device_manager: Arc<DeviceManagerV2>,
     gdb_stub: Option<VmGdbStubConnector>,
     monitor_handlers: HashMap<String, Box<dyn MonitorCommandOps>>,
 }

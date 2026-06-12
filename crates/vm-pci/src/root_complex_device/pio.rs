@@ -1,29 +1,49 @@
+use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use vm_core::device::Device;
+use vm_core::device::error::DeviceError;
 use vm_core::device::pio::pio_device::PioDevice;
-use vm_core::device::pio::pio_device::PortRange;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::root_complex::pci_root_complex::PciRootComplex;
-use crate::root_complex::pio::config_addr::ConfigAddress;
+use crate::root_complex_device::pio::config_data::ConfigAddress;
 
-mod config_addr;
+mod config_data;
 
 const CONFIG_ADDRESS: u16 = 0xcf8;
 const CONFIG_DATA: u16 = 0xcfc;
 
-pub struct PciRootComplexPio {
+pub struct PioTransport {
+    io_port_window: Range<u16>,
     config_address: Mutex<ConfigAddress>,
     internal: Arc<Mutex<PciRootComplex>>,
 }
 
-impl PciRootComplexPio {
-    pub fn new(pci_root_complex: Arc<Mutex<PciRootComplex>>) -> Self {
-        PciRootComplexPio {
+impl PioTransport {
+    pub fn new(
+        pio_allocator: &mut RangeAllocator<u16>,
+        io_port_window: Range<u16>,
+        internal: Arc<Mutex<PciRootComplex>>,
+    ) -> Result<Self, DeviceError> {
+        let _ = pio_allocator
+            .reserve(CONFIG_ADDRESS, 4)
+            .map_err(|_| DeviceError::AllocResource)?;
+        let _ = pio_allocator
+            .reserve(CONFIG_DATA, 4)
+            .map_err(|_| DeviceError::AllocResource)?;
+        let _ = pio_allocator
+            .reserve(
+                io_port_window.start,
+                (io_port_window.end - io_port_window.start) as usize,
+            )
+            .map_err(|_| DeviceError::AllocResource)?;
+
+        Ok(PioTransport {
+            io_port_window,
             config_address: Default::default(),
-            internal: pci_root_complex,
-        }
+            internal,
+        })
     }
 
     fn handle_out_config_address(&self, offset: u8, data: &[u8]) {
@@ -77,23 +97,12 @@ impl PciRootComplexPio {
     }
 }
 
-impl Device for PciRootComplexPio {
-    fn name(&self) -> String {
-        "pci-root-complex".to_string()
-    }
-}
-
-impl PioDevice for PciRootComplexPio {
-    fn ports(&self) -> Vec<PortRange> {
+impl PioDevice for PioTransport {
+    fn ports(&self) -> Vec<Range<u16>> {
         vec![
-            PortRange {
-                start: CONFIG_ADDRESS,
-                len: 4,
-            },
-            PortRange {
-                start: CONFIG_DATA,
-                len: 4,
-            },
+            CONFIG_ADDRESS..CONFIG_ADDRESS + 4,
+            CONFIG_DATA..CONFIG_DATA + 4,
+            self.io_port_window.clone(),
         ]
     }
 

@@ -93,6 +93,16 @@ impl Fadt {
             fadt_minor_version: 5, // ACPI 6.6 specification says it is 5.
             x_dsdt,
             hypervisor_vendor_id: HYPERVISOR_VENDOR_ID,
+            // TODO
+            pm1a_cnt_blk: 0x1000,
+            // TODO
+            pm1_evt_len: 16,
+            // TODO
+            pm1a_evt_blk: 0x1004,
+            // TODO
+            pm1_cnt_len: 32,
+            // TODO
+            sci_int: 9,
             ..Default::default()
         };
 
@@ -110,7 +120,7 @@ impl Fadt {
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
     ) -> Result<u64, AcpiError> {
-        let address = ram_allocator.alloc(self.len())?;
+        let address = ram_allocator.alloc(self.len())?.start;
         memory.copy_from_slice(address, self.as_bytes())?;
 
         Ok(address)

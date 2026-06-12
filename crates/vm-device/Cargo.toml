@@ -20,5 +20,6 @@ vm-fdt.workspace = true
 vm-mm.workspace = true
 vm-pci.workspace = true
 vm-snapshot.workspace = true
+vm-utils.workspace = true
 vm-virtio.workspace = true
 zerocopy.workspace = true

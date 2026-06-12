@@ -13,7 +13,6 @@ use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
 use vm_virtio::result::VirtioError;
 use vm_virtio::transport::VirtioDev;
-use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::transport::pci::VirtioPciDevice;
 use vm_virtio::types::device::blk::config::VirtioBlkConfig;
 use vm_virtio::types::device::blk::req::VirtioBlkReq;
@@ -157,5 +156,3 @@ impl VirtioPciDevice for VirtioBlkDevice {
     const CLASS_CODE: u32 = 0x018000;
     const IRQ_PIN: u8 = InterruptPin::INTA as u8;
 }
-
-pub type VirtioMmioBlkDevice = VirtioMmioTransport<VirtioBlkDevice>;

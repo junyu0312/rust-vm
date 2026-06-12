@@ -24,11 +24,11 @@ pub fn handle_vm_exit(
             Ok(VmExitResult::Ok)
         }
         VcpuExit::MmioRead(addr, buf) => {
-            handler.mmio_read(addr, buf.len(), buf)?;
+            handler.mmio_read(addr, buf)?;
             Ok(VmExitResult::Ok)
         }
         VcpuExit::MmioWrite(addr, buf) => {
-            handler.mmio_write(addr, buf.len(), buf)?;
+            handler.mmio_write(addr, buf)?;
             Ok(VmExitResult::Ok)
         }
         VcpuExit::Unknown => todo!(),

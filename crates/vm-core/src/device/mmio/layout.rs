@@ -1,8 +1,6 @@
 use crate::utils::address_space::AddressSpace;
 use crate::utils::address_space::Range;
 
-pub type MmioRange = Range<u64>;
-
 #[derive(Default)]
 pub struct MmioLayout {
     address_space: AddressSpace<u64, ()>,

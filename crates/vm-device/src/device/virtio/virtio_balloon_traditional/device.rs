@@ -17,7 +17,6 @@ use vm_virtio::device::virtqueue::VirtqueueHandler;
 use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
 use vm_virtio::result::VirtioError;
 use vm_virtio::transport::VirtioDev;
-use vm_virtio::transport::mmio::VirtioMmioTransport;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalConfig;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalVirtqueue;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
@@ -192,8 +191,6 @@ impl VirtioDevice for VirtioBalloonTranditional {
 }
 
 pub type VirtioBalloonDev = VirtioDev<VirtioBalloonTranditional>;
-
-pub type VirtioMmioBalloonDevice = VirtioMmioTransport<VirtioBalloonTranditional>;
 
 impl VirtioBalloonApi for VirtioBalloonDev {
     fn update_num_pages(&mut self, num_pages: u32) {

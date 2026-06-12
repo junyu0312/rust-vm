@@ -1,24 +1,12 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
-use vm_pci::device::function::BarHandler;
-
-use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::VirtioPciDevice;
+use crate::transport::pci::VirtioPciTransport;
 
-pub struct IsrHandler<D>
+impl<D> VirtioPciTransport<D>
 where
     D: VirtioPciDevice,
 {
-    pub dev: Arc<Mutex<VirtioDev<D>>>,
-}
-
-impl<D> BarHandler for IsrHandler<D>
-where
-    D: VirtioPciDevice,
-{
-    fn read(&self, _offset: u64, data: &mut [u8]) {
+    pub fn read_isr(&self, _offset: u64, data: &mut [u8]) {
         let mut dev = self.dev.lock().unwrap();
 
         let isr = dev.read_reg(ControlRegister::InterruptStatus);
@@ -32,7 +20,7 @@ where
         dev.device.trigger_irq(false);
     }
 
-    fn write(&self, _offset: u64, _data: &[u8]) {
+    pub fn write_isr(&self, _offset: u64, _data: &[u8]) {
         unreachable!()
     }
 }

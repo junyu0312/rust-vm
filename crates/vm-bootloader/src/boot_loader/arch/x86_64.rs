@@ -19,7 +19,7 @@ use vm_core::arch::x86_64::layout::MMIO_START;
 use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_LENGTH;
 use vm_core::arch::x86_64::layout::PCI_BAR_MMIO_WINDOW_START;
 use vm_core::cpu::vcpu::Vcpu;
-use vm_core::device::mmio::mmio_device::MmioDevice;
+use vm_core::device::Device;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 
@@ -56,7 +56,7 @@ impl BootLoader for X86_64BootLoader {
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         _irq_chip: &dyn InterruptController,
-        _devices: Iter<'_, Box<dyn MmioDevice>>,
+        devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<()> {
         let mut kernel_loader = BzImage::new(
             &self.kernel,
@@ -64,10 +64,17 @@ impl BootLoader for X86_64BootLoader {
             self.cmdline.as_deref(),
         )?;
 
+        let mut definition_block = vec![];
+        for device in devices {
+            if let Some(aml) = device.support_aml() {
+                aml.to_aml_bytes(&mut definition_block);
+            }
+        }
+
         let params = BzImageBootParams {
             vcpus,
             memory_size: ram_size,
-            definition_block: vec![], // TODO
+            definition_block,
             gdt_start: GDT_START,
             boot_params_start: BOOT_PARAMS_START,
             cmdline_start: CMDLINE_START,

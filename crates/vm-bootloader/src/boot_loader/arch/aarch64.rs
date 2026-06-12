@@ -7,7 +7,7 @@ use vm_core::arch::aarch64::layout::INITRD_START;
 use vm_core::arch::aarch64::layout::RAM_BASE;
 use vm_core::arch::irq::InterruptController;
 use vm_core::cpu::vcpu::Vcpu;
-use vm_core::device::mmio::mmio_device::MmioDevice;
+use vm_core::device::Device;
 use vm_fdt::FdtWriter;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
@@ -103,7 +103,7 @@ impl AArch64BootLoader {
         initrd_load_result: Option<initrd_loader::LoadResult>,
         vcpus: usize,
         irq_chip: &dyn InterruptController,
-        devices: Iter<'_, Box<dyn MmioDevice>>,
+        devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<Vec<u8>> {
         let mut fdt = FdtWriter::new()?;
         let root_node = fdt.begin_node("")?;
@@ -186,7 +186,9 @@ impl AArch64BootLoader {
             }
 
             for device in devices {
-                device.generate_dt(&mut fdt)?;
+                if let Some(mmio_device) = device.support_mmio_transport() {
+                    mmio_device.generate_dt(&mut fdt)?;
+                }
             }
 
             fdt.end_node(soc_node)?;
@@ -236,7 +238,7 @@ impl BootLoader for AArch64BootLoader {
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
         irq_chip: &dyn InterruptController,
-        devices: Iter<'_, Box<dyn MmioDevice>>,
+        devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<()> {
         let kernel_loader;
         let initrd_loader;

@@ -1,8 +1,8 @@
-pub struct IrqAllocation(u32);
+pub struct IrqAllocator(u32);
 
-impl IrqAllocation {
+impl IrqAllocator {
     pub fn new(start: u32) -> Self {
-        IrqAllocation(start)
+        IrqAllocator(start)
     }
 
     pub fn alloc(&mut self) -> u32 {

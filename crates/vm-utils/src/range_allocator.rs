@@ -4,15 +4,15 @@ use rangemap::RangeSet;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum RangeAllocatorError {
     #[error("Failed to insert")]
     InsertOverlap,
 
     #[error("Failed to alloc")]
     Alloc,
 
-    #[error("Failed to reserve")]
-    Reserve,
+    #[error("Failed to reserve, base: 0x{start:x}, len: {len}")]
+    Reserve { start: u64, len: usize },
 
     #[error("Failed to free")]
     Free,
@@ -40,13 +40,13 @@ macro_rules! define_range_allocator {
                 lhs.start <= rhs.start && rhs.end <= lhs.end
             }
 
-            pub fn insert(&mut self, start: $t, len: usize) -> Result<(), Error> {
+            pub fn insert(&mut self, start: $t, len: usize) -> Result<(), RangeAllocatorError> {
                 let r = Self::range(start, len);
 
                 if self.free.iter().any(|x| Self::is_overlapping(x, &r))
                     || self.used.iter().any(|x| Self::is_overlapping(x, &r))
                 {
-                    return Err(Error::InsertOverlap);
+                    return Err(RangeAllocatorError::InsertOverlap);
                 }
 
                 self.free.insert(r);
@@ -54,11 +54,11 @@ macro_rules! define_range_allocator {
                 Ok(())
             }
 
-            pub fn alloc(&mut self, len: usize) -> Result<$t, Error> {
+            pub fn alloc(&mut self, len: usize) -> Result<Range<$t>, RangeAllocatorError> {
                 let len = len as $t;
 
                 let Some(range) = self.free.iter().find(|r| r.end - r.start >= len).cloned() else {
-                    return Err(Error::Alloc);
+                    return Err(RangeAllocatorError::Alloc);
                 };
 
                 let range = range.start..range.start + len as $t;
@@ -66,32 +66,37 @@ macro_rules! define_range_allocator {
                 self.free.remove(range.clone());
                 self.used.insert(range.clone());
 
-                Ok(range.start)
+                Ok(range)
             }
 
-            pub fn reserve(&mut self, start: $t, len: usize) -> Result<$t, Error> {
+            pub fn reserve(
+                &mut self,
+                start: $t,
+                len: usize,
+            ) -> Result<Range<$t>, RangeAllocatorError> {
                 let r = Self::range(start, len);
 
-                let _ = self
-                    .free
-                    .iter()
-                    .find(|x| Self::includes(x, &r))
-                    .ok_or(Error::Reserve)?;
+                let _ = self.free.iter().find(|x| Self::includes(x, &r)).ok_or(
+                    RangeAllocatorError::Reserve {
+                        start: start as u64,
+                        len,
+                    },
+                )?;
 
                 self.free.remove(r.clone());
                 self.used.insert(r.clone());
 
-                Ok(start)
+                Ok(r)
             }
 
-            pub fn free(&mut self, start: $t, len: usize) -> Result<(), Error> {
+            pub fn free(&mut self, start: $t, len: usize) -> Result<(), RangeAllocatorError> {
                 let r = Self::range(start, len);
 
                 let _ = self
                     .used
                     .iter()
                     .find(|x| Self::includes(x, &r))
-                    .ok_or(Error::Free)?;
+                    .ok_or(RangeAllocatorError::Free)?;
 
                 self.used.remove(r.clone());
                 self.free.insert(r);
@@ -136,7 +141,7 @@ mod tests {
 
         assert!(allocator.insert(0, 0x10000).is_ok());
 
-        assert_eq!(allocator.alloc(0x1000).unwrap(), 0);
+        assert_eq!(allocator.alloc(0x1000).unwrap().start, 0);
         assert!(allocator.insert(0, 0x1000).is_err());
     }
 
@@ -156,9 +161,9 @@ mod tests {
 
         assert!(allocator.insert(0, 0x10000).is_ok());
 
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0);
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0x100);
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0x200);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0x100);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0x200);
     }
 
     #[test]
@@ -168,9 +173,9 @@ mod tests {
         assert!(allocator.insert(0, 0x100).is_ok());
         assert!(allocator.insert(0x10000, 0x100).is_ok());
 
-        assert_eq!(allocator.alloc(0x50).unwrap(), 0);
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0x10000);
-        assert_eq!(allocator.alloc(0x50).unwrap(), 0x50);
+        assert_eq!(allocator.alloc(0x50).unwrap().start, 0);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0x10000);
+        assert_eq!(allocator.alloc(0x50).unwrap().start, 0x50);
     }
 
     #[test]
@@ -188,9 +193,9 @@ mod tests {
 
         assert!(allocator.insert(0, 0x10000).is_ok());
 
-        assert_eq!(allocator.reserve(0x100, 0x100).unwrap(), 0x100);
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0);
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0x200);
+        assert_eq!(allocator.reserve(0x100, 0x100).unwrap().start, 0x100);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0x200);
     }
 
     #[test]
@@ -199,9 +204,9 @@ mod tests {
 
         assert!(allocator.insert(0, 0x10000).is_ok());
 
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0);
         assert!(allocator.free(0, 0x100).is_ok());
-        assert_eq!(allocator.alloc(0x10000).unwrap(), 0);
+        assert_eq!(allocator.alloc(0x10000).unwrap().start, 0);
     }
 
     #[test]
@@ -210,9 +215,9 @@ mod tests {
 
         assert!(allocator.insert(0, 0x10000).is_ok());
 
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0);
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0x100);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0x100);
         assert!(allocator.free(0, 0x200).is_ok());
-        assert_eq!(allocator.alloc(0x100).unwrap(), 0);
+        assert_eq!(allocator.alloc(0x100).unwrap().start, 0);
     }
 }

@@ -5,7 +5,6 @@ use std::iter;
 use vm_core::device::Device;
 use vm_core::device::error::DeviceSnapshotError;
 
-use crate::device::function::BarHandler;
 use crate::device::function::PciTypeFunctionCommon;
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
@@ -44,8 +43,12 @@ impl PciType0Function for HostBridgeFunction {
         [None, None, None, None, None, None]
     }
 
-    fn bar_handler(&self, _bar: Bar) -> Option<Box<dyn BarHandler>> {
-        None
+    fn bar_read(&self, _bar: Bar, _offset: u64, _buf: &mut [u8]) {
+        unreachable!()
+    }
+
+    fn bar_write(&self, _bar: Bar, _offset: u64, _buf: &[u8]) {
+        unreachable!()
     }
 
     fn pause(&self) -> Result<(), DeviceSnapshotError> {

@@ -1,14 +1,16 @@
 use std::io::Read;
 use std::io::Write;
 use std::io::{self};
+use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
 
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
+use vm_core::device::error::DeviceError;
 use vm_core::device::pio::pio_device::PioDevice;
-use vm_core::device::pio::pio_device::PortRange;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::device::uart8250::ier::IER;
 use crate::device::uart8250::iir::IIR;
@@ -167,7 +169,7 @@ mod msr {
 }
 
 struct Uart8250Internal<const IRQ: u32> {
-    port_base: Option<u16>,
+    port_base: u16,
 
     txr: u8,
     rbr: Option<u8>,
@@ -337,7 +339,13 @@ impl<const IRQ: u32> Uart8250Internal<IRQ> {
 pub struct Uart8250<const IRQ: u32>(Arc<Mutex<Uart8250Internal<IRQ>>>);
 
 impl<const IRQ: u32> Uart8250<IRQ> {
-    pub fn new(port_base: Option<u16>, irq_controller: Arc<dyn InterruptController>) -> Self {
+    pub fn new(
+        pio_allocator: &mut RangeAllocator<u16>,
+        port_base: u16,
+        irq_controller: Arc<dyn InterruptController>,
+    ) -> Result<Self, DeviceError> {
+        let _ = pio_allocator.reserve(port_base, 8)?;
+
         let internal = Arc::new(Mutex::new(Uart8250Internal {
             port_base,
             txr: Default::default(),
@@ -371,7 +379,7 @@ impl<const IRQ: u32> Uart8250<IRQ> {
             }
         });
 
-        Uart8250(internal)
+        Ok(Uart8250(internal))
     }
 }
 
@@ -379,56 +387,27 @@ impl<const IRQ: u32> Device for Uart8250<IRQ> {
     fn name(&self) -> String {
         "uart8250".to_string()
     }
+
+    fn support_pio_transport(&self) -> Option<&dyn PioDevice> {
+        Some(self)
+    }
+
+    fn support_pio_transport_mut(&mut self) -> Option<&mut dyn PioDevice> {
+        Some(self)
+    }
 }
 
 impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
-    fn ports(&self) -> Vec<PortRange> {
+    fn ports(&self) -> Vec<Range<u16>> {
         let internal = self.0.lock().unwrap();
 
-        let base = *internal.port_base.as_ref().unwrap();
-
-        vec![
-            PortRange {
-                start: base,
-                len: 1,
-            },
-            PortRange {
-                start: base + 1,
-                len: 1,
-            },
-            PortRange {
-                start: base + 2,
-                len: 1,
-            },
-            PortRange {
-                start: base + 3,
-                len: 1,
-            },
-            PortRange {
-                start: base + 4,
-                len: 1,
-            },
-            PortRange {
-                start: base + 5,
-                len: 1,
-            },
-            PortRange {
-                start: base + 6,
-                len: 1,
-            },
-            PortRange {
-                start: base + 7,
-                len: 1,
-            },
-        ]
+        vec![internal.port_base..internal.port_base + 8]
     }
 
     fn io_in(&self, port: u16, data: &mut [u8]) {
         let mut internal = self.0.lock().unwrap();
 
-        let base = internal.port_base.as_ref().unwrap();
-
-        match port - base {
+        match port - internal.port_base {
             RBR if !internal.lcr.is_dlab_set() => internal.in_rbr(data),
             DLL if internal.lcr.is_dlab_set() => internal.in_dll(data),
             IER if !internal.lcr.is_dlab_set() => internal.in_ier(data),
@@ -448,9 +427,7 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
     fn io_out(&self, port: u16, data: &[u8]) {
         let mut internal = self.0.lock().unwrap();
 
-        let base = internal.port_base.as_ref().unwrap();
-
-        match port - base {
+        match port - internal.port_base {
             THR if !internal.lcr.is_dlab_set() => internal.out_thr(data),
             DLL if internal.lcr.is_dlab_set() => internal.out_dll(data),
             IER if !internal.lcr.is_dlab_set() => internal.out_ier(data),

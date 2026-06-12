@@ -1,5 +1,4 @@
 use strum_macros::FromRepr;
-use vm_core::device::mmio::layout::MmioRange;
 
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
@@ -54,14 +53,7 @@ where
                 header.bar[n as usize] = val;
                 Some(EcamUpdateCallback::UpdateMmioRouter {
                     bar: n,
-                    pci_address_range: MmioRange {
-                        start: val as u64,
-                        len: bar_size as usize,
-                    },
-                    handler: internal
-                        .function
-                        .bar_handler(Bar::from_repr(n).unwrap())
-                        .unwrap(),
+                    pci_address_range: val as u64..(val as u64 + bar_size as u64),
                 })
             }
         } else {
@@ -98,5 +90,21 @@ where
                 None
             }
         }
+    }
+
+    fn bar_read(&self, bar: u8, offset: u64, buf: &mut [u8]) {
+        self.internal
+            .lock()
+            .unwrap()
+            .function
+            .bar_read(Bar::from_repr(bar).unwrap(), offset, buf);
+    }
+
+    fn bar_write(&self, bar: u8, offset: u64, buf: &[u8]) {
+        self.internal
+            .lock()
+            .unwrap()
+            .function
+            .bar_write(Bar::from_repr(bar).unwrap(), offset, buf);
     }
 }

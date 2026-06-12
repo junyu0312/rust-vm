@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+acpi_tables = { workspace = true }
 applevisor = { workspace = true, optional = true }
 applevisor-sys = { workspace = true, optional = true }
 async-trait = { workspace = true }
@@ -19,6 +20,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 vm-fdt = { workspace = true }
 vm-mm = { workspace = true }
+vm-utils = { workspace = true }
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 anyhow = { workspace = true }

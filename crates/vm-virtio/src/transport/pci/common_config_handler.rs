@@ -1,13 +1,9 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use strum_macros::FromRepr;
 use tracing::warn;
-use vm_pci::device::function::BarHandler;
 
-use crate::transport::VirtioDev;
 use crate::transport::control_register::ControlRegister;
 use crate::transport::pci::VirtioPciDevice;
+use crate::transport::pci::VirtioPciTransport;
 
 #[derive(Debug, FromRepr)]
 #[repr(u64)]
@@ -40,18 +36,11 @@ enum CommonCfgOffset {
     // AdminQueueNum = 0x3e,
 }
 
-pub struct CommonConfigHandler<D>
+impl<D> VirtioPciTransport<D>
 where
     D: VirtioPciDevice,
 {
-    pub dev: Arc<Mutex<VirtioDev<D>>>,
-}
-
-impl<D> BarHandler for CommonConfigHandler<D>
-where
-    D: VirtioPciDevice,
-{
-    fn read(&self, offset: u64, data: &mut [u8]) {
+    pub fn read_common_config(&self, offset: u64, data: &mut [u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {
             warn!(name = D::NAME, offset, "invalid offset");
             return;
@@ -150,7 +139,7 @@ where
         }
     }
 
-    fn write(&self, offset: u64, data: &[u8]) {
+    pub fn write_common_config(&self, offset: u64, data: &[u8]) {
         let Some(offset) = CommonCfgOffset::from_repr(offset) else {
             warn!(name = D::NAME, offset, "invalid offset");
             return;

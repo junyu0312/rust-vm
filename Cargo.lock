@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "acpi_tables"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce821f856a3eb1d033287f2dcfcdf94276d7895dd5bdd8ca45ae17e7d33d4dd9"
+dependencies = [
+ "zerocopy",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1218,6 +1227,7 @@ dependencies = [
 name = "vm-bootloader"
 version = "0.1.0"
 dependencies = [
+ "acpi_tables",
  "async-trait",
  "thiserror",
  "tracing",
@@ -1252,6 +1262,7 @@ dependencies = [
 name = "vm-core"
 version = "0.1.0"
 dependencies = [
+ "acpi_tables",
  "anyhow",
  "applevisor",
  "applevisor-sys",
@@ -1273,6 +1284,7 @@ dependencies = [
  "vm-fdt",
  "vm-firmware",
  "vm-mm",
+ "vm-utils",
 ]
 
 [[package]]
@@ -1295,6 +1307,7 @@ dependencies = [
  "vm-mm",
  "vm-pci",
  "vm-snapshot",
+ "vm-utils",
  "vm-virtio",
  "zerocopy",
 ]
@@ -1360,11 +1373,15 @@ dependencies = [
 name = "vm-pci"
 version = "0.1.0"
 dependencies = [
+ "acpi_tables",
+ "rangemap",
  "strum_macros",
  "thiserror",
  "tracing",
  "vm-core",
  "vm-fdt",
+ "vm-firmware",
+ "vm-utils",
  "zerocopy",
 ]
 
@@ -1396,6 +1413,7 @@ dependencies = [
 name = "vm-virtio"
 version = "0.1.0"
 dependencies = [
+ "acpi_tables",
  "bitflags 2.10.0",
  "strum_macros",
  "thiserror",
@@ -1406,6 +1424,7 @@ dependencies = [
  "vm-mm",
  "vm-pci",
  "vm-snapshot",
+ "vm-utils",
  "zerocopy",
 ]
 
@@ -1420,6 +1439,7 @@ dependencies = [
  "lazy_static",
  "maplit",
  "postcard",
+ "rangemap",
  "serde",
  "serde_json",
  "strum",
