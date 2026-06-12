@@ -22,6 +22,7 @@ use vm_utils::range_allocator::RangeAllocator;
 
 use crate::root_complex::pci_root_complex::PciRootComplex;
 use crate::root_complex_device::mmio::MmioTransport;
+#[cfg(target_arch = "x86_64")]
 use crate::root_complex_device::pio::PioTransport;
 use crate::types::device::PciDevice;
 

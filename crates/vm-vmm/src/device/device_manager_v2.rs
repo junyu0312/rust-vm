@@ -23,6 +23,7 @@ impl DeviceManagerV2 {
     pub fn attach_device(&mut self, mut device: Box<dyn Device>) -> Result<(), InitDeviceError> {
         let index = self.devices.len();
 
+        #[cfg(target_arch = "x86_64")]
         if let Some(dev) = device.support_pio_transport_mut() {
             for range in dev.ports() {
                 self.pio_dispatcher.insert(range.clone(), index);
@@ -40,6 +41,7 @@ impl DeviceManagerV2 {
         Ok(())
     }
 
+    #[cfg(target_arch = "x86_64")]
     pub fn io_in(&self, port: u16, data: &mut [u8]) -> Result<(), VmExitHandlerError> {
         debug!(port, "io in");
 
@@ -55,6 +57,12 @@ impl DeviceManagerV2 {
         Ok(())
     }
 
+    #[cfg(not(target_arch = "x86_64"))]
+    pub fn io_in(&self, port: u16, _data: &mut [u8]) -> Result<(), VmExitHandlerError> {
+        Err(VmExitHandlerError::NoDeviceForPort(port))
+    }
+
+    #[cfg(target_arch = "x86_64")]
     pub fn io_out(&self, port: u16, data: &[u8]) -> Result<(), VmExitHandlerError> {
         debug!(port, ?data, "io out");
 
@@ -68,6 +76,11 @@ impl DeviceManagerV2 {
         pio_device.io_out(port, data);
 
         Ok(())
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    pub fn io_out(&self, port: u16, _data: &[u8]) -> Result<(), VmExitHandlerError> {
+        Err(VmExitHandlerError::NoDeviceForPort(port))
     }
 
     pub fn mmio_read(&self, addr: u64, data: &mut [u8]) -> Result<(), VmExitHandlerError> {

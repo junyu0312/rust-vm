@@ -4,21 +4,16 @@ use std::sync::Mutex;
 
 use vm_core::device::error::DeviceError;
 use vm_core::device::mmio::mmio_device::MmioDevice;
-use vm_core::utils::address_space::AddressSpace;
 use vm_fdt::FdtWriter;
 use vm_utils::range_allocator::RangeAllocator;
 
 use crate::root_complex::pci_root_complex::PciRootComplex;
 
-pub type PciToGpaMapping = AddressSpace<u64, u64>;
-
 mod arch;
-// mod bar_handler;
 mod ecam_handler;
 
 pub struct MmioTransport {
     pub(crate) ecam_range: Range<u64>,
-    // pci_to_gpa_mapping: PciToGpaMapping,
     pub(crate) pci_bar_mmio_window: Range<u64>,
     internal: Arc<Mutex<PciRootComplex>>,
 }
@@ -28,8 +23,6 @@ impl MmioTransport {
         mmio_allocator: &mut RangeAllocator<u64>,
         ecam_range: Range<u64>,
         pci_bar_mmio_window: Range<u64>,
-        // physica_start: u64,
-        // pci_address_space_len: usize,
         internal: Arc<Mutex<PciRootComplex>>,
     ) -> Result<Self, DeviceError> {
         let _ = mmio_allocator
@@ -44,11 +37,6 @@ impl MmioTransport {
                 (pci_bar_mmio_window.end - pci_bar_mmio_window.start) as usize,
             )
             .map_err(|_| DeviceError::AllocResource)?;
-
-        // let mut pci_to_gpa_mapping = PciToGpaMapping::default();
-        // pci_to_gpa_mapping
-        //     .try_insert(0..(pci_address_space_len as u64), physica_start)
-        //     .unwrap();
 
         Ok(MmioTransport {
             ecam_range,
@@ -123,27 +111,18 @@ impl MmioDevice for MmioTransport {
         fdt.property_u32("#size-cells", 2)?;
         fdt.property_u32("#address-cells", 3)?;
         fdt.property_u32("#interrupt-cells", 1)?;
-
-        {
-            todo!()
-            /*
-            let mut ranges_vec: Vec<u32> = Vec::new();
-            self.pci_to_gpa_mapping
-                .iter()
-                .for_each(|(&pci_addr, &(len, gpa))| {
-                    ranges_vec.extend_from_slice(&[
-                        0x0200_0000, // MEM
-                        (pci_addr >> 32) as u32,
-                        pci_addr as u32,
-                        (gpa >> 32) as u32,
-                        gpa as u32,
-                        (len >> 32) as u32,
-                        len as u32,
-                    ]);
-                });
-            fdt.property_array_u32("ranges", &ranges_vec[..])?;
-            */
-        }
+        fdt.property_array_u32(
+            "ranges",
+            &[
+                0x0200_0000, // MEM
+                0x0,         // pci_addr high
+                0x0,         // pci_addr low
+                (self.pci_bar_mmio_window.start >> 32) as u32,
+                self.pci_bar_mmio_window.start as u32,
+                ((self.pci_bar_mmio_window.end - self.pci_bar_mmio_window.start) >> 32) as u32,
+                (self.pci_bar_mmio_window.end - self.pci_bar_mmio_window.start) as u32,
+            ],
+        )?;
         fdt.property_array_u32("bus-range", &[0, 0])?;
         fdt.property_array_u64(
             "reg",

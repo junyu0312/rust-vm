@@ -45,66 +45,11 @@ impl VmExit for VmExitHandler {
 
     fn mmio_read(&self, addr: u64, data: &mut [u8]) -> Result<(), VmExitHandlerError> {
         self.device_manager.mmio_read(addr, data)
-
-        /*
-        let (range, handler) = self
-            .device_manager
-            .mmio_manager
-            .get_handler_by_addr(addr)
-            .ok_or(VmExitHandlerError::NoDeviceForAddr(addr))?;
-
-        let err = || VmExitHandlerError::MmioOutOfMemory {
-            mmio_start: range.start,
-            mmio_len: range.len,
-            addr,
-        };
-
-        if addr.checked_add(len as u64).ok_or_else(err)?
-            > range.start.checked_add(range.len as u64).ok_or_else(err)?
-        {
-            return Err(err());
-        }
-
-        handler.mmio_read(addr - range.start, len, data);
-
-        Ok(())
-        */
     }
 
     fn mmio_write(&self, addr: u64, data: &[u8]) -> Result<(), VmExitHandlerError> {
         self.device_manager.mmio_write(addr, data)
-
-        /*
-        let (range, handler) = self
-            .device_manager
-            .mmio_manager
-            .get_handler_by_addr(addr)
-            .ok_or(VmExitHandlerError::NoDeviceForAddr(addr))?;
-
-        let err = || VmExitHandlerError::MmioOutOfMemory {
-            mmio_start: range.start,
-            mmio_len: range.len,
-            addr,
-        };
-
-        if addr.checked_add(len as u64).ok_or_else(err)?
-            > range.start.checked_add(range.len as u64).ok_or_else(err)?
-        {
-            return Err(err());
-        }
-
-        handler.mmio_write(addr - range.start, len, data);
-
-        Ok(())
-        */
     }
-
-    // fn in_mmio_region(&self, addr: u64) -> bool {
-    //     self.device_manager
-    //         .mmio_manager
-    //         .mmio_layout()
-    //         .in_mmio_region(addr)
-    // }
 
     #[cfg(target_arch = "aarch64")]
     fn call_smc(&self, vcpu: &mut dyn AArch64Vcpu) -> Result<(), VmExitHandlerError> {

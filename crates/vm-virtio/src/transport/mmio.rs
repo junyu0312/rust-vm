@@ -117,7 +117,7 @@ where
     fn mmio_read(&self, addr: u64, buf: &mut [u8]) -> Result<(), DeviceError> {
         debug_assert!(self.mmio_range.contains(&addr));
 
-        self.read(addr, buf);
+        self.read(addr - self.mmio_range.start, buf);
 
         Ok(())
     }
@@ -125,7 +125,7 @@ where
     fn mmio_write(&self, addr: u64, buf: &[u8]) -> Result<(), DeviceError> {
         debug_assert!(self.mmio_range.contains(&addr));
 
-        self.write(addr, buf);
+        self.write(addr - self.mmio_range.start, buf);
 
         Ok(())
     }
