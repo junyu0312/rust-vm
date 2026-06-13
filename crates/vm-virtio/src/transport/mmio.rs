@@ -9,7 +9,9 @@ use acpi_tables::AmlSink;
 use acpi_tables::aml::AddressSpace;
 use acpi_tables::aml::AddressSpaceCacheable;
 use acpi_tables::aml::Device as AmlDevice;
+use acpi_tables::aml::Interrupt;
 use acpi_tables::aml::Name;
+use acpi_tables::aml::ONE;
 use acpi_tables::aml::Path;
 use acpi_tables::aml::ResourceTemplate;
 use vm_core::device::Device;
@@ -57,15 +59,20 @@ where
             Path::new(&format!("V{:03}", self.virtio_mmio_index)),
             vec![
                 &Name::new("_HID".into(), &"LNRO0005"),
+                &Name::new("_UID".into(), &self.virtio_mmio_index),
+                &Name::new("_CCA".into(), &ONE),
                 &Name::new(
                     "_CRS".into(),
-                    &ResourceTemplate::new(vec![&AddressSpace::new_memory(
-                        AddressSpaceCacheable::NotCacheable,
-                        true,
-                        self.mmio_range.start,
-                        self.mmio_range.end - 1,
-                        None,
-                    )]),
+                    &ResourceTemplate::new(vec![
+                        &AddressSpace::new_memory(
+                            AddressSpaceCacheable::NotCacheable,
+                            true,
+                            self.mmio_range.start,
+                            self.mmio_range.end - 1,
+                            None,
+                        ),
+                        &Interrupt::new(true, true, false, false, todo!()),
+                    ]),
                 ),
             ],
         )
