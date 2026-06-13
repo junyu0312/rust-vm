@@ -59,4 +59,10 @@ impl VfioDevice {
 
         Ok(())
     }
+
+    pub(crate) fn region_write(&self, index: u32, buf: &[u8], addr: u64) -> Result<()> {
+        self.device.region_write(index, buf, addr);
+
+        Ok(())
+    }
 }

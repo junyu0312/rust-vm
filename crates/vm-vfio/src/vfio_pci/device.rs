@@ -109,7 +109,7 @@ impl VfioPciDevice {
             }
         }
 
-        let function = VfioPciFunction::new(configuration_space, bar_info);
+        let function = VfioPciFunction::new(configuration_space, bar_info, vfio_device);
 
         Ok(VfioPciDevice { name, function })
     }
