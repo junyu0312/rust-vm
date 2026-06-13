@@ -17,7 +17,7 @@ where
          * - The device MUST reset ISR status to 0 on driver read.
          */
         dev.write_reg(ControlRegister::InterruptStatus, 0).unwrap();
-        dev.device.trigger_irq(false);
+        dev.device.irq_chip().trigger_irq(dev.device.irq(), false);
     }
 
     pub fn write_isr(&self, _offset: u64, _data: &[u8]) {

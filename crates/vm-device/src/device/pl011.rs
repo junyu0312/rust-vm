@@ -484,7 +484,7 @@ impl Pl011Internal {
     }
 
     fn trigger_irq(&self, active: bool) {
-        self.irq_chip.trigger_irq(32 + self.irq, active);
+        self.irq_chip.trigger_irq(self.irq, active);
     }
 
     fn mmio_read(&mut self, offset: u64, data: &mut [u8]) {
@@ -696,7 +696,11 @@ impl MmioDevice for Pl011 {
                 self.mmio_range.end - self.mmio_range.start,
             ],
         )?;
-        fdt.property_array_u32("interrupts", &[GIC_SPI, self.irq, IRQ_TYPE_LEVEL_HIGH])?;
+        if cfg!(target_arch = "aarch64") {
+            fdt.property_array_u32("interrupts", &[GIC_SPI, self.irq, IRQ_TYPE_LEVEL_HIGH])?;
+        } else {
+            unimplemented!()
+        }
         fdt.property_array_u32("clocks", &[3, 3])?;
         fdt.property_string_list(
             "clock-names",

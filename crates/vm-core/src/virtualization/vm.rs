@@ -4,6 +4,7 @@ use vm_mm::manager::MemoryAddressSpace;
 
 use crate::arch::irq::InterruptController;
 use crate::cpu::vm_exit::VmExit;
+use crate::virtualization::irq_allocator::IrqAllocator;
 use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vm::error::VmError;
 
@@ -23,6 +24,8 @@ pub trait HypervisorVm: Send + Sync {
     ) -> Result<Box<dyn HypervisorVcpu>, VmError>;
 
     fn create_irq_chip(&self) -> Result<Box<dyn InterruptController>, VmError>;
+
+    fn create_irq_allocator(&self) -> Result<IrqAllocator, VmError>;
 
     fn set_user_memory_region(
         &self,

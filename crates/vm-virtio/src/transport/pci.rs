@@ -54,13 +54,13 @@ where
 
     fn legacy_interrupt(&self) -> Option<(u8, u8)> {
         let dev = self.dev.lock().unwrap();
-        dev.device.irq().map(|irq| {
-            (
-                irq.try_into()
-                    .expect("irq is too large for pci legacy interrupt"),
-                D::IRQ_PIN,
-            )
-        })
+        Some((
+            dev.device
+                .irq()
+                .try_into()
+                .expect("irq is too large for pci legacy interrupt"),
+            D::IRQ_PIN,
+        ))
     }
 
     fn init_capability(&self, cfg: &mut ConfigurationSpace) -> Result<(), Error> {

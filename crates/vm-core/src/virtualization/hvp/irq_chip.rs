@@ -8,6 +8,7 @@ use applevisor_sys::hv_gic_set_spi;
 use tracing::warn;
 
 use crate::arch::aarch64::irq::AArch64IrqChip;
+use crate::arch::aarch64::irq::GIC_SPI_START;
 use crate::arch::irq::InterruptController;
 use crate::arch::irq::Phandle;
 use crate::arch::irq::error::IrqChipError;
@@ -34,9 +35,7 @@ impl HvpGicV3 {
 
 impl InterruptController for HvpGicV3 {
     fn trigger_irq(&self, irq_line: u32, active: bool) {
-        // assert!(irq_line >= 32);
-
-        if let Err(err) = hv_unsafe_call!(hv_gic_set_spi(irq_line, active)) {
+        if let Err(err) = hv_unsafe_call!(hv_gic_set_spi(irq_line + GIC_SPI_START, active)) {
             warn!(irq_line, ?err, "Failed to send spi");
         }
     }

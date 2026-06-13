@@ -55,6 +55,8 @@ where
     D: VirtioDevice,
 {
     fn to_aml_bytes(&self, sink: &mut dyn AmlSink) {
+        let dev = self.dev.lock().unwrap();
+
         AmlDevice::new(
             Path::new(&format!("V{:03}", self.virtio_mmio_index)),
             vec![
@@ -71,7 +73,7 @@ where
                             self.mmio_range.end - 1,
                             None,
                         ),
-                        &Interrupt::new(true, true, false, false, todo!()),
+                        &Interrupt::new(true, true, false, false, dev.device.irq()),
                     ]),
                 ),
             ],
@@ -140,6 +142,8 @@ where
     fn generate_dt(&self, fdt: &mut FdtWriter) -> Result<(), DeviceError> {
         let dev = self.dev.lock().unwrap();
 
+        let irq = dev.device.irq();
+
         let node = fdt.begin_node(&format!("{}@{:x}", self.name(), self.mmio_range.start))?;
 
         fdt.property_string("compatible", "virtio,mmio")?;
@@ -150,18 +154,16 @@ where
                 self.mmio_range.end - self.mmio_range.start,
             ],
         )?;
-        if let Some(irq) = dev.device.irq() {
-            #[cfg(target_arch = "aarch64")]
-            {
-                use vm_core::arch::aarch64::irq::GIC_SPI;
-                use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
-                fdt.property_array_u32("interrupts", &[GIC_SPI, irq, IRQ_TYPE_LEVEL_HIGH])?;
-            }
-            #[cfg(not(target_arch = "aarch64"))]
-            {
-                std::hint::black_box(irq);
-                todo!()
-            }
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            use vm_core::arch::aarch64::irq::GIC_SPI;
+            use vm_core::arch::aarch64::irq::IRQ_TYPE_LEVEL_HIGH;
+            fdt.property_array_u32("interrupts", &[GIC_SPI, irq, IRQ_TYPE_LEVEL_HIGH])?;
+        }
+        #[cfg(not(target_arch = "aarch64"))]
+        {
+            fdt.property_array_u32("interrupts", &[irq, 0])?;
         }
 
         fdt.end_node(node)?;
