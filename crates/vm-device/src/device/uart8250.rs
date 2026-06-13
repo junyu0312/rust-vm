@@ -401,7 +401,8 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
     fn ports(&self) -> Vec<Range<u16>> {
         let internal = self.0.lock().unwrap();
 
-        vec![internal.port_base..internal.port_base + 8]
+        let range = internal.port_base..internal.port_base + 8;
+        vec![range]
     }
 
     fn io_in(&self, port: u16, data: &mut [u8]) {

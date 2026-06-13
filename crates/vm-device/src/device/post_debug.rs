@@ -34,7 +34,8 @@ impl Device for PostDebug {
 
 impl PioDevice for PostDebug {
     fn ports(&self) -> Vec<Range<u16>> {
-        vec![PORT..PORT + LEN as u16]
+        let range = PORT..PORT + LEN as u16;
+        vec![range]
     }
 
     fn io_in(&self, _port: u16, _data: &mut [u8]) {
