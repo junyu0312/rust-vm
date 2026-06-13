@@ -38,19 +38,19 @@ pub fn mmio_allocator() -> RangeAllocator<u64> {
 impl<'a> DeviceManagerBuilder<'a> {
     pub fn init_device_arch(&mut self) -> Result<(), InitDeviceError> {
         let uart8250_com1 =
-            Uart8250::<4>::new(&mut self.pio_allocator, 0x3f8, self.irq_chip.clone())?;
+            Uart8250::<4>::new(&mut self.pio_allocator, 0x3f8, self.irq_chip.clone(), true)?;
         self.device_manager.attach_device(Box::new(uart8250_com1))?;
 
         let uart8250_com2 =
-            Uart8250::<3>::new(&mut self.pio_allocator, 0x2f8, self.irq_chip.clone())?;
+            Uart8250::<3>::new(&mut self.pio_allocator, 0x2f8, self.irq_chip.clone(), false)?;
         self.device_manager.attach_device(Box::new(uart8250_com2))?;
 
         let uart8250_com3 =
-            Uart8250::<4>::new(&mut self.pio_allocator, 0x3e8, self.irq_chip.clone())?;
+            Uart8250::<4>::new(&mut self.pio_allocator, 0x3e8, self.irq_chip.clone(), false)?;
         self.device_manager.attach_device(Box::new(uart8250_com3))?;
 
         let uart8250_com4 =
-            Uart8250::<3>::new(&mut self.pio_allocator, 0x2e8, self.irq_chip.clone())?;
+            Uart8250::<3>::new(&mut self.pio_allocator, 0x2e8, self.irq_chip.clone(), false)?;
         self.device_manager.attach_device(Box::new(uart8250_com4))?;
 
         let cmos = Cmos::new(&mut self.pio_allocator)?;
