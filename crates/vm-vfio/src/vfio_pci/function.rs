@@ -65,7 +65,6 @@ impl VfioPciFunction {
             None
         } else {
             header.bar[bar_index] = data;
-            println!("bar_index {bar_index} {data}");
             self.bars[bar_index]
                 .as_ref()
                 .map(|bar| EcamUpdateCallback::UpdateMmioRouter {
