@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::io::Write;
+use std::sync::RwLock;
 
 use tracing::debug;
 use vm_core::device::error::DeviceSnapshotError;
@@ -13,7 +14,7 @@ use crate::types::function::EcamUpdateCallback;
 
 pub struct PciRootComplex {
     pub(crate) bus: Vec<PciBus>,
-    pub(crate) mmio_router: MmioRouter,
+    pub(crate) mmio_router: RwLock<MmioRouter>,
     allocation: usize,
 }
 
@@ -70,7 +71,7 @@ impl PciRootComplex {
         }
     }
 
-    pub fn handle_ecam_write(&mut self, bus: u8, device: u8, func: u8, offset: u16, data: &[u8]) {
+    pub fn handle_ecam_write(&self, bus: u8, device: u8, func: u8, offset: u16, data: &[u8]) {
         debug!(bus, device, func, offset, data, "ecam write");
 
         let Some(function) = self
@@ -85,9 +86,13 @@ impl PciRootComplex {
                 EcamUpdateCallback::UpdateMmioRouter {
                     bar,
                     pci_address_range,
-                } => self
-                    .mmio_router
-                    .register_handler(pci_address_range, bus, device, func, bar),
+                } => self.mmio_router.write().unwrap().register_handler(
+                    pci_address_range,
+                    bus,
+                    device,
+                    func,
+                    bar,
+                ),
             }
         }
     }

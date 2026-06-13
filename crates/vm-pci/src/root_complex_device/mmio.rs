@@ -1,6 +1,6 @@
 use std::ops::Range;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use vm_core::device::error::DeviceError;
 use vm_core::device::mmio::mmio_device::MmioDevice;
@@ -15,7 +15,7 @@ mod ecam_handler;
 pub struct MmioTransport {
     pub(crate) ecam_range: Range<u64>,
     pub(crate) pci_bar_mmio_window: Range<u64>,
-    internal: Arc<Mutex<PciRootComplex>>,
+    internal: Arc<RwLock<PciRootComplex>>,
 }
 
 impl MmioTransport {
@@ -23,7 +23,7 @@ impl MmioTransport {
         mmio_allocator: &mut RangeAllocator<u64>,
         ecam_range: Range<u64>,
         pci_bar_mmio_window: Range<u64>,
-        internal: Arc<Mutex<PciRootComplex>>,
+        internal: Arc<RwLock<PciRootComplex>>,
     ) -> Result<Self, DeviceError> {
         let _ = mmio_allocator
             .reserve(
@@ -64,12 +64,14 @@ impl MmioDevice for MmioTransport {
         }
 
         if self.pci_bar_mmio_window.contains(&addr) {
-            let internal = self.internal.lock().unwrap();
+            let internal = self.internal.read().unwrap();
 
             let pci_address = self.guest_physical_address_to_pci_address(addr);
 
             let dst = internal
                 .mmio_router
+                .read()
+                .unwrap()
                 .get_handler(pci_address)
                 .ok_or(DeviceError::UnknownDevice)?;
 
@@ -98,12 +100,14 @@ impl MmioDevice for MmioTransport {
         }
 
         if self.pci_bar_mmio_window.contains(&addr) {
-            let internal = self.internal.lock().unwrap();
+            let internal = self.internal.read().unwrap();
 
             let pci_address = self.guest_physical_address_to_pci_address(addr);
 
             let dst = internal
                 .mmio_router
+                .read()
+                .unwrap()
                 .get_handler(pci_address)
                 .ok_or(DeviceError::UnknownDevice)?;
 

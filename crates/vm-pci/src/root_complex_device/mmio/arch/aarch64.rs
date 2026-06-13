@@ -7,7 +7,7 @@ impl MmioTransport {
     pub fn generate_device_tree_arch(&self, fdt: &mut FdtWriter) -> Result<(), vm_fdt::Error> {
         fdt.property_u32("msi-parent", Phandle::MSI as u32)?;
 
-        let internal = self.internal.lock().unwrap();
+        let internal = self.internal.read().unwrap();
 
         let mut entries = vec![];
         for (bus_id, bus) in internal.bus.iter().enumerate() {

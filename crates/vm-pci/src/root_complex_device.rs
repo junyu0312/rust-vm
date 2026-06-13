@@ -2,7 +2,7 @@ use std::io::Read;
 use std::io::Write;
 use std::ops::Range;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use acpi_tables::Aml;
 use acpi_tables::AmlSink;
@@ -34,7 +34,7 @@ pub struct PciRootComplexDevice {
     #[cfg(target_arch = "x86_64")]
     pio_transport: PioTransport,
     mmio_transport: MmioTransport,
-    internal: Arc<Mutex<PciRootComplex>>,
+    internal: Arc<RwLock<PciRootComplex>>,
 }
 
 impl PciRootComplexDevice {
@@ -45,7 +45,7 @@ impl PciRootComplexDevice {
         ecam_range: Range<u64>,
         bar_mmio_window: Range<u64>,
     ) -> Result<Self, DeviceError> {
-        let internal = Arc::new(Mutex::new(PciRootComplex::default()));
+        let internal = Arc::new(RwLock::new(PciRootComplex::default()));
         let device = PciRootComplexDevice {
             #[cfg(target_arch = "x86_64")]
             pio_transport: PioTransport::new(
@@ -72,7 +72,7 @@ impl PciRootComplexDevice {
         &mut self,
         device: Box<dyn PciDevice>,
     ) -> Result<(), Box<dyn PciDevice>> {
-        self.internal.lock().unwrap().register_device(device)
+        self.internal.write().unwrap().register_device(device)
     }
 }
 
@@ -117,11 +117,11 @@ impl Device for PciRootComplexDevice {
     }
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
-        self.internal.lock().unwrap().save(writer)
+        self.internal.read().unwrap().save(writer)
     }
 
     fn load(&mut self, read: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
-        self.internal.lock().unwrap().load(read)
+        self.internal.write().unwrap().load(read)
     }
 
     fn support_aml(&self) -> Option<&dyn Aml> {

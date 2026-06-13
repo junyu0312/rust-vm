@@ -1,6 +1,7 @@
 use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::RwLock;
 
 use vm_core::device::error::DeviceError;
 use vm_core::device::pio::pio_device::PioDevice;
@@ -17,14 +18,14 @@ const CONFIG_DATA: u16 = 0xcfc;
 pub struct PioTransport {
     io_port_window: Range<u16>,
     config_address: Mutex<ConfigAddress>,
-    internal: Arc<Mutex<PciRootComplex>>,
+    internal: Arc<RwLock<PciRootComplex>>,
 }
 
 impl PioTransport {
     pub fn new(
         pio_allocator: &mut RangeAllocator<u16>,
         io_port_window: Range<u16>,
-        internal: Arc<Mutex<PciRootComplex>>,
+        internal: Arc<RwLock<PciRootComplex>>,
     ) -> Result<Self, DeviceError> {
         let _ = pio_allocator
             .reserve(CONFIG_ADDRESS, 4)
@@ -65,7 +66,7 @@ impl PioTransport {
         // let offset = self.config_address.offset();
         let start = register * 4 + offset;
 
-        self.internal.lock().unwrap().handle_ecam_write(
+        self.internal.read().unwrap().handle_ecam_write(
             config_address.bus(),
             config_address.device(),
             config_address.function(),
@@ -87,7 +88,7 @@ impl PioTransport {
         // let offset = self.config_address.offset(); // ignore offset?
         let start = register * 4 + offset;
 
-        self.internal.lock().unwrap().handle_ecam_read(
+        self.internal.read().unwrap().handle_ecam_read(
             config_address.bus(),
             config_address.device(),
             config_address.function(),
