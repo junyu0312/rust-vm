@@ -26,12 +26,11 @@ pub fn mmio_allocator() -> RangeAllocator<u64> {
 
 impl<'a> DeviceManagerBuilder<'a> {
     pub fn init_device_arch(&mut self) -> Result<(), InitDeviceError> {
-        let pl011 = Pl011::new(
-            &mut self.mmio_allocator,
-            self.irq_allocator.alloc(),
-            self.irq_chip.clone(),
-        )?;
-        self.device_manager.attach_device(Box::new(pl011))?;
+        {
+            let irq = self.alloc_irq()?;
+            let pl011 = Pl011::new(&mut self.mmio_allocator, irq, self.irq_chip.clone())?;
+            self.device_manager.attach_device(Box::new(pl011))?;
+        }
 
         Ok(())
     }

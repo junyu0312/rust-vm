@@ -89,12 +89,12 @@ impl VirtioDevice for VirtioBlkDevice {
         vec![Some(512)]
     }
 
-    fn irq(&self) -> Option<u32> {
-        Some(self.irq)
+    fn irq(&self) -> u32 {
+        self.irq
     }
 
-    fn trigger_irq(&self, active: bool) {
-        self.irq_chip.trigger_irq(32 + self.irq, active);
+    fn irq_chip(&self) -> &dyn InterruptController {
+        self.irq_chip.as_ref()
     }
 
     fn reset(&mut self) {}

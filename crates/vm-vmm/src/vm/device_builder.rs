@@ -7,6 +7,7 @@ use vm_core::arch::aarch64::layout::*;
 use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::*;
+use vm_core::virtualization::irq_allocator::IrqAllocator;
 use vm_device::device::Device;
 use vm_device::device::VfioTransport;
 use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;
@@ -31,10 +32,8 @@ use crate::vm::device_builder::arch::aarch64::mmio_allocator;
 use crate::vm::device_builder::arch::x86_64::mmio_allocator;
 #[cfg(target_arch = "x86_64")]
 use crate::vm::device_builder::arch::x86_64::pio_allocator;
-use crate::vm::device_builder::irq_allocator::IrqAllocator;
 
 mod arch;
-mod irq_allocator;
 #[cfg(target_os = "linux")]
 mod vfio;
 
@@ -56,6 +55,15 @@ pub struct DeviceManagerBuilder<'a> {
 }
 
 impl<'a> DeviceManagerBuilder<'a> {
+    fn alloc_irq(&mut self) -> Result<u32, InitDeviceError> {
+        let irq = self
+            .irq_allocator
+            .alloc()
+            .map_err(|err| InitDeviceError::AllocResource(Box::new(err)))?;
+
+        Ok(irq)
+    }
+
     fn init_device(
         &mut self,
         pci_root_complex: &mut PciRootComplexDevice,
@@ -65,7 +73,7 @@ impl<'a> DeviceManagerBuilder<'a> {
             Device::GicV3 => todo!(),
             Device::VirtioBlk { transport } => {
                 let dev = VirtioBlkDevice::new(
-                    self.irq_allocator.alloc(),
+                    self.alloc_irq()?,
                     self.irq_chip.clone(),
                     self.memory.clone(),
                 );
@@ -87,7 +95,7 @@ impl<'a> DeviceManagerBuilder<'a> {
             }
             Device::VirtioBalloon { transport } => {
                 let dev = VirtioDev::new(VirtioBalloonTranditional::new(
-                    self.irq_allocator.alloc(),
+                    self.alloc_irq()?,
                     self.irq_chip.clone(),
                     self.memory.clone(),
                 ));
@@ -110,7 +118,7 @@ impl<'a> DeviceManagerBuilder<'a> {
             }
             Device::VirtioEntropy { transport } => {
                 let dev = VirtioEntropy::new(
-                    self.irq_allocator.alloc(),
+                    self.alloc_irq()?,
                     self.irq_chip.clone(),
                     self.memory.clone(),
                 );
@@ -160,11 +168,10 @@ impl<'a> DeviceManagerBuilder<'a> {
 
     pub fn new(
         irq_chip: Arc<dyn InterruptController>,
+        irq_allocator: IrqAllocator,
         memory: Arc<MemoryAddressSpace>,
         monitor_server_builder: &'a mut MonitorServerBuilder,
     ) -> Result<Self, InitDeviceError> {
-        let irq_allocator = IrqAllocator::new(0);
-
         let device_manager = DeviceManagerV2::default();
 
         let mut virtio_mmio_index_allocator = RangeAllocator::<u8>::default();

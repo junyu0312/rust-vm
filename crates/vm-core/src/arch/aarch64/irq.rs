@@ -1,6 +1,7 @@
 use crate::arch::irq::InterruptController;
 
 pub const GIC_SPI: u32 = 0;
+pub const GIC_SPI_START: u32 = 32;
 pub const IRQ_TYPE_LEVEL_HIGH: u32 = 0x04;
 
 pub trait AArch64IrqChip: InterruptController {

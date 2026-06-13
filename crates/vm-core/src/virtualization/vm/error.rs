@@ -31,6 +31,9 @@ pub enum VmError {
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
 
+    #[error("No space to alloc irq")]
+    AllocIrq,
+
     #[error("vm state is not satisfied, current: {current:?}")]
     VmState { current: VmState },
 

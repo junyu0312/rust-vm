@@ -324,7 +324,9 @@ where
     pub fn update_interrupt_status(&mut self, is: InterruptStatus) {
         self.interrupt_status = is;
 
-        self.device.trigger_irq(!self.interrupt_status.is_empty());
+        self.device
+            .irq_chip()
+            .trigger_irq(self.device.irq(), !self.interrupt_status.is_empty());
     }
 
     pub fn update_config_generation_and_notify(&mut self) {

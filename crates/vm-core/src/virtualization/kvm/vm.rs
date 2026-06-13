@@ -6,8 +6,17 @@ use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::VmFd;
 use vm_mm::manager::MemoryAddressSpace;
 
+#[cfg(target_arch = "aarch64")]
+use crate::arch::aarch64::layout::IRQ_ALLOCATION_END;
+#[cfg(target_arch = "aarch64")]
+use crate::arch::aarch64::layout::IRQ_ALLOCATION_START;
 use crate::arch::irq::InterruptController;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::x86_64::layout::IRQ_ALLOCATION_END;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::x86_64::layout::IRQ_ALLOCATION_START;
 use crate::cpu::vm_exit::VmExit;
+use crate::virtualization::irq_allocator::IrqAllocator;
 use crate::virtualization::kvm::irq_chip::KvmIrqChip;
 use crate::virtualization::kvm::vcpu::KvmVcpu;
 use crate::virtualization::vcpu::HypervisorVcpu;
@@ -59,6 +68,10 @@ impl HypervisorVm for KvmVm {
         };
 
         Ok(Box::new(irq_chip))
+    }
+
+    fn create_irq_allocator(&self) -> Result<IrqAllocator, VmError> {
+        Ok(IrqAllocator::new(IRQ_ALLOCATION_START, IRQ_ALLOCATION_END))
     }
 
     fn set_user_memory_region(

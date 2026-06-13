@@ -7,6 +7,8 @@ use vm_device::device::VfioTransport;
 #[derive(Debug, Clone, Deserialize)]
 pub enum Device {
     GicV3,
+    VirtioMmioBlk,
+    VirtioPciBlk,
     VirtioMmioBalloon,
     VirtioMmioEntropy,
     VirtioPciEntropy,
@@ -21,6 +23,12 @@ impl From<Device> for vm_device::device::Device {
     fn from(device: Device) -> Self {
         match device {
             Device::GicV3 => vm_device::device::Device::GicV3,
+            Device::VirtioMmioBlk => vm_device::device::Device::VirtioBlk {
+                transport: VfioTransport::Mmio,
+            },
+            Device::VirtioPciBlk => vm_device::device::Device::VirtioBlk {
+                transport: VfioTransport::Pci,
+            },
             Device::VirtioMmioBalloon => vm_device::device::Device::VirtioBalloon {
                 transport: VfioTransport::Mmio,
             },

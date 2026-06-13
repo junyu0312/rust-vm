@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use tokio::sync::Notify;
+use vm_core::arch::irq::InterruptController;
 use vm_core::device::error::DeviceSnapshotError;
 
 use crate::device::virtqueue::VirtqueueHandler;
@@ -29,9 +30,9 @@ pub trait VirtioDevice: Sized + Send + Sync + 'static {
             .unwrap()
     }
 
-    fn irq(&self) -> Option<u32>;
+    fn irq(&self) -> u32;
 
-    fn trigger_irq(&self, active: bool);
+    fn irq_chip(&self) -> &dyn InterruptController;
 
     fn reset(&mut self);
 

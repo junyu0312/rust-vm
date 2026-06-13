@@ -10,18 +10,23 @@ use applevisor_sys::hv_gic_config_set_msi_region_base;
 use applevisor_sys::hv_gic_config_set_redistributor_base;
 use applevisor_sys::hv_gic_config_t;
 use applevisor_sys::hv_gic_create;
+use applevisor_sys::hv_gic_get_spi_interrupt_range;
 use applevisor_sys::hv_vm_map;
 use vm_mm::manager::MemoryAddressSpace;
 
+use crate::arch::aarch64::irq::GIC_SPI_START;
 use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
 use crate::arch::aarch64::layout::GIC_MSI;
 use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
+use crate::arch::aarch64::layout::IRQ_ALLOCATION_END;
+use crate::arch::aarch64::layout::IRQ_ALLOCATION_START;
 use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::hvp::hv_unsafe_call;
 use crate::virtualization::hvp::irq_chip::HvpGicV3;
 use crate::virtualization::hvp::vcpu::HvpVcpu;
+use crate::virtualization::irq_allocator::IrqAllocator;
 use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vm::HypervisorVm;
 use crate::virtualization::vm::SetUserMemoryRegionFlags;
@@ -128,6 +133,22 @@ impl HypervisorVm for AppleHypervisorVm {
             redistributor_base,
             msi_base,
         )))
+    }
+
+    fn create_irq_allocator(&self) -> Result<IrqAllocator, VmError> {
+        let mut spi_intid_base = 0;
+        let mut spi_intid_count = 0;
+        hv_unsafe_call!(hv_gic_get_spi_interrupt_range(
+            &mut spi_intid_base,
+            &mut spi_intid_count,
+        ))?;
+
+        assert!(IRQ_ALLOCATION_START + GIC_SPI_START >= spi_intid_base);
+        assert!(IRQ_ALLOCATION_END + GIC_SPI_START <= spi_intid_base + spi_intid_count);
+
+        let allocator = IrqAllocator::new(IRQ_ALLOCATION_START, IRQ_ALLOCATION_END);
+
+        Ok(allocator)
     }
 
     fn set_user_memory_region(
