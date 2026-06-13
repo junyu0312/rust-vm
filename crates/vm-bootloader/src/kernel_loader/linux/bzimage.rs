@@ -258,13 +258,6 @@ impl BzImage {
         index += 1;
 
         boot_params.e820_table[index] = BootE820Entry {
-            addr: params.pci_bar_mmio_window_start as u64,
-            size: params.pci_bar_mmio_window_length as u64,
-            ty: E820Type::Reserved as u32,
-        };
-        index += 1;
-
-        boot_params.e820_table[index] = BootE820Entry {
             addr: params.ecam_base as u64,
             size: params.ecam_length as u64,
             ty: E820Type::Reserved as u32,
