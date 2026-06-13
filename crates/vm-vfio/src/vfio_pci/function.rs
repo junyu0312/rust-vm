@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 
+use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
 use vm_pci::types::function::EcamUpdateCallback;
@@ -7,6 +8,8 @@ use vm_pci::types::function::PciFunction;
 use vm_pci::types::function::PciFunctionArch;
 use vm_pci::types::function::type0::Type0HeaderOffset;
 use vm_pci::types::interrupt::InterruptMapEntry;
+
+use crate::vfio::device::VfioDevice;
 
 #[derive(Debug)]
 pub enum VfioBarResource {
@@ -24,16 +27,19 @@ pub struct VfioBarInfo {
 pub struct VfioPciFunction {
     configuration_space: Mutex<ConfigurationSpace>,
     bars: [Option<VfioBarInfo>; 6],
+    device: VfioDevice,
 }
 
 impl VfioPciFunction {
     pub(crate) fn new(
         configuration_space: ConfigurationSpace,
         bars: [Option<VfioBarInfo>; 6],
+        device: VfioDevice,
     ) -> Self {
         VfioPciFunction {
             configuration_space: configuration_space.into(),
             bars,
+            device,
         }
     }
 
@@ -59,7 +65,13 @@ impl VfioPciFunction {
             None
         } else {
             header.bar[bar_index] = data;
-            None
+            println!("bar_index {bar_index} {data}");
+            self.bars[bar_index]
+                .as_ref()
+                .map(|bar| EcamUpdateCallback::UpdateMmioRouter {
+                    bar: bar_index as u8,
+                    pci_address_range: (data as u64)..(data as u64 + bar.size),
+                })
         }
     }
 }
@@ -108,12 +120,16 @@ impl PciFunction for VfioPciFunction {
         }
     }
 
-    fn bar_read(&self, _bar: u8, _offset: u64, _buf: &mut [u8]) {
-        unreachable!()
+    fn bar_read(&self, bar: u8, offset: u64, buf: &mut [u8]) {
+        self.device
+            .region_read(VFIO_PCI_BAR0_REGION_INDEX + bar as u32, buf, offset)
+            .unwrap();
     }
 
-    fn bar_write(&self, _bar: u8, _offset: u64, _buf: &[u8]) {
-        unreachable!()
+    fn bar_write(&self, bar: u8, offset: u64, buf: &[u8]) {
+        self.device
+            .region_write(VFIO_PCI_BAR0_REGION_INDEX + bar as u32, buf, offset)
+            .unwrap();
     }
 }
 /*

@@ -24,7 +24,7 @@ impl MmioTransport {
         let sel = DeviceSel::from(offset);
 
         self.internal
-            .lock()
+            .read()
             .unwrap()
             .handle_ecam_read(sel.bus, sel.device, sel.func, sel.offset, data);
     }
@@ -33,7 +33,7 @@ impl MmioTransport {
         let sel = DeviceSel::from(offset);
 
         self.internal
-            .lock()
+            .read()
             .unwrap()
             .handle_ecam_write(sel.bus, sel.device, sel.func, sel.offset, data);
     }
