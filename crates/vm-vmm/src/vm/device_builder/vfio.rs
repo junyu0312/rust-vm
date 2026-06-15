@@ -30,7 +30,7 @@ impl<'a> DeviceManagerBuilder<'a> {
 
         let vfio_device = VfioDevice::new(path, container)?;
 
-        let vfio_pci_device = VfioPciDevice::new(name, vfio_device)?;
+        let vfio_pci_device = VfioPciDevice::new(name, vfio_device, &mut self.irq_allocator)?;
 
         Ok(vfio_pci_device)
     }

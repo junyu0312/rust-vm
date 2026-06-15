@@ -107,4 +107,8 @@ where
             .function
             .bar_write(Bar::from_repr(bar).unwrap(), offset, buf);
     }
+
+    fn legacy_irq(&self) -> Option<(u8, u8)> {
+        self.internal.lock().unwrap().function.legacy_interrupt()
+    }
 }

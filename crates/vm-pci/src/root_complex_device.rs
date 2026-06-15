@@ -11,6 +11,7 @@ use acpi_tables::aml::AddressSpaceCacheable;
 use acpi_tables::aml::Device as AmlDevice;
 use acpi_tables::aml::Memory32Fixed;
 use acpi_tables::aml::Name;
+use acpi_tables::aml::Package;
 use acpi_tables::aml::ResourceTemplate;
 use vm_core::device::Device;
 use vm_core::device::error::DeviceError;
@@ -58,8 +59,6 @@ impl PciRootComplexDevice {
                 mmio_allocator,
                 ecam_range,
                 bar_mmio_window,
-                // physica_start,
-                // pci_address_space_len,
                 internal.clone(),
             )?,
             internal,
@@ -78,6 +77,30 @@ impl PciRootComplexDevice {
 
 impl Aml for PciRootComplexDevice {
     fn to_aml_bytes(&self, sink: &mut dyn AmlSink) {
+        let internal = self.internal.read().unwrap();
+
+        assert_eq!(internal.bus.len(), 1, "we only support one bus(0) yet.");
+
+        let mut address_irq = Vec::new();
+        for (device_id, device) in internal.bus[0].devices() {
+            for (function_id, function) in device.functions().enumerate() {
+                let address = ((*device_id as u32) << 16) | (function_id as u32);
+
+                if let Some((pin, line)) = function.legacy_irq() {
+                    address_irq.push((address, pin, line as u32));
+                }
+            }
+        }
+        let prt = address_irq
+            .iter()
+            .map(|(address, pin, line)| {
+                assert!(*pin <= 3);
+                // (address, pin, source, source index)
+                Package::new(vec![address, pin, &0u8, line])
+            })
+            .collect::<Vec<Package>>();
+        let prt = prt.iter().map(|aml| aml as _).collect();
+
         AmlDevice::new(
             "_SB_.PCI0".into(),
             vec![
@@ -102,9 +125,15 @@ impl Aml for PciRootComplexDevice {
                             self.mmio_transport.pci_bar_mmio_window.end - 1,
                             None,
                         ),
-                        &AddressSpace::new_io(0x2000u16, 0x2fffu16, None),
+                        #[cfg(target_arch = "x86_64")]
+                        &AddressSpace::new_io(
+                            self.pio_transport.io_port_window.start,
+                            self.pio_transport.io_port_window.end,
+                            None,
+                        ),
                     ]),
                 ),
+                &Name::new("_PRT".into(), &Package::new(prt)),
             ],
         )
         .to_aml_bytes(sink);

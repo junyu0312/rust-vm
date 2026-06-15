@@ -16,7 +16,7 @@ const CONFIG_ADDRESS: u16 = 0xcf8;
 const CONFIG_DATA: u16 = 0xcfc;
 
 pub struct PioTransport {
-    io_port_window: Range<u16>,
+    pub(crate) io_port_window: Range<u16>,
     config_address: Mutex<ConfigAddress>,
     internal: Arc<RwLock<PciRootComplex>>,
 }

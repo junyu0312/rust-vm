@@ -22,6 +22,9 @@ pub enum Error {
     #[error("Failed to alloc pio region, length: {0}")]
     AllocPio(usize),
 
+    #[error("Failed to alloc irq")]
+    AllocIrq,
+
     #[error("{0}")]
     Vfio(#[from] vfio_ioctls::VfioError),
 

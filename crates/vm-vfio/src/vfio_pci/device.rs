@@ -6,6 +6,7 @@ use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
 use vfio_bindings::bindings::vfio::VFIO_REGION_INFO_FLAG_READ;
 use vfio_bindings::bindings::vfio::VFIO_REGION_INFO_FLAG_WRITE;
 use vm_core::device::Device;
+use vm_core::virtualization::irq_allocator::IrqAllocator;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_32;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_64;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_MASK;
@@ -28,7 +29,11 @@ pub struct VfioPciDevice {
 }
 
 impl VfioPciDevice {
-    pub fn new(name: String, vfio_device: VfioDevice) -> Result<Self> {
+    pub fn new(
+        name: String,
+        vfio_device: VfioDevice,
+        irq_allocator: &mut IrqAllocator,
+    ) -> Result<Self> {
         vfio_device.reset()?;
 
         let mut configuration_space = ConfigurationSpace::default();
@@ -63,6 +68,9 @@ impl VfioPciDevice {
                     header.bar[index] &= 0x3;
                 }
             }
+
+            header.interrupt_pin = 0;
+            header.interrupt_line = irq_allocator.alloc().map_err(|_| Error::AllocIrq)? as u8;
 
             // TODO: Rom
             // TODO: Should we emulate irq_line?
