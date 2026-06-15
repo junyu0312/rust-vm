@@ -19,6 +19,9 @@ pub trait PciFunction: PciFunctionArch + Send + Sync {
     fn bar_read(&self, bar: u8, offset: u64, buf: &mut [u8]);
 
     fn bar_write(&self, bar: u8, offset: u64, buf: &[u8]);
+
+    // irq_pin, irq_line
+    fn legacy_irq(&self) -> Option<(u8, u8)>;
 }
 
 pub trait PciFunctionArch {

@@ -86,25 +86,12 @@ impl PciFunctionArch for VfioPciFunction {
     }
 }
 
-// fn helper(buf: &[u8]) -> String {
-//     match buf.len() {
-//         1 => format!("0x{:x}", buf[0]),
-//         2 => format!("0x{:x}", u16::from_le_bytes(buf.try_into().unwrap())),
-//         4 => format!("0x{:x}", u32::from_le_bytes(buf.try_into().unwrap())),
-//         8 => format!("0x{:x}", u64::from_le_bytes(buf.try_into().unwrap())),
-//         _ => panic!(),
-//     }
-// }
 impl PciFunction for VfioPciFunction {
     fn ecam_read(&self, offset: u16, buf: &mut [u8]) {
         self.configuration_space.lock().unwrap().read(offset, buf);
-
-        // println!("read offset 0x{:x}: {:?}", offset, helper(buf));
     }
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Option<EcamUpdateCallback> {
-        // println!("write offset 0x{:x}: {:?}", offset, helper(buf));
-
         match Type0HeaderOffset::from_repr(offset) {
             Some(Type0HeaderOffset::Bar0) => self.write_bar(0, buf),
             Some(Type0HeaderOffset::Bar1) => self.write_bar(1, buf),
@@ -130,102 +117,11 @@ impl PciFunction for VfioPciFunction {
             .region_write(VFIO_PCI_BAR0_REGION_INDEX + bar as u32, buf, offset)
             .unwrap();
     }
-}
-/*
-impl PciTypeFunctionCommon for VfioPciFunction {
-    fn vendor_id(&self) -> u16 {
-        self.header.common.vendor_id
-    }
 
-    fn device_id(&self) -> u16 {
-        self.header.common.device_id
-    }
+    fn legacy_irq(&self) -> Option<(u8, u8)> {
+        let cs = self.configuration_space.lock().unwrap();
+        let header = cs.as_header::<Type0Header>();
 
-    fn class_code(&self) -> u32 {
-        ((self.header.common.class_code as u32) << 16)
-            | ((self.header.common.subclass as u32) << 8)
-            | (self.header.common.prog_if as u32)
-    }
-
-    fn legacy_interrupt(&self) -> Option<(u8, u8)> {
-        None
-    }
-
-    fn init_capability(&self, _cfg: &mut ConfigurationSpace) -> Result<(), vm_pci::error::Error> {
-        Ok(())
+        Some((header.interrupt_pin, header.interrupt_line))
     }
 }
-
-impl PciType0Function for VfioPciFunction {
-    fn bar_size(&self) -> [Option<u32>; 6] {
-        array::from_fn(|i| {
-            self.bars[i]
-                .as_ref()
-                .map(|bar| bar.size.try_into().unwrap())
-        })
-    }
-
-    fn bar_handler(&self, bar: Bar) -> Option<Box<dyn BarHandler>> {
-        match bar {
-            Bar::Bar0 => {
-                if let Some(_bar) = &self.bars[0] {
-                    Some(Box::new(MockBarHandler {}))
-                } else {
-                    unreachable!()
-                }
-            }
-            Bar::Bar1 => {
-                if let Some(_bar) = &self.bars[1] {
-                    Some(Box::new(MockBarHandler {}))
-                } else {
-                    unreachable!()
-                }
-            }
-            Bar::Bar2 => {
-                if let Some(_bar) = &self.bars[2] {
-                    Some(Box::new(MockBarHandler {}))
-                } else {
-                    unreachable!()
-                }
-            }
-            Bar::Bar3 => {
-                if let Some(_bar) = &self.bars[3] {
-                    Some(Box::new(MockBarHandler {}))
-                } else {
-                    unreachable!()
-                }
-            }
-            Bar::Bar4 => {
-                if let Some(_bar) = &self.bars[4] {
-                    Some(Box::new(MockBarHandler {}))
-                } else {
-                    unreachable!()
-                }
-            }
-            Bar::Bar5 => {
-                if let Some(_bar) = &self.bars[5] {
-                    Some(Box::new(MockBarHandler {}))
-                } else {
-                    unreachable!()
-                }
-            }
-        }
-    }
-
-    fn pause(&self) -> Result<(), DeviceSnapshotError> {
-        todo!()
-    }
-
-    fn resume(&self) -> Result<(), DeviceSnapshotError> {
-        todo!()
-    }
-
-    fn save(&self, _writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
-        todo!()
-    }
-
-    fn load(&mut self, _reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
-        todo!()
-    }
-}
-*/
