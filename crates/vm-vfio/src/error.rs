@@ -1,9 +1,13 @@
 use thiserror::Error;
+use vfio_ioctls::VfioError;
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Vfio is supported only on Linux")]
     NotSupport,
+
+    #[error("Failed to map vfio dma, err: {0}")]
+    VfioDmaMap(VfioError),
 
     #[error("Region {0} does not exists")]
     RegionNotExists(usize),
