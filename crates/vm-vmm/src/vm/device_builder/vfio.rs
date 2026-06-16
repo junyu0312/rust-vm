@@ -34,4 +34,19 @@ impl<'a> DeviceManagerBuilder<'a> {
 
         Ok(vfio_pci_device)
     }
+
+    pub fn vfio_dma_map(&mut self) -> Result<(), InitDeviceError> {
+        for region in self.memory.regions().values() {
+            let container = self
+                .vfio_container
+                .get()
+                .ok_or(InitDeviceError::VfioContainerNotInit)?;
+
+            unsafe {
+                container.vfio_dma_map(region.gpa, region.len(), region.hva())?;
+            };
+        }
+
+        Ok(())
+    }
 }

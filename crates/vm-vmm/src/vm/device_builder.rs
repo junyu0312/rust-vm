@@ -211,6 +211,9 @@ impl<'a> DeviceManagerBuilder<'a> {
             self.device_manager.attach_device(pci_root_complex)?;
         }
 
+        #[cfg(target_os = "linux")]
+        self.vfio_dma_map()?;
+
         Ok(self.device_manager)
     }
 }
