@@ -12,6 +12,11 @@ use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_64;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_MASK;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_SPACE;
 use vm_pci::types::configuration_space::ConfigurationSpace;
+use vm_pci::types::configuration_space::header::CommonHeaderOffset;
+use vm_pci::types::configuration_space::header::PCI_COMMAND_IO;
+use vm_pci::types::configuration_space::header::PCI_COMMAND_MEMORY;
+use vm_pci::types::configuration_space::header::PCI_STATUS_CAP_LIST;
+use vm_pci::types::configuration_space::header::PciHeaderType;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
 use vm_pci::types::device::PciDevice;
 use vm_pci::types::function::PciFunction;
@@ -54,7 +59,13 @@ impl VfioPciDevice {
         {
             let header = configuration_space.as_header_mut::<Type0Header>();
 
-            if header.common.header_type != 0 {
+            header.common.command &= !PCI_COMMAND_IO;
+            header.common.command &= !PCI_COMMAND_MEMORY;
+
+            if PciHeaderType::from_repr(header.common.header_type)
+                .ok_or(Error::UnknownPciHeaderType)?
+                != PciHeaderType::Device
+            {
                 return Err(Error::VfioPciDeviceIsNotEndpoint);
             }
 
@@ -69,12 +80,24 @@ impl VfioPciDevice {
                 }
             }
 
-            header.interrupt_pin = 0;
-            header.interrupt_line = irq_allocator.alloc().map_err(|_| Error::AllocIrq)? as u8;
+            if header.interrupt_pin != 0 {
+                header.interrupt_line = irq_allocator.alloc().map_err(|_| Error::AllocIrq)? as u8;
+            }
+
+            {
+                // TODO: Read cap from header
+
+                // clear capability
+                header.common.status &= !PCI_STATUS_CAP_LIST;
+                header.cap_pointer = 0;
+                configuration_space.as_bytes_mut()[CommonHeaderOffset::CapabilityStart as usize..]
+                    .fill(0);
+
+                // TODO: Reconstruct cap
+            }
 
             // TODO: Rom
             // TODO: Should we emulate irq_line?
-            // TODO: Should we reconstruct cap?
             // TODO: Should we emulate status?
         };
 

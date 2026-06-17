@@ -1,5 +1,5 @@
-use tracing::debug;
 use tracing::error;
+use tracing::trace;
 use tracing::warn;
 
 use crate::device::VirtioDevice;
@@ -110,7 +110,7 @@ where
                 if data.len() == 4 {
                     let val = self.read_reg(&dev, reg);
 
-                    debug!(
+                    trace!(
                         name = D::NAME,
                         ?reg,
                         len = data.len(),
@@ -149,7 +149,7 @@ where
     pub fn write(&self, offset: u64, data: &[u8]) {
         let mut dev = self.dev.lock().unwrap();
 
-        debug!(
+        trace!(
             name = D::NAME,
             offset,
             len = data.len(),

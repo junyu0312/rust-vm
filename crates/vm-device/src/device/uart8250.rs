@@ -440,7 +440,7 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
         vec![range]
     }
 
-    fn io_in(&self, port: u16, data: &mut [u8]) {
+    fn io_in(&self, port: u16, data: &mut [u8]) -> Result<(), DeviceError> {
         let offset = port - self.port_base;
 
         let mut internal = self.internal.blocking_lock();
@@ -460,9 +460,11 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
         }
 
         internal.update_state();
+
+        Ok(())
     }
 
-    fn io_out(&self, port: u16, data: &[u8]) {
+    fn io_out(&self, port: u16, data: &[u8]) -> Result<(), DeviceError> {
         let offset = port - self.port_base;
 
         let mut internal = self.internal.blocking_lock();
@@ -482,5 +484,7 @@ impl<const IRQ: u32> PioDevice for Uart8250<IRQ> {
         }
 
         internal.update_state();
+
+        Ok(())
     }
 }

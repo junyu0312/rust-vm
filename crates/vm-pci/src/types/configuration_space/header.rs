@@ -1,9 +1,23 @@
+use strum_macros::FromRepr;
 use zerocopy::FromBytes;
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
 pub mod type0;
+
+pub const PCI_STATUS_CAP_LIST: u16 = 0x10; /* Support Capability List */
+
+pub const PCI_COMMAND_IO: u16 = 0x01;
+pub const PCI_COMMAND_MEMORY: u16 = 0x02;
+
+#[derive(FromRepr, PartialEq)]
+#[repr(u8)]
+pub enum PciHeaderType {
+    Device = 0x0,
+    PciToPciBridge = 0x1,
+    PciToCardBusBridge = 0x2,
+}
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]

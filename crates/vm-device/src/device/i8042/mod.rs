@@ -197,11 +197,15 @@ impl PioDevice for I8042 {
         vec![DATA_PORT..DATA_PORT + 1, REGISTER_PORT..REGISTER_PORT + 1]
     }
 
-    fn io_in(&self, port: u16, data: &mut [u8]) {
+    fn io_in(&self, port: u16, data: &mut [u8]) -> Result<(), DeviceError> {
         self.0.lock().unwrap().io_in(port, data);
+
+        Ok(())
     }
 
-    fn io_out(&self, port: u16, data: &[u8]) {
+    fn io_out(&self, port: u16, data: &[u8]) -> Result<(), DeviceError> {
         self.0.lock().unwrap().io_out(port, data);
+
+        Ok(())
     }
 }

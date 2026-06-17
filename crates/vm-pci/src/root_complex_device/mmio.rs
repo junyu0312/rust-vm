@@ -44,10 +44,6 @@ impl MmioTransport {
             internal,
         })
     }
-
-    fn guest_physical_address_to_pci_address(&self, gpa: u64) -> u64 {
-        gpa - self.pci_bar_mmio_window.start
-    }
 }
 
 impl MmioDevice for MmioTransport {
@@ -66,24 +62,17 @@ impl MmioDevice for MmioTransport {
         if self.pci_bar_mmio_window.contains(&addr) {
             let internal = self.internal.read().unwrap();
 
-            let pci_address = self.guest_physical_address_to_pci_address(addr);
-
             let dst = internal
                 .mmio_router
                 .read()
                 .unwrap()
-                .get_handler(pci_address)
-                .ok_or(DeviceError::UnknownDevice)?;
+                .get_handler(addr)
+                .ok_or(DeviceError::UnknownMmioRange { address: addr })?;
 
-            let device = internal
-                .get_device(dst.bus, dst.device)
-                .ok_or(DeviceError::UnknownDevice)?;
+            let device = internal.get_device(dst.bus, dst.device).unwrap();
+            let function = device.get_function(dst.function).unwrap();
 
-            let function = device
-                .get_function(dst.function)
-                .ok_or(DeviceError::UnknownDevice)?;
-
-            function.bar_read(dst.bar, pci_address - dst.pci_address_start, buf);
+            function.bar_read(dst.bar, addr - dst.base, buf);
 
             return Ok(());
         }
@@ -102,24 +91,17 @@ impl MmioDevice for MmioTransport {
         if self.pci_bar_mmio_window.contains(&addr) {
             let internal = self.internal.read().unwrap();
 
-            let pci_address = self.guest_physical_address_to_pci_address(addr);
-
             let dst = internal
                 .mmio_router
                 .read()
                 .unwrap()
-                .get_handler(pci_address)
-                .ok_or(DeviceError::UnknownDevice)?;
+                .get_handler(addr)
+                .ok_or(DeviceError::UnknownMmioRange { address: addr })?;
 
-            let device = internal
-                .get_device(dst.bus, dst.device)
-                .ok_or(DeviceError::UnknownDevice)?;
+            let device = internal.get_device(dst.bus, dst.device).unwrap();
+            let function = device.get_function(dst.function).unwrap();
 
-            let function = device
-                .get_function(dst.function)
-                .ok_or(DeviceError::UnknownDevice)?;
-
-            function.bar_write(dst.bar, pci_address - dst.pci_address_start, buf);
+            function.bar_write(dst.bar, addr - dst.base, buf);
 
             return Ok(());
         }
@@ -137,9 +119,9 @@ impl MmioDevice for MmioTransport {
         fdt.property_array_u32(
             "ranges",
             &[
-                0x0200_0000, // MEM
-                0x0,         // pci_addr high
-                0x0,         // pci_addr low
+                0x0200_0000,                                   // MEM
+                (self.pci_bar_mmio_window.start >> 32) as u32, // pci addr high
+                self.pci_bar_mmio_window.start as u32,         // pci addr low
                 (self.pci_bar_mmio_window.start >> 32) as u32,
                 self.pci_bar_mmio_window.start as u32,
                 ((self.pci_bar_mmio_window.end - self.pci_bar_mmio_window.start) >> 32) as u32,

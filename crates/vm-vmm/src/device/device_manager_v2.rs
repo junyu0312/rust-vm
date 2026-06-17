@@ -2,7 +2,7 @@ use std::slice::Iter;
 use std::slice::IterMut;
 
 use rangemap::RangeMap;
-use tracing::debug;
+use tracing::trace;
 use vm_core::cpu::vm_exit::VmExitHandlerError;
 use vm_core::device::Device;
 
@@ -43,7 +43,7 @@ impl DeviceManagerV2 {
 
     #[cfg(target_arch = "x86_64")]
     pub fn io_in(&self, port: u16, data: &mut [u8]) -> Result<(), VmExitHandlerError> {
-        debug!(port, "io in");
+        trace!(port, "io in");
 
         let Some(index) = self.pio_dispatcher.get(&port) else {
             return Err(VmExitHandlerError::NoDeviceForPort(port));
@@ -52,7 +52,7 @@ impl DeviceManagerV2 {
         let device = self.devices.get(*index).unwrap();
 
         let pio_device = device.support_pio_transport().unwrap();
-        pio_device.io_in(port, data);
+        pio_device.io_in(port, data)?;
 
         Ok(())
     }
@@ -64,7 +64,7 @@ impl DeviceManagerV2 {
 
     #[cfg(target_arch = "x86_64")]
     pub fn io_out(&self, port: u16, data: &[u8]) -> Result<(), VmExitHandlerError> {
-        debug!(port, ?data, "io out");
+        trace!(port, ?data, "io out");
 
         let Some(index) = self.pio_dispatcher.get(&port) else {
             return Err(VmExitHandlerError::NoDeviceForPort(port));
@@ -73,7 +73,7 @@ impl DeviceManagerV2 {
         let device = self.devices.get(*index).unwrap();
 
         let pio_device = device.support_pio_transport().unwrap();
-        pio_device.io_out(port, data);
+        pio_device.io_out(port, data)?;
 
         Ok(())
     }
@@ -84,7 +84,7 @@ impl DeviceManagerV2 {
     }
 
     pub fn mmio_read(&self, addr: u64, data: &mut [u8]) -> Result<(), VmExitHandlerError> {
-        debug!(addr, "mmio read");
+        trace!(addr, "mmio read");
 
         let Some(index) = self.mmio_dispatcher.get(&addr) else {
             return Err(VmExitHandlerError::NoDeviceForAddr(addr));
@@ -99,7 +99,7 @@ impl DeviceManagerV2 {
     }
 
     pub fn mmio_write(&self, addr: u64, data: &[u8]) -> Result<(), VmExitHandlerError> {
-        debug!(addr, "mmio write");
+        trace!(addr, "mmio write");
 
         let Some(index) = self.mmio_dispatcher.get(&addr) else {
             return Err(VmExitHandlerError::NoDeviceForAddr(addr));

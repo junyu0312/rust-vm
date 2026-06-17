@@ -35,15 +35,17 @@ impl PioDevice for Pic {
         ]
     }
 
-    fn io_in(&self, port: u16, _data: &mut [u8]) {
+    fn io_in(&self, port: u16, _data: &mut [u8]) -> Result<(), DeviceError> {
         match port {
             0xa1 => (),
             0x21 => (),
             _ => {}
         }
+
+        Ok(())
     }
 
-    fn io_out(&self, port: u16, _data: &[u8]) {
+    fn io_out(&self, port: u16, _data: &[u8]) -> Result<(), DeviceError> {
         match port {
             0xa1 => {
                 // ignore
@@ -53,5 +55,7 @@ impl PioDevice for Pic {
             }
             _ => {}
         }
+
+        Ok(())
     }
 }

@@ -4,12 +4,24 @@ use crate::types::interrupt::InterruptMapEntry;
 
 pub mod type0;
 
-pub enum EcamUpdateCallback {
-    UpdateMmioRouter {
+pub enum EcamUpdateCallbackOps {
+    AddPioRouter {
+        bar: u8,
+        port: Range<u16>,
+    },
+    RemovePioRouter {
+        bar: u8,
+    },
+    AddMmioRouter {
         bar: u8,
         pci_address_range: Range<u64>,
     },
+    RemoveMmioRouter {
+        bar: u8,
+    },
 }
+
+pub struct EcamUpdateCallback(pub Vec<EcamUpdateCallbackOps>);
 
 pub trait PciFunction: PciFunctionArch + Send + Sync {
     fn ecam_read(&self, offset: u16, buf: &mut [u8]);
@@ -20,7 +32,7 @@ pub trait PciFunction: PciFunctionArch + Send + Sync {
 
     fn bar_write(&self, bar: u8, offset: u64, buf: &[u8]);
 
-    // irq_pin, irq_line
+    // irq_line, irq_pin
     fn legacy_irq(&self) -> Option<(u8, u8)>;
 }
 

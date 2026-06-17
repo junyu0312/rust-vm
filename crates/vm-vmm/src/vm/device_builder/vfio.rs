@@ -36,6 +36,10 @@ impl<'a> DeviceManagerBuilder<'a> {
     }
 
     pub fn vfio_dma_map(&mut self) -> Result<(), InitDeviceError> {
+        if !self.need_dma_map {
+            return Ok(());
+        }
+
         for region in self.memory.regions().values() {
             let container = self
                 .vfio_container

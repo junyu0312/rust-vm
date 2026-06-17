@@ -47,6 +47,8 @@ pub struct DeviceManagerBuilder<'a> {
 
     #[cfg(target_os = "linux")]
     vfio_container: OnceCell<VfioContainer>,
+    #[cfg(target_os = "linux")]
+    need_dma_map: bool,
 
     #[cfg(target_arch = "x86_64")]
     pio_allocator: RangeAllocator<u16>,
@@ -142,6 +144,8 @@ impl<'a> DeviceManagerBuilder<'a> {
             Device::VfioPci { name, path } => {
                 let vfio_deivce = self.init_vfio_device(name.to_string(), path)?;
 
+                self.need_dma_map = true;
+
                 pci_root_complex
                     .register_device(Box::new(vfio_deivce))
                     .map_err(|_| {
@@ -186,6 +190,8 @@ impl<'a> DeviceManagerBuilder<'a> {
 
             #[cfg(target_os = "linux")]
             vfio_container: Default::default(),
+            #[cfg(target_os = "linux")]
+            need_dma_map: false,
 
             #[cfg(target_arch = "x86_64")]
             pio_allocator: pio_allocator(),

@@ -86,14 +86,16 @@ impl Aml for PciRootComplexDevice {
             for (function_id, function) in device.functions().enumerate() {
                 let address = ((*device_id as u32) << 16) | (function_id as u32);
 
-                if let Some((pin, line)) = function.legacy_irq() {
-                    address_irq.push((address, pin, line as u32));
+                if let Some((line, pin)) = function.legacy_irq() {
+                    // Pci header: 0x01 -> IntA
+                    // Acpi: 0x00 -> IntA
+                    address_irq.push((address, line as u32, pin - 1));
                 }
             }
         }
         let prt = address_irq
             .iter()
-            .map(|(address, pin, line)| {
+            .map(|(address, line, pin)| {
                 assert!(*pin <= 3);
                 // (address, pin, source, source index)
                 Package::new(vec![address, pin, &0u8, line])

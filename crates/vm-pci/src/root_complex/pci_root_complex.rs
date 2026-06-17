@@ -7,14 +7,15 @@ use vm_core::device::error::DeviceSnapshotError;
 
 use crate::bus::PciBus;
 use crate::host_bridge::new_host_bridge;
-use crate::root_complex::mmio_router::MmioRouter;
 
+use crate::root_complex::router::Router;
 use crate::types::device::PciDevice;
-use crate::types::function::EcamUpdateCallback;
+use crate::types::function::EcamUpdateCallbackOps;
 
 pub struct PciRootComplex {
     pub(crate) bus: Vec<PciBus>,
-    pub(crate) mmio_router: RwLock<MmioRouter>,
+    pub(crate) pio_router: RwLock<Router<u16>>,
+    pub(crate) mmio_router: RwLock<Router<u64>>,
     allocation: usize,
 }
 
@@ -22,6 +23,7 @@ impl Default for PciRootComplex {
     fn default() -> Self {
         let mut rc = PciRootComplex {
             bus: vec![PciBus::default()],
+            pio_router: Default::default(),
             mmio_router: Default::default(),
             allocation: 0,
         };
@@ -82,17 +84,35 @@ impl PciRootComplex {
         };
 
         if let Some(cb) = function.ecam_write(offset, data) {
-            match cb {
-                EcamUpdateCallback::UpdateMmioRouter {
-                    bar,
-                    pci_address_range,
-                } => self.mmio_router.write().unwrap().register_handler(
-                    pci_address_range,
-                    bus,
-                    device,
-                    func,
-                    bar,
-                ),
+            for cb in cb.0 {
+                match cb {
+                    EcamUpdateCallbackOps::AddPioRouter { bar, port } => self
+                        .pio_router
+                        .write()
+                        .unwrap()
+                        .register_handler(port, bus, device, func, bar),
+                    EcamUpdateCallbackOps::RemovePioRouter { bar } => {
+                        self.pio_router
+                            .write()
+                            .unwrap()
+                            .unregister_handler(bus, device, func, bar);
+                    }
+                    EcamUpdateCallbackOps::AddMmioRouter {
+                        bar,
+                        pci_address_range,
+                    } => self.mmio_router.write().unwrap().register_handler(
+                        pci_address_range,
+                        bus,
+                        device,
+                        func,
+                        bar,
+                    ),
+                    EcamUpdateCallbackOps::RemoveMmioRouter { bar } => self
+                        .mmio_router
+                        .write()
+                        .unwrap()
+                        .unregister_handler(bus, device, func, bar),
+                }
             }
         }
     }
