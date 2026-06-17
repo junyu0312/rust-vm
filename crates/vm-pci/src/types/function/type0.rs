@@ -3,8 +3,14 @@ use strum_macros::FromRepr;
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
 use crate::device::function::type0::Type0Function;
+use crate::types::bar::address_of_bar;
+use crate::types::bar::is_mmio_bar;
+use crate::types::bar::is_pio_bar;
+use crate::types::configuration_space::header::PCI_COMMAND_IO;
+use crate::types::configuration_space::header::PCI_COMMAND_MEMORY;
 use crate::types::configuration_space::header::type0::Type0Header;
 use crate::types::function::EcamUpdateCallback;
+use crate::types::function::EcamUpdateCallbackOps;
 use crate::types::function::PciFunction;
 
 mod arch;
@@ -38,7 +44,7 @@ impl<T> Type0Function<T>
 where
     T: PciType0Function,
 {
-    fn write_bar(&self, n: u8, buf: &[u8]) -> Option<EcamUpdateCallback> {
+    fn write_bar(&self, n: u8, buf: &[u8]) {
         let mut internal = self.internal.lock().unwrap();
         let bar_size = internal.function.bar_size();
 
@@ -48,18 +54,60 @@ where
         if let Some(bar_size) = bar_size[n as usize] {
             if val == u32::MAX {
                 header.bar[n as usize] = !(bar_size - 1);
-                None
             } else {
                 header.bar[n as usize] = val;
-                Some(EcamUpdateCallback::UpdateMmioRouter {
-                    bar: n,
-                    pci_address_range: val as u64..(val as u64 + bar_size as u64),
-                })
             }
         } else {
             header.bar[n as usize] = 0;
-            None
         }
+    }
+
+    fn write_command(&self, command: u16) -> Option<EcamUpdateCallback> {
+        let mut callback_ops = vec![];
+
+        let mut internal = self.internal.lock().unwrap();
+        let bar_size = internal.function.bar_size();
+
+        let header = internal.configuration_space.as_header_mut::<Type0Header>();
+        let old_command = header.common.command;
+        header.common.command = command;
+
+        let update_io_space = (old_command & PCI_COMMAND_IO) != (command & PCI_COMMAND_IO);
+        let update_memory_space =
+            (old_command & PCI_COMMAND_MEMORY) != (command & PCI_COMMAND_MEMORY);
+
+        for (i, size) in bar_size.iter().enumerate() {
+            let Some(len) = size else {
+                continue;
+            };
+
+            let bar = header.bar[i];
+            let address = address_of_bar(bar);
+
+            if update_io_space && is_pio_bar(bar) {
+                if command & PCI_COMMAND_IO == 0 {
+                    callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
+                } else {
+                    callback_ops.push(EcamUpdateCallbackOps::AddPioRouter {
+                        bar: i as u8,
+                        port: address as u16..address as u16 + *len as u16,
+                    });
+                }
+            }
+
+            if update_memory_space && is_mmio_bar(bar) {
+                if command & PCI_COMMAND_MEMORY == 0 {
+                    callback_ops.push(EcamUpdateCallbackOps::RemoveMmioRouter { bar: i as u8 });
+                } else {
+                    callback_ops.push(EcamUpdateCallbackOps::AddMmioRouter {
+                        bar: i as u8,
+                        pci_address_range: address as u64..address as u64 + *len as u64,
+                    });
+                }
+            }
+        }
+
+        Some(EcamUpdateCallback(callback_ops))
     }
 }
 
@@ -83,13 +131,18 @@ where
             Some(Type0HeaderOffset::Bar3) => self.write_bar(3, buf),
             Some(Type0HeaderOffset::Bar4) => self.write_bar(4, buf),
             Some(Type0HeaderOffset::Bar5) => self.write_bar(5, buf),
-            Some(Type0HeaderOffset::RomAddress) => None,
+            // Some(Type0HeaderOffset::RomAddress) => todo!(),
+            Some(Type0HeaderOffset::Command) => {
+                let command = u16::from_le_bytes(buf.try_into().unwrap());
+                return self.write_command(command);
+            }
             _ => {
                 let configuration_space = &mut self.internal.lock().unwrap().configuration_space;
                 configuration_space.write(offset, buf);
-                None
             }
         }
+
+        None
     }
 
     fn bar_read(&self, bar: u8, offset: u64, buf: &mut [u8]) {

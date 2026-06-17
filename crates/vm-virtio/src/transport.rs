@@ -146,7 +146,10 @@ where
         match reg {
             ControlRegister::DeviceFeatures => {
                 let sel = self.get_device_feature_sel_or_default();
-                // if sel >= 2, just return 0
+                if sel >= 2 {
+                    return 0;
+                };
+
                 (D::DEVICE_FEATURES >> (sel * 32)) as u32
             }
             ControlRegister::DeviceFeaturesSel => self.get_device_feature_sel_or_default(),

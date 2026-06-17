@@ -38,11 +38,11 @@ impl PioDevice for PostDebug {
         vec![range]
     }
 
-    fn io_in(&self, _port: u16, _data: &mut [u8]) {
-        todo!()
+    fn io_in(&self, _port: u16, _data: &mut [u8]) -> Result<(), DeviceError> {
+        Ok(())
     }
 
-    fn io_out(&self, port: u16, _data: &[u8]) {
-        if port == PORT {}
+    fn io_out(&self, _port: u16, _data: &[u8]) -> Result<(), DeviceError> {
+        Ok(())
     }
 }

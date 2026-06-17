@@ -107,27 +107,65 @@ impl PioDevice for PioTransport {
         ]
     }
 
-    fn io_in(&self, port: u16, data: &mut [u8]) {
+    fn io_in(&self, port: u16, data: &mut [u8]) -> Result<(), DeviceError> {
         if (CONFIG_ADDRESS..CONFIG_ADDRESS + 4).contains(&port) {
             let offset = port - CONFIG_ADDRESS;
             self.handle_in_config_address(offset as u8, data);
-        } else if (CONFIG_DATA..CONFIG_DATA + 4).contains(&port) {
-            let offset = port - CONFIG_DATA;
-            self.handle_in_config_data(offset as u8, data)
-        } else {
-            panic!("pci: 0x{:x}", port);
+
+            return Ok(());
         }
+
+        if (CONFIG_DATA..CONFIG_DATA + 4).contains(&port) {
+            let offset = port - CONFIG_DATA;
+            self.handle_in_config_data(offset as u8, data);
+
+            return Ok(());
+        }
+
+        let internal = self.internal.read().unwrap();
+        let dst = internal
+            .pio_router
+            .read()
+            .unwrap()
+            .get_handler(port)
+            .ok_or(DeviceError::UnknownPioRange { port })?;
+
+        let device = internal.get_device(dst.bus, dst.device).unwrap();
+        let function = device.get_function(dst.function).unwrap();
+
+        function.bar_read(dst.bar, (port - dst.base) as u64, data);
+
+        Ok(())
     }
 
-    fn io_out(&self, port: u16, data: &[u8]) {
+    fn io_out(&self, port: u16, data: &[u8]) -> Result<(), DeviceError> {
         if (CONFIG_ADDRESS..CONFIG_ADDRESS + 4).contains(&port) {
             let offset = port - CONFIG_ADDRESS;
             self.handle_out_config_address(offset as u8, data);
-        } else if (CONFIG_DATA..CONFIG_DATA + 4).contains(&port) {
+
+            return Ok(());
+        }
+
+        if (CONFIG_DATA..CONFIG_DATA + 4).contains(&port) {
             let offset = port - CONFIG_DATA;
             self.handle_out_config_data(offset as u8, data);
-        } else {
-            panic!("pci: 0x{:x}", port);
+
+            return Ok(());
         }
+
+        let internal = self.internal.read().unwrap();
+        let dst = internal
+            .pio_router
+            .read()
+            .unwrap()
+            .get_handler(port)
+            .ok_or(DeviceError::UnknownPioRange { port })?;
+
+        let device = internal.get_device(dst.bus, dst.device).unwrap();
+        let function = device.get_function(dst.function).unwrap();
+
+        function.bar_write(dst.bar, (port - dst.base) as u64, data);
+
+        Ok(())
     }
 }

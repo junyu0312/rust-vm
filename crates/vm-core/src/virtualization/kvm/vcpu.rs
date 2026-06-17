@@ -99,7 +99,7 @@ impl KvmVcpu {
                                     VmExitResult::Ok => continue,
                                 },
                                 Err(err) => {
-                                    error!("Failed to handle vm exit, err: {err}");
+                                    error!(?err, "Failed to handle vm exit");
 
                                     panic!()
                                 }

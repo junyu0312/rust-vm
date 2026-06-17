@@ -42,7 +42,11 @@ impl PioDevice for Dummy {
         ]
     }
 
-    fn io_in(&self, _port: u16, _data: &mut [u8]) {}
+    fn io_in(&self, _port: u16, _data: &mut [u8]) -> Result<(), DeviceError> {
+        Ok(())
+    }
 
-    fn io_out(&self, _port: u16, _data: &[u8]) {}
+    fn io_out(&self, _port: u16, _data: &[u8]) -> Result<(), DeviceError> {
+        Ok(())
+    }
 }

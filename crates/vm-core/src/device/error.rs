@@ -27,8 +27,11 @@ pub enum DeviceError {
     #[error("Mmio range is empty")]
     MmioRangeIsEmpty,
 
-    #[error("Unknown device")]
-    UnknownDevice,
+    #[error("Failed to find handler for io port: {port}")]
+    UnknownPioRange { port: u16 },
+
+    #[error("Failed to find handler for mmio address: {address}")]
+    UnknownMmioRange { address: u64 },
 
     #[error("Failed to write fdt: {0}")]
     Fdt(#[from] vm_fdt::Error),

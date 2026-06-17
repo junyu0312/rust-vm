@@ -13,6 +13,8 @@ use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_MASK;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_SPACE;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::header::CommonHeaderOffset;
+use vm_pci::types::configuration_space::header::PCI_COMMAND_IO;
+use vm_pci::types::configuration_space::header::PCI_COMMAND_MEMORY;
 use vm_pci::types::configuration_space::header::PCI_STATUS_CAP_LIST;
 use vm_pci::types::configuration_space::header::PciHeaderType;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
@@ -56,6 +58,9 @@ impl VfioPciDevice {
         // Prepare header
         {
             let header = configuration_space.as_header_mut::<Type0Header>();
+
+            header.common.command &= !PCI_COMMAND_IO;
+            header.common.command &= !PCI_COMMAND_MEMORY;
 
             if PciHeaderType::from_repr(header.common.header_type)
                 .ok_or(Error::UnknownPciHeaderType)?
