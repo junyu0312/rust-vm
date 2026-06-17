@@ -12,6 +12,9 @@ pub enum Error {
     #[error("Region {0} does not exists")]
     RegionNotExists(usize),
 
+    #[error("Unknown pci header type")]
+    UnknownPciHeaderType,
+
     #[error("Pci device is not endpoint")]
     VfioPciDeviceIsNotEndpoint,
 

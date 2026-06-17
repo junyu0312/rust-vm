@@ -87,7 +87,9 @@ impl Aml for PciRootComplexDevice {
                 let address = ((*device_id as u32) << 16) | (function_id as u32);
 
                 if let Some((pin, line)) = function.legacy_irq() {
-                    address_irq.push((address, pin, line as u32));
+                    // Pci header: 0x01 -> IntA
+                    // Acpi: 0x00 -> IntA
+                    address_irq.push((address, pin - 1, line as u32));
                 }
             }
         }
