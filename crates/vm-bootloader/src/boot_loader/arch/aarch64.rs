@@ -19,9 +19,9 @@ use crate::boot_loader::Error;
 use crate::boot_loader::Result;
 use crate::initrd_loader::InitrdLoadResult;
 use crate::initrd_loader::InitrdLoader;
-use crate::kernel_loader::linux::image::AArch64BootParams;
-use crate::kernel_loader::linux::image::Image;
-use crate::kernel_loader::linux::image::LoadResult;
+use crate::kernel_loader::linux::aarch64::image::AArch64BootParams;
+use crate::kernel_loader::linux::aarch64::image::Image;
+use crate::kernel_loader::linux::aarch64::image::LoadResult;
 
 const IRQ_TYPE_LEVEL_LOW: u32 = 0x00000008;
 

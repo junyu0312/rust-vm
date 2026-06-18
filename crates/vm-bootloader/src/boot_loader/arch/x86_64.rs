@@ -1,12 +1,13 @@
 use std::ffi::CString;
 use std::path::Path;
 use std::path::PathBuf;
+use std::slice;
 use std::slice::Iter;
 
 use async_trait::async_trait;
 use vm_core::arch::irq::InterruptController;
 use vm_core::arch::x86_64::layout::ACPI_MAX_LEN;
-use vm_core::arch::x86_64::layout::ACPI_RSDT_START;
+use vm_core::arch::x86_64::layout::ACPI_RSDP_START;
 use vm_core::arch::x86_64::layout::APIC_ADDR;
 use vm_core::arch::x86_64::layout::BOOT_PARAMS_START;
 use vm_core::arch::x86_64::layout::CMDLINE_START;
@@ -36,6 +37,9 @@ use crate::initrd_loader::InitrdLoader;
 use crate::kernel_loader::linux::x86_64::bzimage::BzImage;
 use crate::kernel_loader::linux::x86_64::bzimage::BzImageBootParams;
 use crate::kernel_loader::linux::x86_64::bzimage::LoadResult;
+use crate::kernel_loader::linux::x86_64::zero_page::BootParams;
+use crate::kernel_loader::linux::x86_64::zero_page::SetupHeader;
+use crate::kernel_loader::linux::x86_64::zero_page::ZeroPageBuilder;
 use crate::utils::aml::build_definition_block;
 
 pub struct X86_64BootLoader {
@@ -52,13 +56,13 @@ impl X86_64BootLoader {
         vcpus: usize,
         devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<(u32, u32)> {
-        let acpi_rsdt_addr = ACPI_RSDT_START as u64;
+        let acpi_rsdp_addr = ACPI_RSDP_START as u64;
         let acpi_max_length = ACPI_MAX_LEN as usize;
 
-        let _ = ram_allocator.reserve(acpi_rsdt_addr, acpi_max_length)?;
+        let _ = ram_allocator.reserve(acpi_rsdp_addr, acpi_max_length)?;
 
         let mut acpi_ram_allocator = RangeAllocator::<u64>::default();
-        acpi_ram_allocator.insert(acpi_rsdt_addr, acpi_max_length)?;
+        acpi_ram_allocator.insert(acpi_rsdp_addr, acpi_max_length)?;
 
         let acpi = AcpiTableBuilder::default()
             .set_vcpus(
@@ -72,10 +76,10 @@ impl X86_64BootLoader {
             .set_pci_mmio_base_addr(ECAM_BASE as u64)?
             .build()?;
 
-        acpi.install(&mut acpi_ram_allocator, mm, acpi_rsdt_addr)?;
+        acpi.install(&mut acpi_ram_allocator, mm, acpi_rsdp_addr)?;
 
         Ok((
-            acpi_rsdt_addr.try_into().unwrap(),
+            acpi_rsdp_addr.try_into().unwrap(),
             acpi_max_length.try_into().unwrap(),
         ))
     }
@@ -137,28 +141,56 @@ impl X86_64BootLoader {
         Ok((cmdline_start, buf.len() as u32))
     }
 
+    fn setup_zero_page(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        memory: &MemoryAddressSpace,
+        hdr: SetupHeader,
+        acpi_rsdt_addr: u32,
+        acpi_max_length: u32,
+    ) -> Result<u32> {
+        let boot_params_start = BOOT_PARAMS_START;
+
+        let zero_page = ZeroPageBuilder::default()
+            .setup_acpi_rsdp_addr(acpi_rsdt_addr as u64)?
+            .setup_hdr(hdr)?
+            .setup_e820(
+                memory,
+                acpi_rsdt_addr,
+                acpi_max_length,
+                MMIO_START,
+                MMIO_LEN,
+                ECAM_BASE,
+                ECAM_LENGTH,
+            )?
+            .build()?;
+
+        let range = ram_allocator.reserve(boot_params_start as u64, size_of::<BootParams>())?;
+        memory
+            .copy_from_slice(range.start, unsafe {
+                slice::from_raw_parts(
+                    &zero_page as *const BootParams as *const u8,
+                    size_of::<BootParams>(),
+                )
+            })
+            .map_err(Error::CopyZeroPage)?;
+
+        Ok(boot_params_start)
+    }
+
     fn load_image(
         &self,
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
-        acpi_rsdt_addr: u32,
-        acpi_max_length: u32,
         initrd_load_result: Option<InitrdLoadResult>,
         cmdline_start: u32,
         cmdline_len: u32,
     ) -> Result<LoadResult> {
         let params = BzImageBootParams {
-            boot_params_start: BOOT_PARAMS_START,
             cmdline_start,
             cmdline_len,
-            acpi_rsdt_addr,
-            acpi_max_length,
             kernel_start: KERNEL_START,
             initrd: initrd_load_result,
-            mmio_start: MMIO_START,
-            mmio_length: MMIO_LEN,
-            ecam_base: ECAM_BASE,
-            ecam_length: ECAM_LENGTH,
         };
 
         let load_result = BzImage::new(&self.kernel)?.load(ram_allocator, memory, &params)?;
@@ -205,20 +237,21 @@ impl BootLoader for X86_64BootLoader {
         let load_result = self.load_image(
             ram_allocator,
             memory,
-            acpi_rsdt_addr,
-            acpi_max_length,
             initrd_load_result,
             cmdline_start,
             cmdline_len,
         )?;
 
+        let zero_page_start = self.setup_zero_page(
+            ram_allocator,
+            memory,
+            load_result.setup_hdr,
+            acpi_rsdt_addr,
+            acpi_max_length,
+        )?;
+
         boot_vcpu
-            .setup_vcpu(
-                gdt,
-                gdt_start,
-                load_result.boot_params_start,
-                load_result.start_pc,
-            )
+            .setup_vcpu(gdt, gdt_start, zero_page_start, load_result.start_pc)
             .await?;
 
         Ok(())

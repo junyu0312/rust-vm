@@ -15,6 +15,8 @@ use vm_utils::range_allocator::RangeAllocatorError;
 
 use crate::initrd_loader::InitrdLoaderError;
 use crate::kernel_loader::error::KernelLoaderError;
+#[cfg(target_arch = "x86_64")]
+use crate::kernel_loader::linux::x86_64::zero_page::ZeroPageError;
 
 pub mod arch;
 
@@ -52,6 +54,14 @@ pub enum Error {
 
     #[error("Failed to setup cmdline, err: {0}")]
     Cmdline(String),
+
+    #[cfg(target_arch = "x86_64")]
+    #[error("Failed to setup zero page, err: {0}")]
+    BuildZeroPage(#[from] ZeroPageError),
+
+    #[cfg(target_arch = "x86_64")]
+    #[error("Failed to copy zero page, err: {0}")]
+    CopyZeroPage(vm_mm::error::Error),
 
     #[error("Device error: {0}")]
     DeviceError(#[from] DeviceError),

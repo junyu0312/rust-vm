@@ -1,3 +1,7 @@
+use std::cell::OnceCell;
+
+use thiserror::Error;
+use vm_mm::manager::MemoryAddressSpace;
 use zerocopy::FromBytes;
 use zerocopy::FromZeros;
 use zerocopy::Immutable;
@@ -11,102 +15,102 @@ const E820_MAX_ENTRIES_ZEROPAGE: usize = 128;
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct ScreenInfo {
-    pub orig_x: u8,             // 0x00
-    pub orig_y: u8,             // 0x01
-    pub ext_mem_k: u16,         // 0x02
-    pub orig_video_page: u16,   // 0x04
-    pub orig_video_mode: u8,    // 0x06
-    pub orig_video_cols: u8,    // 0x07
-    pub flags: u8,              // 0x08
-    pub unused2: u8,            // 0x09
-    pub orig_video_ega_bx: u16, // 0x0A
-    pub unused3: u16,           // 0x0C
-    pub orig_video_lines: u8,   // 0x0E
-    pub orig_video_is_vga: u8,  // 0x0F
-    pub orig_video_points: u16, // 0x10
+struct ScreenInfo {
+    orig_x: u8,             // 0x00
+    orig_y: u8,             // 0x01
+    ext_mem_k: u16,         // 0x02
+    orig_video_page: u16,   // 0x04
+    orig_video_mode: u8,    // 0x06
+    orig_video_cols: u8,    // 0x07
+    flags: u8,              // 0x08
+    unused2: u8,            // 0x09
+    orig_video_ega_bx: u16, // 0x0A
+    unused3: u16,           // 0x0C
+    orig_video_lines: u8,   // 0x0E
+    orig_video_is_vga: u8,  // 0x0F
+    orig_video_points: u16, // 0x10
     /* VESA graphic mode -- linear frame buffer */
-    pub lfb_width: u16,       // 0x12
-    pub lfb_height: u16,      // 0x14
-    pub lfb_depth: u16,       // 0x16
-    pub lfb_base: u32,        // 0x18
-    pub lfb_size: u32,        // 0x1C
-    pub cl_magic: u16,        // 0x20
-    pub cl_offset: u16,       // 0x22
-    pub lfb_linelength: u16,  // 0x24
-    pub red_size: u8,         // 0x26
-    pub red_pos: u8,          // 0x27
-    pub green_size: u8,       // 0x28
-    pub green_pos: u8,        // 0x29
-    pub blue_size: u8,        // 0x2A
-    pub blue_pos: u8,         // 0x2B
-    pub rsvd_size: u8,        // 0x2C
-    pub rsvd_pos: u8,         // 0x2D
-    pub vesapm_seg: u16,      // 0x2E
-    pub vesapm_off: u16,      // 0x30
-    pub pages: u16,           // 0x32
-    pub vesa_attributes: u16, // 0x34
-    pub capabilities: u32,    // 0x36
-    pub ext_lfb_base: u32,    // 0x3A
-    pub _reserved: [u8; 2],   // 0x3E
+    lfb_width: u16,       // 0x12
+    lfb_height: u16,      // 0x14
+    lfb_depth: u16,       // 0x16
+    lfb_base: u32,        // 0x18
+    lfb_size: u32,        // 0x1C
+    cl_magic: u16,        // 0x20
+    cl_offset: u16,       // 0x22
+    lfb_linelength: u16,  // 0x24
+    red_size: u8,         // 0x26
+    red_pos: u8,          // 0x27
+    green_size: u8,       // 0x28
+    green_pos: u8,        // 0x29
+    blue_size: u8,        // 0x2A
+    blue_pos: u8,         // 0x2B
+    rsvd_size: u8,        // 0x2C
+    rsvd_pos: u8,         // 0x2D
+    vesapm_seg: u16,      // 0x2E
+    vesapm_off: u16,      // 0x30
+    pages: u16,           // 0x32
+    vesa_attributes: u16, // 0x34
+    capabilities: u32,    // 0x36
+    ext_lfb_base: u32,    // 0x3A
+    _reserved: [u8; 2],   // 0x3E
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct ApmBiosInfo {
-    pub version: u16,
-    pub cseg: u16,
-    pub offset: u32,
-    pub cseg_16: u16,
-    pub dseg: u16,
-    pub flags: u16,
-    pub cseg_len: u16,
-    pub cseg_16_len: u16,
-    pub dseg_len: u16,
+struct ApmBiosInfo {
+    version: u16,
+    cseg: u16,
+    offset: u32,
+    cseg_16: u16,
+    dseg: u16,
+    flags: u16,
+    cseg_len: u16,
+    cseg_16_len: u16,
+    dseg_len: u16,
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct IstInfo {
-    pub signature: u32,
-    pub command: u32,
-    pub event: u32,
-    pub perf_level: u32,
+struct IstInfo {
+    signature: u32,
+    command: u32,
+    event: u32,
+    perf_level: u32,
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct SysDescTable {
-    pub length: u16,
-    pub table: [u8; 14],
+struct SysDescTable {
+    length: u16,
+    table: [u8; 14],
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct OlpcOfwHeader {
-    pub ofw_magic: u32, /* OFW signature */
-    pub ofw_version: u32,
-    pub cif_handler: u32, /* callback into OFW */
-    pub irq_desc_table: u32,
+struct OlpcOfwHeader {
+    ofw_magic: u32, /* OFW signature */
+    ofw_version: u32,
+    cif_handler: u32, /* callback into OFW */
+    irq_desc_table: u32,
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct EdidInfo {
-    pub dummy: [u8; 128],
+struct EdidInfo {
+    dummy: [u8; 128],
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct EfiInfo {
-    pub efi_loader_signature: u32,
-    pub efi_systab: u32,
-    pub efi_memdesc_size: u32,
-    pub efi_memdesc_version: u32,
-    pub efi_memmap: u32,
-    pub efi_memmap_size: u32,
-    pub efi_systab_hi: u32,
-    pub efi_memmap_hi: u32,
+struct EfiInfo {
+    efi_loader_signature: u32,
+    efi_systab: u32,
+    efi_memdesc_size: u32,
+    efi_memdesc_version: u32,
+    efi_memmap: u32,
+    efi_memmap_size: u32,
+    efi_systab_hi: u32,
+    efi_memmap_hi: u32,
 }
 
 #[repr(C, packed)]
@@ -155,7 +159,7 @@ pub struct SetupHeader {
 
 #[allow(dead_code)]
 #[repr(u32)]
-pub enum E820Type {
+enum E820Type {
     Ram = 1,
     Reserved = 2,
     Acpi = 3,
@@ -169,227 +173,227 @@ pub enum E820Type {
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros)]
-pub struct BootE820Entry {
-    pub addr: u64,
-    pub size: u64,
-    pub ty: u32,
+struct BootE820Entry {
+    addr: u64,
+    size: u64,
+    ty: u32,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct InterfacePathIsa {
-    pub base_address: u16,
-    pub reserved1: u16,
-    pub reserved2: u32,
+struct InterfacePathIsa {
+    base_address: u16,
+    reserved1: u16,
+    reserved2: u32,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct InterfacePathPci {
-    pub bus: u8,
-    pub slot: u8,
-    pub function: u8,
-    pub channel: u8,
-    pub reserved: u32,
+struct InterfacePathPci {
+    bus: u8,
+    slot: u8,
+    function: u8,
+    channel: u8,
+    reserved: u32,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct InterfacePathIbnd {
-    pub reserved: u64,
+struct InterfacePathIbnd {
+    reserved: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct InterfacePathXprs {
-    pub reserved: u64,
+struct InterfacePathXprs {
+    reserved: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct InterfacePathHtpt {
-    pub reserved: u64,
+struct InterfacePathHtpt {
+    reserved: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct InterfacePathUnknown {
-    pub reserved: u64,
+struct InterfacePathUnknown {
+    reserved: u64,
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub union InterfacePath {
-    pub isa: InterfacePathIsa,
-    pub pci: InterfacePathPci,
-    pub ibnd: InterfacePathIbnd,
-    pub xprs: InterfacePathXprs,
-    pub htpt: InterfacePathHtpt,
-    pub unknown: InterfacePathUnknown,
+union InterfacePath {
+    isa: InterfacePathIsa,
+    pci: InterfacePathPci,
+    ibnd: InterfacePathIbnd,
+    xprs: InterfacePathXprs,
+    htpt: InterfacePathHtpt,
+    unknown: InterfacePathUnknown,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathAta {
-    pub device: u8,
-    pub reserved1: u8,
-    pub reserved2: u16,
-    pub reserved3: u32,
-    pub reserved4: u64,
+struct DevicePathAta {
+    device: u8,
+    reserved1: u8,
+    reserved2: u16,
+    reserved3: u32,
+    reserved4: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathAtapi {
-    pub device: u8,
-    pub lun: u8,
-    pub reserved1: u8,
-    pub reserved2: u8,
-    pub reserved3: u32,
-    pub reserved4: u64,
+struct DevicePathAtapi {
+    device: u8,
+    lun: u8,
+    reserved1: u8,
+    reserved2: u8,
+    reserved3: u32,
+    reserved4: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathScsi {
-    pub id: u16,
-    pub lun: u64,
-    pub reserved1: u16,
-    pub reserved2: u32,
+struct DevicePathScsi {
+    id: u16,
+    lun: u64,
+    reserved1: u16,
+    reserved2: u32,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathUsb {
-    pub serial_number: u64,
-    pub reserved: u64,
+struct DevicePathUsb {
+    serial_number: u64,
+    reserved: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathI1394 {
-    pub eui: u64,
-    pub reserved: u64,
+struct DevicePathI1394 {
+    eui: u64,
+    reserved: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathFibre {
-    pub wwid: u64,
-    pub lun: u64,
+struct DevicePathFibre {
+    wwid: u64,
+    lun: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathI2o {
-    pub identity_tag: u64,
-    pub reserved: u64,
+struct DevicePathI2o {
+    identity_tag: u64,
+    reserved: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathRaid {
-    pub array_number: u32,
-    pub reserved1: u32,
-    pub reserved2: u64,
+struct DevicePathRaid {
+    array_number: u32,
+    reserved1: u32,
+    reserved2: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathSata {
-    pub device: u8,
-    pub reserved1: u8,
-    pub reserved2: u16,
-    pub reserved3: u32,
-    pub reserved4: u64,
+struct DevicePathSata {
+    device: u8,
+    reserved1: u8,
+    reserved2: u16,
+    reserved3: u32,
+    reserved4: u64,
 }
 
 #[repr(C, packed)]
 #[derive(Clone, Copy, FromZeros, Immutable)]
-pub struct DevicePathUnknown {
-    pub reserved1: u64,
-    pub reserved2: u64,
+struct DevicePathUnknown {
+    reserved1: u64,
+    reserved2: u64,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, FromZeros)]
-pub union DevicePath {
-    pub ata: DevicePathAta,
-    pub atapi: DevicePathAtapi,
-    pub scsi: DevicePathScsi,
-    pub usb: DevicePathUsb,
-    pub i1394: DevicePathI1394,
-    pub fibre: DevicePathFibre,
-    pub i2o: DevicePathI2o,
-    pub raid: DevicePathRaid,
-    pub sata: DevicePathSata,
-    pub unknown: DevicePathUnknown,
+union DevicePath {
+    ata: DevicePathAta,
+    atapi: DevicePathAtapi,
+    scsi: DevicePathScsi,
+    usb: DevicePathUsb,
+    i1394: DevicePathI1394,
+    fibre: DevicePathFibre,
+    i2o: DevicePathI2o,
+    raid: DevicePathRaid,
+    sata: DevicePathSata,
+    unknown: DevicePathUnknown,
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct EddDeviceParams {
-    pub length: u16,
-    pub info_flags: u16,
-    pub num_default_cylinders: u32,
-    pub num_default_heads: u32,
-    pub sectors_per_track: u32,
-    pub number_of_sectors: u64,
-    pub bytes_per_sector: u16,
-    pub dpte_ptr: u32,               /* 0xFFFFFFFF for our purposes */
-    pub key: u16,                    /* = 0xBEDD */
-    pub device_path_info_length: u8, /* = 44 */
-    pub reserved2: u8,
-    pub reserved3: u16,
-    pub host_bus_type: [u8; 4],
-    pub interface_type: [u8; 8],
-    pub interface_path: InterfacePath,
-    pub device_path: DevicePath,
-    pub reserved4: u8,
-    pub checksum: u8,
+struct EddDeviceParams {
+    length: u16,
+    info_flags: u16,
+    num_default_cylinders: u32,
+    num_default_heads: u32,
+    sectors_per_track: u32,
+    number_of_sectors: u64,
+    bytes_per_sector: u16,
+    dpte_ptr: u32,               /* 0xFFFFFFFF for our purposes */
+    key: u16,                    /* = 0xBEDD */
+    device_path_info_length: u8, /* = 44 */
+    reserved2: u8,
+    reserved3: u16,
+    host_bus_type: [u8; 4],
+    interface_type: [u8; 8],
+    interface_path: InterfacePath,
+    device_path: DevicePath,
+    reserved4: u8,
+    checksum: u8,
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros)]
-pub struct EddInfo {
-    pub device: u8,
-    pub version: u8,
-    pub interface_support: u16,
-    pub legacy_max_cylinder: u16,
-    pub legacy_max_head: u8,
-    pub legacy_sectors_per_track: u8,
-    pub params: EddDeviceParams,
+struct EddInfo {
+    device: u8,
+    version: u8,
+    interface_support: u16,
+    legacy_max_cylinder: u16,
+    legacy_max_head: u8,
+    legacy_sectors_per_track: u8,
+    params: EddDeviceParams,
 }
 
 #[repr(C, packed)]
 #[derive(FromZeros, KnownLayout)]
 pub struct BootParams {
-    pub screen_info: ScreenInfo,        // 0x000
-    pub apm_bios_info: ApmBiosInfo,     // 0x040
-    pub _pad2: [u8; 4],                 // 0x054
-    pub tboot_addr: u64,                // 0x058
-    pub ist_info: IstInfo,              // 0x060
-    pub acpi_rsdp_addr: u64,            // 0x070
-    pub _pad3: [u8; 8],                 // 0x078
-    pub hd0_info: [u8; 16],             // 0x080 (obsolete)
-    pub hd1_info: [u8; 16],             // 0x090 (obsolete)
-    pub sys_desc_table: SysDescTable,   // 0x0a0 (obsolete)
-    pub olpc_ofw_header: OlpcOfwHeader, // 0x0b0
-    pub ext_ramdisk_image: u32,         // 0x0c0
-    pub ext_ramdisk_size: u32,          // 0x0c4
-    pub ext_cmd_line_ptr: u32,          // 0x0c8
-    pub _pad4: [u8; 112],               // 0x0cc
-    pub cc_blob_address: u32,           // 0x13c
-    pub edid_info: EdidInfo,            // 0x140
-    pub efi_info: EfiInfo,              // 0x1c0
-    pub alt_mem_k: u32,                 // 0x1e0
-    pub scratch: u32,                   // 0x1e4
-    pub e820_entries: u8,               // 0x1e8
-    pub eddbuf_entries: u8,             // 0x1e9
-    pub edd_mbr_sig_buf_entries: u8,    // 0x1ea
-    pub kbd_status: u8,                 // 0x1eb
-    pub secure_boot: u8,                // 0x1ec
-    pub _pad5: [u8; 2],                 // 0x1ed
+    screen_info: ScreenInfo,        // 0x000
+    apm_bios_info: ApmBiosInfo,     // 0x040
+    _pad2: [u8; 4],                 // 0x054
+    tboot_addr: u64,                // 0x058
+    ist_info: IstInfo,              // 0x060
+    acpi_rsdp_addr: u64,            // 0x070
+    _pad3: [u8; 8],                 // 0x078
+    hd0_info: [u8; 16],             // 0x080 (obsolete)
+    hd1_info: [u8; 16],             // 0x090 (obsolete)
+    sys_desc_table: SysDescTable,   // 0x0a0 (obsolete)
+    olpc_ofw_header: OlpcOfwHeader, // 0x0b0
+    ext_ramdisk_image: u32,         // 0x0c0
+    ext_ramdisk_size: u32,          // 0x0c4
+    ext_cmd_line_ptr: u32,          // 0x0c8
+    _pad4: [u8; 112],               // 0x0cc
+    cc_blob_address: u32,           // 0x13c
+    edid_info: EdidInfo,            // 0x140
+    efi_info: EfiInfo,              // 0x1c0
+    alt_mem_k: u32,                 // 0x1e0
+    scratch: u32,                   // 0x1e4
+    e820_entries: u8,               // 0x1e8
+    eddbuf_entries: u8,             // 0x1e9
+    edd_mbr_sig_buf_entries: u8,    // 0x1ea
+    kbd_status: u8,                 // 0x1eb
+    secure_boot: u8,                // 0x1ec
+    _pad5: [u8; 2],                 // 0x1ed
     /*
      * The sentinel is set to a nonzero value (0xff) in header.S.
      *
@@ -401,13 +405,130 @@ pub struct BootParams {
      * know that some variables in boot_params are invalid and
      * kernel should zero out certain portions of boot_params.
      */
-    pub sentinel: u8,     // 0x1ef
-    pub _pad6: [u8; 1],   // 0x1f0
-    pub hdr: SetupHeader, // 0x1f1
-    pub _pad7: [u8; 0x290 - 0x1f1 - core::mem::size_of::<SetupHeader>()],
-    pub edd_mbr_sig_buffer: [u32; EDD_MBR_SIG_MAX], // 0x290
-    pub e820_table: [BootE820Entry; E820_MAX_ENTRIES_ZEROPAGE], // 0x2d0
-    pub _pad8: [u8; 48],                            // 0xcd0
-    pub eddbuf: [EddInfo; EDDMAXNR],                // 0xd00
-    pub _pad9: [u8; 276],                           // 0xeec
+    sentinel: u8,     // 0x1ef
+    _pad6: [u8; 1],   // 0x1f0
+    hdr: SetupHeader, // 0x1f1
+    _pad7: [u8; 0x290 - 0x1f1 - core::mem::size_of::<SetupHeader>()],
+    edd_mbr_sig_buffer: [u32; EDD_MBR_SIG_MAX], // 0x290
+    e820_table: [BootE820Entry; E820_MAX_ENTRIES_ZEROPAGE], // 0x2d0
+    _pad8: [u8; 48],                            // 0xcd0
+    eddbuf: [EddInfo; EDDMAXNR],                // 0xd00
+    _pad9: [u8; 276],                           // 0xeec
+}
+
+#[derive(Error, Debug)]
+pub enum ZeroPageError {
+    #[error("acpi_rsdp_addr unset")]
+    AcpiRsdpAddrUnset,
+
+    #[error("acpi_rsdp_addr already unset")]
+    AcpiRsdpAddrAlreadySet,
+
+    #[error("hdr unset")]
+    HdrUnset,
+
+    #[error("hdr already set")]
+    HdrAlreadySet,
+
+    #[error("e820_table unset")]
+    E820Unset,
+
+    #[error("e820_table already set")]
+    E820AlreadySet,
+}
+
+#[derive(Default)]
+pub struct ZeroPageBuilder {
+    acpi_rsdp_addr: OnceCell<u64>,
+    hdr: OnceCell<SetupHeader>,
+    e820_table: OnceCell<[BootE820Entry; E820_MAX_ENTRIES_ZEROPAGE]>,
+    e820_entries: OnceCell<u8>,
+}
+
+impl ZeroPageBuilder {
+    pub fn setup_acpi_rsdp_addr(self, acpi_rsdp_addr: u64) -> Result<Self, ZeroPageError> {
+        self.acpi_rsdp_addr
+            .set(acpi_rsdp_addr)
+            .map_err(|_| ZeroPageError::AcpiRsdpAddrAlreadySet)?;
+
+        Ok(self)
+    }
+
+    pub fn setup_hdr(self, hdr: SetupHeader) -> Result<Self, ZeroPageError> {
+        self.hdr
+            .set(hdr)
+            .map_err(|_| ZeroPageError::HdrAlreadySet)?;
+
+        Ok(self)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn setup_e820(
+        self,
+        memory: &MemoryAddressSpace,
+        acpi_rsdt_addr: u32,
+        acpi_max_length: u32,
+        mmio_start: u32,
+        mmio_length: u32,
+        ecam_base: u32,
+        ecam_length: u32,
+    ) -> Result<Self, ZeroPageError> {
+        let mut e820_table = [BootE820Entry::new_zeroed(); E820_MAX_ENTRIES_ZEROPAGE];
+
+        let mut index = 0;
+
+        for region in memory.regions().values() {
+            e820_table[index] = BootE820Entry {
+                addr: region.gpa,
+                size: region.len() as u64,
+                ty: E820Type::Ram as u32,
+            };
+            index += 1;
+        }
+
+        e820_table[index] = BootE820Entry {
+            addr: acpi_rsdt_addr as u64,
+            size: acpi_max_length as u64,
+            ty: E820Type::Acpi as u32,
+        };
+        index += 1;
+
+        e820_table[index] = BootE820Entry {
+            addr: mmio_start as u64,
+            size: mmio_length as u64,
+            ty: E820Type::Reserved as u32,
+        };
+        index += 1;
+
+        e820_table[index] = BootE820Entry {
+            addr: ecam_base as u64,
+            size: ecam_length as u64,
+            ty: E820Type::Reserved as u32,
+        };
+        index += 1;
+
+        self.e820_table
+            .set(e820_table)
+            .map_err(|_| ZeroPageError::E820AlreadySet)?;
+        self.e820_entries
+            .set(index as u8)
+            .map_err(|_| ZeroPageError::E820AlreadySet)?;
+
+        Ok(self)
+    }
+
+    pub fn build(mut self) -> Result<BootParams, ZeroPageError> {
+        let boot_params = BootParams {
+            acpi_rsdp_addr: self
+                .acpi_rsdp_addr
+                .take()
+                .ok_or(ZeroPageError::AcpiRsdpAddrUnset)?,
+            hdr: self.hdr.take().ok_or(ZeroPageError::HdrUnset)?,
+            e820_table: self.e820_table.take().ok_or(ZeroPageError::E820Unset)?,
+            e820_entries: self.e820_entries.take().ok_or(ZeroPageError::E820Unset)?,
+            ..BootParams::new_zeroed()
+        };
+
+        Ok(boot_params)
+    }
 }
