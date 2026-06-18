@@ -4,7 +4,6 @@ use std::path::Path;
 use std::slice;
 
 use tracing::debug;
-use vm_firmware::acpi::builder::AcpiTableBuilder;
 use vm_firmware::x86_64::gdt::Gdt;
 use vm_firmware::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
@@ -30,8 +29,6 @@ pub struct LoadResult {
 }
 
 pub struct BzImageBootParams {
-    pub vcpus: usize,
-    pub definition_block: Vec<u8>,
     pub gdt_start: u32,
     pub boot_params_start: u32,
     // pub heap_end: u32,
@@ -44,8 +41,6 @@ pub struct BzImageBootParams {
     pub mmio_length: u32,
     pub ecam_base: u32,
     pub ecam_length: u32,
-    pub ioapic_base_addr: u32,
-    pub apic_base_addr: u32,
 }
 
 pub struct BzImage {
@@ -69,7 +64,7 @@ impl BzImage {
     ) -> Result<LoadResult, KernelLoaderError> {
         let mut boot_params = BootParams::new_zeroed();
 
-        self.setup_acpi(ram_allocator, memory, params, &mut boot_params)?;
+        boot_params.acpi_rsdp_addr = params.acpi_rsdt_addr as u64;
         self.setup_e820(memory, params, &mut boot_params)?;
 
         let (start_pc, boot_params_start) =
@@ -210,43 +205,6 @@ impl BzImage {
         };
 
         Ok((kernel_start, params.boot_params_start))
-    }
-
-    fn setup_acpi(
-        &self,
-        ram_allocator: &mut RangeAllocator<u64>,
-        mm: &MemoryAddressSpace,
-        params: &BzImageBootParams,
-        boot_params: &mut BootParams,
-    ) -> Result<(), KernelLoaderError> {
-        let _ = ram_allocator.reserve(
-            params.acpi_rsdt_addr as u64,
-            params.acpi_max_length as usize,
-        )?;
-
-        let mut acpi_ram_allocator = RangeAllocator::<u64>::default();
-        acpi_ram_allocator.insert(
-            params.acpi_rsdt_addr as u64,
-            params.acpi_max_length as usize,
-        )?;
-
-        let acpi = AcpiTableBuilder::default()
-            .set_vcpus(
-                params
-                    .vcpus
-                    .try_into()
-                    .map_err(|_| KernelLoaderError::VcpuExceedsAcpiCapability)?,
-            )?
-            .set_definition_block(params.definition_block.clone())?
-            .set_apic_base_address(params.apic_base_addr)?
-            .set_io_apic_address(params.ioapic_base_addr)?
-            .set_pci_mmio_base_addr(params.ecam_base as u64)?
-            .build()?;
-
-        acpi.install(&mut acpi_ram_allocator, mm, params.acpi_rsdt_addr as u64)?;
-        boot_params.acpi_rsdp_addr = params.acpi_rsdt_addr as u64;
-
-        Ok(())
     }
 
     fn setup_e820(

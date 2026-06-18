@@ -8,6 +8,7 @@ use vm_core::cpu::error::CpuError;
 use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::Device;
 use vm_core::device::error::DeviceError;
+use vm_firmware::acpi::error::AcpiError;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 use vm_utils::range_allocator::RangeAllocatorError;
@@ -39,6 +40,12 @@ pub enum Error {
 
     #[error("{0}")]
     GenerateDtb(#[from] vm_fdt::Error),
+
+    #[error("Vcpu too much")]
+    VcpuExceedsAcpiCapability,
+
+    #[error("Failed to setup acpi, err: {0}")]
+    Acpi(#[from] AcpiError),
 
     #[error("Device error: {0}")]
     DeviceError(#[from] DeviceError),

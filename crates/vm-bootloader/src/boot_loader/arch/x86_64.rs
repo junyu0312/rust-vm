@@ -19,11 +19,13 @@ use vm_core::arch::x86_64::layout::MMIO_LEN;
 use vm_core::arch::x86_64::layout::MMIO_START;
 use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::Device;
+use vm_firmware::acpi::builder::AcpiTableBuilder;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
+use crate::boot_loader::Error;
 use crate::boot_loader::Result;
 use crate::initrd_loader::InitrdLoadResult;
 use crate::initrd_loader::InitrdLoader;
@@ -39,6 +41,41 @@ pub struct X86_64BootLoader {
 }
 
 impl X86_64BootLoader {
+    fn setup_acpi(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        mm: &MemoryAddressSpace,
+        vcpus: usize,
+        devices: Iter<'_, Box<dyn Device>>,
+    ) -> Result<(u32, u32)> {
+        let acpi_rsdt_addr = ACPI_RSDT_START as u64;
+        let acpi_max_length = ACPI_MAX_LEN as usize;
+
+        let _ = ram_allocator.reserve(acpi_rsdt_addr, acpi_max_length)?;
+
+        let mut acpi_ram_allocator = RangeAllocator::<u64>::default();
+        acpi_ram_allocator.insert(acpi_rsdt_addr, acpi_max_length)?;
+
+        let acpi = AcpiTableBuilder::default()
+            .set_vcpus(
+                vcpus
+                    .try_into()
+                    .map_err(|_| Error::VcpuExceedsAcpiCapability)?,
+            )?
+            .set_definition_block(build_definition_block(devices))?
+            .set_apic_base_address(APIC_ADDR)?
+            .set_io_apic_address(IOAPIC_ADDR)?
+            .set_pci_mmio_base_addr(ECAM_BASE as u64)?
+            .build()?;
+
+        acpi.install(&mut acpi_ram_allocator, mm, acpi_rsdt_addr)?;
+
+        Ok((
+            acpi_rsdt_addr.try_into().unwrap(),
+            acpi_max_length.try_into().unwrap(),
+        ))
+    }
+
     fn load_initramfs(
         &self,
         ram_allocator: &mut RangeAllocator<u64>,
@@ -53,28 +90,24 @@ impl X86_64BootLoader {
 
     fn load_image(
         &self,
-        vcpus: usize,
-        definition_block: Vec<u8>,
-        initrd_load_result: Option<InitrdLoadResult>,
         ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
+        acpi_rsdt_addr: u32,
+        acpi_max_length: u32,
+        initrd_load_result: Option<InitrdLoadResult>,
     ) -> Result<LoadResult> {
         let params = BzImageBootParams {
-            vcpus,
-            definition_block,
             gdt_start: GDT_START,
             boot_params_start: BOOT_PARAMS_START,
             cmdline_start: CMDLINE_START,
-            acpi_rsdt_addr: ACPI_RSDT_START,
-            acpi_max_length: ACPI_MAX_LEN,
+            acpi_rsdt_addr,
+            acpi_max_length,
             kernel_start: KERNEL_START,
             initrd: initrd_load_result,
             mmio_start: MMIO_START,
             mmio_length: MMIO_LEN,
             ecam_base: ECAM_BASE,
             ecam_length: ECAM_LENGTH,
-            ioapic_base_addr: IOAPIC_ADDR,
-            apic_base_addr: APIC_ADDR,
         };
 
         let load_result = BzImage::new(&self.kernel, self.cmdline.as_deref())?.load(
@@ -109,7 +142,8 @@ impl BootLoader for X86_64BootLoader {
         _irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<()> {
-        let definition_block = build_definition_block(devices);
+        let (acpi_rsdt_addr, acpi_max_length) =
+            self.setup_acpi(ram_allocator, memory, vcpus, devices)?;
 
         let initrd_load_result = if let Some(initramfs) = &self.initramfs {
             Some(self.load_initramfs(ram_allocator, memory, initramfs)?)
@@ -118,11 +152,11 @@ impl BootLoader for X86_64BootLoader {
         };
 
         let load_result = self.load_image(
-            vcpus,
-            definition_block,
-            initrd_load_result,
             ram_allocator,
             memory,
+            acpi_rsdt_addr,
+            acpi_max_length,
+            initrd_load_result,
         )?;
 
         boot_vcpu

@@ -4,9 +4,6 @@ use vm_utils::range_allocator::RangeAllocatorError;
 
 #[derive(Error, Debug)]
 pub enum KernelLoaderError {
-    #[error("Too much vcpu")]
-    VcpuExceedsAcpiCapability,
-
     #[error("Read failed")]
     ReadFailed,
 
