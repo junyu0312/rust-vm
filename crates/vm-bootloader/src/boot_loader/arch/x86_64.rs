@@ -20,8 +20,11 @@ use vm_core::arch::x86_64::layout::MMIO_START;
 use vm_core::cpu::vcpu::Vcpu;
 use vm_core::device::Device;
 use vm_firmware::acpi::builder::AcpiTableBuilder;
+use vm_firmware::x86_64::gdt::Gdt;
+use vm_firmware::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
+use zerocopy::IntoBytes;
 
 use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
@@ -76,6 +79,29 @@ impl X86_64BootLoader {
         ))
     }
 
+    fn setup_gdt(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        memory: &MemoryAddressSpace,
+    ) -> Result<(Gdt<5>, u32)> {
+        let gdt_start = GDT_START as u64;
+
+        let null = GdtEntry::new(0, 0, 0);
+        let null2 = GdtEntry::new(0, 0, 0);
+        let code = GdtEntry::new(0, 0xfffff, 0xc09b);
+        let data = GdtEntry::new(0, 0xfffff, 0xc093);
+        let tss = GdtEntry::new(0, 0xfffff, 0x808b);
+
+        let gdt = Gdt::new([null, null2, code, data, tss]);
+
+        ram_allocator.reserve(gdt_start, gdt.as_bytes().len())?;
+        memory
+            .copy_from_slice(gdt_start, gdt.as_bytes())
+            .map_err(|_| Error::Gdt("Failed to copy gdt".to_string()))?;
+
+        Ok((gdt, gdt_start.try_into().unwrap()))
+    }
+
     fn load_initramfs(
         &self,
         ram_allocator: &mut RangeAllocator<u64>,
@@ -97,7 +123,6 @@ impl X86_64BootLoader {
         initrd_load_result: Option<InitrdLoadResult>,
     ) -> Result<LoadResult> {
         let params = BzImageBootParams {
-            gdt_start: GDT_START,
             boot_params_start: BOOT_PARAMS_START,
             cmdline_start: CMDLINE_START,
             acpi_rsdt_addr,
@@ -145,6 +170,8 @@ impl BootLoader for X86_64BootLoader {
         let (acpi_rsdt_addr, acpi_max_length) =
             self.setup_acpi(ram_allocator, memory, vcpus, devices)?;
 
+        let (gdt, gdt_start) = self.setup_gdt(ram_allocator, memory)?;
+
         let initrd_load_result = if let Some(initramfs) = &self.initramfs {
             Some(self.load_initramfs(ram_allocator, memory, initramfs)?)
         } else {
@@ -161,10 +188,10 @@ impl BootLoader for X86_64BootLoader {
 
         boot_vcpu
             .setup_vcpu(
-                load_result.gdt,
-                load_result.start_pc,
-                load_result.gdt_start,
+                gdt,
+                gdt_start,
                 load_result.boot_params_start,
+                load_result.start_pc,
             )
             .await?;
 

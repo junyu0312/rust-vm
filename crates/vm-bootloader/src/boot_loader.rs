@@ -47,6 +47,9 @@ pub enum Error {
     #[error("Failed to setup acpi, err: {0}")]
     Acpi(#[from] AcpiError),
 
+    #[error("Failed to setup gdt, err: {0}")]
+    Gdt(String),
+
     #[error("Device error: {0}")]
     DeviceError(#[from] DeviceError),
 }

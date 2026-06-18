@@ -40,8 +40,4 @@ pub enum KernelLoaderError {
 
     #[error("Acpi error: {0}")]
     Acpi(#[from] AcpiError),
-
-    #[cfg(target_arch = "x86_64")]
-    #[error("Copy gdt into memory failed")]
-    CopyGdtFailed,
 }

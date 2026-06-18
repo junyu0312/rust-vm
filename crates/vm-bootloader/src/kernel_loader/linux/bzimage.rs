@@ -4,8 +4,6 @@ use std::path::Path;
 use std::slice;
 
 use tracing::debug;
-use vm_firmware::x86_64::gdt::Gdt;
-use vm_firmware::x86_64::gdt::GdtEntry;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 use zerocopy::FromZeros;
@@ -23,13 +21,10 @@ const MINIMAL_VERSION: u16 = 0x206;
 
 pub struct LoadResult {
     pub start_pc: u32,
-    pub gdt: Gdt<5>,
-    pub gdt_start: u32,
     pub boot_params_start: u32,
 }
 
 pub struct BzImageBootParams {
-    pub gdt_start: u32,
     pub boot_params_start: u32,
     // pub heap_end: u32,
     pub cmdline_start: u32,
@@ -69,12 +64,9 @@ impl BzImage {
 
         let (start_pc, boot_params_start) =
             self.setup_hdr(ram_allocator, params, &mut boot_params, memory)?;
-        let (gdt, gdt_start) = self.setup_gdt(ram_allocator, params, memory)?;
 
         Ok(LoadResult {
             start_pc,
-            gdt,
-            gdt_start,
             boot_params_start,
         })
     }
@@ -248,27 +240,5 @@ impl BzImage {
         boot_params.e820_entries = index as u8;
 
         Ok(())
-    }
-
-    fn setup_gdt(
-        &self,
-        ram_allocator: &mut RangeAllocator<u64>,
-        params: &BzImageBootParams,
-        memory: &MemoryAddressSpace,
-    ) -> Result<(Gdt<5>, u32), KernelLoaderError> {
-        let null = GdtEntry::new(0, 0, 0);
-        let null2 = GdtEntry::new(0, 0, 0);
-        let code = GdtEntry::new(0, 0xfffff, 0xc09b);
-        let data = GdtEntry::new(0, 0xfffff, 0xc093);
-        let tss = GdtEntry::new(0, 0xfffff, 0x808b);
-
-        let gdt = Gdt::new([null, null2, code, data, tss]);
-
-        ram_allocator.reserve(params.gdt_start as u64, gdt.as_bytes().len())?;
-        memory
-            .copy_from_slice(params.gdt_start as u64, gdt.as_bytes())
-            .map_err(|_| KernelLoaderError::CopyGdtFailed)?;
-
-        Ok((gdt, params.gdt_start))
     }
 }
