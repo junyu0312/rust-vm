@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use std::path::Path;
 use std::path::PathBuf;
 use std::slice::Iter;
@@ -32,9 +33,9 @@ use crate::boot_loader::Error;
 use crate::boot_loader::Result;
 use crate::initrd_loader::InitrdLoadResult;
 use crate::initrd_loader::InitrdLoader;
-use crate::kernel_loader::linux::bzimage::BzImage;
-use crate::kernel_loader::linux::bzimage::BzImageBootParams;
-use crate::kernel_loader::linux::bzimage::LoadResult;
+use crate::kernel_loader::linux::x86_64::bzimage::BzImage;
+use crate::kernel_loader::linux::x86_64::bzimage::BzImageBootParams;
+use crate::kernel_loader::linux::x86_64::bzimage::LoadResult;
 use crate::utils::aml::build_definition_block;
 
 pub struct X86_64BootLoader {
@@ -114,6 +115,28 @@ impl X86_64BootLoader {
         Ok(result)
     }
 
+    fn load_cmdline(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        memory: &MemoryAddressSpace,
+    ) -> Result<(u32, u32)> {
+        let cmdline_start = CMDLINE_START;
+
+        let cmdline = if let Some(cmdline) = &self.cmdline {
+            CString::new(cmdline.to_string()).map_err(|err| Error::Cmdline(err.to_string()))?
+        } else {
+            CString::new("auto".to_string()).unwrap()
+        };
+
+        let buf = cmdline.as_bytes_with_nul();
+        let range = ram_allocator.reserve(cmdline_start as u64, buf.len())?;
+        memory
+            .copy_from_slice(range.start, cmdline.as_bytes_with_nul())
+            .map_err(|err| Error::Cmdline(err.to_string()))?;
+
+        Ok((cmdline_start, buf.len() as u32))
+    }
+
     fn load_image(
         &self,
         ram_allocator: &mut RangeAllocator<u64>,
@@ -121,10 +144,13 @@ impl X86_64BootLoader {
         acpi_rsdt_addr: u32,
         acpi_max_length: u32,
         initrd_load_result: Option<InitrdLoadResult>,
+        cmdline_start: u32,
+        cmdline_len: u32,
     ) -> Result<LoadResult> {
         let params = BzImageBootParams {
             boot_params_start: BOOT_PARAMS_START,
-            cmdline_start: CMDLINE_START,
+            cmdline_start,
+            cmdline_len,
             acpi_rsdt_addr,
             acpi_max_length,
             kernel_start: KERNEL_START,
@@ -135,11 +161,7 @@ impl X86_64BootLoader {
             ecam_length: ECAM_LENGTH,
         };
 
-        let load_result = BzImage::new(&self.kernel, self.cmdline.as_deref())?.load(
-            ram_allocator,
-            memory,
-            &params,
-        )?;
+        let load_result = BzImage::new(&self.kernel)?.load(ram_allocator, memory, &params)?;
 
         Ok(load_result)
     }
@@ -178,12 +200,16 @@ impl BootLoader for X86_64BootLoader {
             None
         };
 
+        let (cmdline_start, cmdline_len) = self.load_cmdline(ram_allocator, memory)?;
+
         let load_result = self.load_image(
             ram_allocator,
             memory,
             acpi_rsdt_addr,
             acpi_max_length,
             initrd_load_result,
+            cmdline_start,
+            cmdline_len,
         )?;
 
         boot_vcpu

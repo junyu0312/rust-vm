@@ -50,6 +50,9 @@ pub enum Error {
     #[error("Failed to setup gdt, err: {0}")]
     Gdt(String),
 
+    #[error("Failed to setup cmdline, err: {0}")]
+    Cmdline(String),
+
     #[error("Device error: {0}")]
     DeviceError(#[from] DeviceError),
 }

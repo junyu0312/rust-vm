@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use std::fs;
 use std::path::Path;
 use std::slice;
@@ -11,11 +10,9 @@ use zerocopy::IntoBytes;
 
 use crate::initrd_loader::InitrdLoadResult;
 use crate::kernel_loader::error::KernelLoaderError;
-use crate::kernel_loader::linux::bzimage::boot_params::BootE820Entry;
-use crate::kernel_loader::linux::bzimage::boot_params::BootParams;
-use crate::kernel_loader::linux::bzimage::boot_params::E820Type;
-
-mod boot_params;
+use crate::kernel_loader::linux::x86_64::zero_page::BootE820Entry;
+use crate::kernel_loader::linux::x86_64::zero_page::BootParams;
+use crate::kernel_loader::linux::x86_64::zero_page::E820Type;
 
 const MINIMAL_VERSION: u16 = 0x206;
 
@@ -28,6 +25,7 @@ pub struct BzImageBootParams {
     pub boot_params_start: u32,
     // pub heap_end: u32,
     pub cmdline_start: u32,
+    pub cmdline_len: u32,
     pub acpi_rsdt_addr: u32,
     pub acpi_max_length: u32,
     pub kernel_start: u32,
@@ -40,15 +38,13 @@ pub struct BzImageBootParams {
 
 pub struct BzImage {
     bzimage: Vec<u8>,
-    cmdline: Option<String>,
 }
 
 impl BzImage {
-    pub fn new(path: &Path, cmdline: Option<&str>) -> Result<Self, KernelLoaderError> {
+    pub fn new(path: &Path) -> Result<Self, KernelLoaderError> {
         let bzimage = fs::read(path).map_err(|_| KernelLoaderError::ReadFailed)?;
-        let cmdline = cmdline.map(|s| s.to_string());
 
-        Ok(BzImage { bzimage, cmdline })
+        Ok(BzImage { bzimage })
     }
 
     pub fn load(
@@ -148,24 +144,11 @@ impl BzImage {
         }
 
         {
-            let cmdline = if let Some(cmdline) = &self.cmdline {
-                CString::new(cmdline.to_string())
-                    .map_err(|_| KernelLoaderError::CopyCmdlineFailed)?
-            } else {
-                CString::new("auto".to_string()).unwrap()
-            };
-
-            if cmdline.count_bytes() > boot_params.hdr.cmdline_size as usize {
+            if params.cmdline_len > boot_params.hdr.cmdline_size {
                 return Err(KernelLoaderError::CmdlineTooLarge);
             }
 
             boot_params.hdr.cmd_line_ptr = params.cmdline_start;
-
-            let buf = cmdline.as_bytes_with_nul();
-            let range = ram_allocator.reserve(params.cmdline_start as u64, buf.len())?;
-            memory
-                .copy_from_slice(range.start, cmdline.as_bytes_with_nul())
-                .map_err(|_| KernelLoaderError::CopyCmdlineFailed)?;
         }
 
         let kernel_len;
