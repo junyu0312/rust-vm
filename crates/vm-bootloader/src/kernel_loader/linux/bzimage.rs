@@ -12,10 +12,8 @@ use vm_utils::range_allocator::RangeAllocator;
 use zerocopy::FromZeros;
 use zerocopy::IntoBytes;
 
-use crate::kernel_loader::Error;
-use crate::kernel_loader::KernelLoader;
-use crate::kernel_loader::LoadResult;
-use crate::kernel_loader::Result;
+use crate::initrd_loader::InitrdLoadResult;
+use crate::kernel_loader::error::KernelLoaderError;
 use crate::kernel_loader::linux::bzimage::boot_params::BootE820Entry;
 use crate::kernel_loader::linux::bzimage::boot_params::BootParams;
 use crate::kernel_loader::linux::bzimage::boot_params::E820Type;
@@ -24,9 +22,13 @@ mod boot_params;
 
 const MINIMAL_VERSION: u16 = 0x206;
 
+pub struct LoadResult {
+    pub start_pc: u32,
+    pub gdt: Gdt<5>,
+}
+
 pub struct BzImageBootParams {
     pub vcpus: usize,
-    pub memory_size: u64,
     pub definition_block: Vec<u8>,
     pub gdt_start: u32,
     pub boot_params_start: u32,
@@ -35,11 +37,9 @@ pub struct BzImageBootParams {
     pub acpi_rsdt_addr: u32,
     pub acpi_max_length: u32,
     pub kernel_start: u32,
-    pub initrd_start: u32,
+    pub initrd: Option<InitrdLoadResult>,
     pub mmio_start: u32,
     pub mmio_length: u32,
-    pub pci_bar_mmio_window_start: u32,
-    pub pci_bar_mmio_window_length: u32,
     pub ecam_base: u32,
     pub ecam_length: u32,
     pub ioapic_base_addr: u32,
@@ -48,33 +48,41 @@ pub struct BzImageBootParams {
 
 pub struct BzImage {
     bzimage: Vec<u8>,
-    initrd: Option<Vec<u8>>,
     cmdline: Option<String>,
 }
 
 impl BzImage {
-    pub fn new(path: &Path, initrd: Option<&Path>, cmdline: Option<&str>) -> Result<Self> {
-        let bzimage = fs::read(path).map_err(|_| Error::ReadFailed)?;
-
-        let initrd = initrd
-            .map(fs::read)
-            .transpose()
-            .map_err(|_| Error::ReadFailed)?;
+    pub fn new(path: &Path, cmdline: Option<&str>) -> Result<Self, KernelLoaderError> {
+        let bzimage = fs::read(path).map_err(|_| KernelLoaderError::ReadFailed)?;
         let cmdline = cmdline.map(|s| s.to_string());
 
-        Ok(BzImage {
-            bzimage,
-            initrd,
-            cmdline,
-        })
+        Ok(BzImage { bzimage, cmdline })
+    }
+
+    pub fn load(
+        &mut self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        memory: &MemoryAddressSpace,
+        params: &BzImageBootParams,
+    ) -> Result<LoadResult, KernelLoaderError> {
+        let mut boot_params = BootParams::new_zeroed();
+
+        self.setup_acpi(ram_allocator, memory, params, &mut boot_params)?;
+        self.setup_e820(memory, params, &mut boot_params)?;
+
+        let start_pc = self.setup_hdr(ram_allocator, params, &mut boot_params, memory)?;
+        let gdt = self.setup_gdt(ram_allocator, params, memory)?;
+
+        Ok(LoadResult { start_pc, gdt })
     }
 
     fn setup_hdr(
         &self,
+        ram_allocator: &mut RangeAllocator<u64>,
         params: &BzImageBootParams,
         boot_params: &mut BootParams,
         memory: &MemoryAddressSpace,
-    ) -> Result<LoadResult> {
+    ) -> Result<u32, KernelLoaderError> {
         {
             // the second byte of `jump` field is a signed offset relative to byte 0x202,
             // which can be used to determine the size of the header
@@ -87,16 +95,16 @@ impl BzImage {
         debug!(?boot_params.hdr);
 
         if boot_params.hdr.boot_flag != 0xAA55 {
-            return Err(Error::InvalidKernelImage);
+            return Err(KernelLoaderError::InvalidKernelImage);
         }
 
         if boot_params.hdr.header != u32::from_le_bytes("HdrS".as_bytes().try_into().unwrap()) {
-            return Err(Error::KernelTooOld);
+            return Err(KernelLoaderError::KernelTooOld);
         }
 
         let version = boot_params.hdr.version;
         if version < MINIMAL_VERSION {
-            return Err(Error::KernelTooOld);
+            return Err(KernelLoaderError::KernelTooOld);
         }
 
         let kernel_version = {
@@ -104,9 +112,9 @@ impl BzImage {
             let end = self.bzimage[kernel_version_offset..]
                 .iter()
                 .position(|&b| b == 0)
-                .ok_or(Error::InvalidKernelImage)?;
+                .ok_or(KernelLoaderError::InvalidKernelImage)?;
             std::str::from_utf8(&self.bzimage[kernel_version_offset..kernel_version_offset + end])
-                .map_err(|_| Error::InvalidKernelImage)?
+                .map_err(|_| KernelLoaderError::InvalidKernelImage)?
         };
         debug!(kernel_version);
 
@@ -114,52 +122,55 @@ impl BzImage {
 
         if boot_params.hdr.loadflags & 0x01 != 1 {
             // the proteced-mode code is loaded at 0x10000 which is not expected
-            return Err(Error::InvalidKernelImage);
+            return Err(KernelLoaderError::InvalidKernelImage);
         }
         // boot_params.hdr.loadflags |= 0x80; // CAN_USE_HEAP
 
         // boot_params.hdr.heap_end_ptr =
 
         if params.kernel_start != boot_params.hdr.code32_start {
-            return Err(Error::KernelStartOffsetNotSupport);
+            return Err(KernelLoaderError::KernelStartOffsetNotSupport);
         }
         // We are booting using the 32-bit boot protocol
         // If booting 64-bit linux, we should plus 0x200 offset.
-        let kernel_start = boot_params.hdr.code32_start as u64;
+        let kernel_start = boot_params.hdr.code32_start;
 
-        if let Some(initrd) = &self.initrd {
-            if params.initrd_start as usize + initrd.len()
-                > boot_params.hdr.initrd_addr_max as usize
+        if let Some(initrd) = &params.initrd {
+            if initrd.initrd_start + initrd.initrd_len as u64
+                > boot_params.hdr.initrd_addr_max as u64
             {
-                return Err(Error::InitramfsAddressTooHigh);
+                return Err(KernelLoaderError::InitramfsAddressTooHigh);
             }
 
-            boot_params.hdr.ramdisk_image = params.initrd_start;
-            boot_params.hdr.ramdisk_size = initrd
-                .len()
+            boot_params.hdr.ramdisk_image = initrd
+                .initrd_start
                 .try_into()
-                .map_err(|_| Error::InitramfsTooLarge)?;
-            memory
-                .copy_from_slice(params.initrd_start as u64, initrd)
-                .map_err(Error::CopyInitramfsFailed)?;
+                .map_err(|_| KernelLoaderError::InitramfsAddressTooHigh)?;
+            boot_params.hdr.ramdisk_size = initrd
+                .initrd_len
+                .try_into()
+                .map_err(|_| KernelLoaderError::InitramfsTooLarge)?;
         }
 
         {
             let cmdline = if let Some(cmdline) = &self.cmdline {
-                CString::new(cmdline.to_string()).map_err(|_| Error::CopyCmdlineFailed)?
+                CString::new(cmdline.to_string())
+                    .map_err(|_| KernelLoaderError::CopyCmdlineFailed)?
             } else {
                 CString::new("auto".to_string()).unwrap()
             };
 
             if cmdline.count_bytes() > boot_params.hdr.cmdline_size as usize {
-                return Err(Error::CmdlineTooLarge);
+                return Err(KernelLoaderError::CmdlineTooLarge);
             }
 
             boot_params.hdr.cmd_line_ptr = params.cmdline_start;
 
+            let buf = cmdline.as_bytes_with_nul();
+            let range = ram_allocator.reserve(params.cmdline_start as u64, buf.len())?;
             memory
-                .copy_from_slice(params.cmdline_start as u64, cmdline.as_bytes_with_nul())
-                .map_err(|_| Error::CopyCmdlineFailed)?;
+                .copy_from_slice(range.start, cmdline.as_bytes_with_nul())
+                .map_err(|_| KernelLoaderError::CopyCmdlineFailed)?;
         }
 
         let kernel_len;
@@ -171,48 +182,52 @@ impl BzImage {
 
             let setup_size = (setup_sects as usize + 1) * 0x200;
             kernel_len = self.bzimage.len() - setup_size;
+            let range = ram_allocator.reserve(params.kernel_start as u64, kernel_len)?;
             memory
-                .copy_from_slice(params.kernel_start as u64, &self.bzimage[setup_size..])
-                .map_err(Error::CopyKernelFailed)?;
+                .copy_from_slice(range.start, &self.bzimage[setup_size..])
+                .map_err(KernelLoaderError::CopyKernelFailed)?;
         }
 
-        memory
-            .copy_from_slice(params.boot_params_start as u64, unsafe {
-                slice::from_raw_parts(
-                    boot_params as *const BootParams as *const u8,
-                    size_of::<BootParams>(),
-                )
-            })
-            .map_err(Error::CopyKernelFailed)?;
+        {
+            let range =
+                ram_allocator.reserve(params.boot_params_start as u64, size_of::<BootParams>())?;
+            memory
+                .copy_from_slice(range.start, unsafe {
+                    slice::from_raw_parts(
+                        boot_params as *const BootParams as *const u8,
+                        size_of::<BootParams>(),
+                    )
+                })
+                .map_err(KernelLoaderError::CopyKernelFailed)?;
+        };
 
-        Ok(LoadResult {
-            start_pc: kernel_start,
-            kernel_start,
-            kernel_len,
-            gdt: Gdt::default(), // TODO: refine
-        })
+        Ok(kernel_start)
     }
 
     fn setup_acpi(
         &self,
+        ram_allocator: &mut RangeAllocator<u64>,
         mm: &MemoryAddressSpace,
         params: &BzImageBootParams,
         boot_params: &mut BootParams,
-    ) -> Result<()> {
+    ) -> Result<(), KernelLoaderError> {
+        let _ = ram_allocator.reserve(
+            params.acpi_rsdt_addr as u64,
+            params.acpi_max_length as usize,
+        )?;
+
         let mut acpi_ram_allocator = RangeAllocator::<u64>::default();
-        acpi_ram_allocator
-            .insert(
-                params.acpi_rsdt_addr as u64,
-                params.acpi_max_length as usize,
-            )
-            .unwrap();
+        acpi_ram_allocator.insert(
+            params.acpi_rsdt_addr as u64,
+            params.acpi_max_length as usize,
+        )?;
 
         let acpi = AcpiTableBuilder::default()
             .set_vcpus(
                 params
                     .vcpus
                     .try_into()
-                    .map_err(|_| Error::VcpuExceedsAcpiCapability)?,
+                    .map_err(|_| KernelLoaderError::VcpuExceedsAcpiCapability)?,
             )?
             .set_definition_block(params.definition_block.clone())?
             .set_apic_base_address(params.apic_base_addr)?
@@ -231,7 +246,7 @@ impl BzImage {
         mm: &MemoryAddressSpace,
         params: &BzImageBootParams,
         boot_params: &mut BootParams,
-    ) -> Result<()> {
+    ) -> Result<(), KernelLoaderError> {
         let mut index = 0;
 
         for region in mm.regions().values() {
@@ -269,7 +284,12 @@ impl BzImage {
         Ok(())
     }
 
-    fn setup_gdt(&self, params: &BzImageBootParams, memory: &MemoryAddressSpace) -> Result<Gdt<5>> {
+    fn setup_gdt(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        params: &BzImageBootParams,
+        memory: &MemoryAddressSpace,
+    ) -> Result<Gdt<5>, KernelLoaderError> {
         let null = GdtEntry::new(0, 0, 0);
         let null2 = GdtEntry::new(0, 0, 0);
         let code = GdtEntry::new(0, 0xfffff, 0xc09b);
@@ -278,36 +298,11 @@ impl BzImage {
 
         let gdt = Gdt::new([null, null2, code, data, tss]);
 
+        ram_allocator.reserve(params.gdt_start as u64, gdt.as_bytes().len())?;
         memory
             .copy_from_slice(params.gdt_start as u64, gdt.as_bytes())
-            .map_err(|_| Error::CopyGdtFailed)?;
+            .map_err(|_| KernelLoaderError::CopyGdtFailed)?;
 
         Ok(gdt)
-    }
-}
-
-impl KernelLoader for BzImage {
-    type BootParams = BzImageBootParams;
-
-    fn load(
-        &mut self,
-        _ram_allocator: &mut RangeAllocator<u64>,
-        memory: &MemoryAddressSpace,
-        params: &Self::BootParams,
-    ) -> Result<LoadResult> {
-        let mut boot_params = BootParams::new_zeroed();
-
-        self.setup_acpi(memory, params, &mut boot_params)?;
-        self.setup_e820(memory, params, &mut boot_params)?;
-
-        let load_result = self.setup_hdr(params, &mut boot_params, memory)?;
-        let gdt = self.setup_gdt(params, memory)?;
-
-        Ok(LoadResult {
-            start_pc: load_result.start_pc,
-            kernel_start: load_result.kernel_start,
-            kernel_len: load_result.kernel_len,
-            gdt,
-        })
     }
 }

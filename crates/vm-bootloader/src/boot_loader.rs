@@ -10,6 +10,10 @@ use vm_core::device::Device;
 use vm_core::device::error::DeviceError;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
+use vm_utils::range_allocator::RangeAllocatorError;
+
+use crate::initrd_loader::InitrdLoaderError;
+use crate::kernel_loader::error::KernelLoaderError;
 
 pub mod arch;
 
@@ -18,17 +22,17 @@ pub enum Error {
     #[error("Load dtb failed, reason: {0}")]
     LoadDtbFailed(String),
 
-    #[error("Setup kernel failed, reason: {0}")]
-    LoadKernelFailed(String),
-
     #[error("Failed to loader kernel, err: {0}")]
-    KernelLoader(#[from] crate::kernel_loader::Error),
+    KernelLoader(#[from] KernelLoaderError),
 
-    #[error("Load initd failed, reason: {0}")]
-    LoadInitrdFailed(String),
+    #[error("Failed to load initrd, err: {0}")]
+    LoadInitrdFailed(#[from] InitrdLoaderError),
 
     #[error("Memory overlap")]
     MemoryOverlap,
+
+    #[error("Failed to reserve memory, err: {0}")]
+    ReserveMemory(#[from] RangeAllocatorError),
 
     #[error("Setup boot cpu error: {0}")]
     SetupBootCpuError(#[from] CpuError),
