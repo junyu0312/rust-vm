@@ -25,6 +25,8 @@ const MINIMAL_VERSION: u16 = 0x206;
 pub struct LoadResult {
     pub start_pc: u32,
     pub gdt: Gdt<5>,
+    pub gdt_start: u32,
+    pub boot_params_start: u32,
 }
 
 pub struct BzImageBootParams {
@@ -70,10 +72,16 @@ impl BzImage {
         self.setup_acpi(ram_allocator, memory, params, &mut boot_params)?;
         self.setup_e820(memory, params, &mut boot_params)?;
 
-        let start_pc = self.setup_hdr(ram_allocator, params, &mut boot_params, memory)?;
-        let gdt = self.setup_gdt(ram_allocator, params, memory)?;
+        let (start_pc, boot_params_start) =
+            self.setup_hdr(ram_allocator, params, &mut boot_params, memory)?;
+        let (gdt, gdt_start) = self.setup_gdt(ram_allocator, params, memory)?;
 
-        Ok(LoadResult { start_pc, gdt })
+        Ok(LoadResult {
+            start_pc,
+            gdt,
+            gdt_start,
+            boot_params_start,
+        })
     }
 
     fn setup_hdr(
@@ -82,7 +90,7 @@ impl BzImage {
         params: &BzImageBootParams,
         boot_params: &mut BootParams,
         memory: &MemoryAddressSpace,
-    ) -> Result<u32, KernelLoaderError> {
+    ) -> Result<(u32, u32), KernelLoaderError> {
         {
             // the second byte of `jump` field is a signed offset relative to byte 0x202,
             // which can be used to determine the size of the header
@@ -201,7 +209,7 @@ impl BzImage {
                 .map_err(KernelLoaderError::CopyKernelFailed)?;
         };
 
-        Ok(kernel_start)
+        Ok((kernel_start, params.boot_params_start))
     }
 
     fn setup_acpi(
@@ -289,7 +297,7 @@ impl BzImage {
         ram_allocator: &mut RangeAllocator<u64>,
         params: &BzImageBootParams,
         memory: &MemoryAddressSpace,
-    ) -> Result<Gdt<5>, KernelLoaderError> {
+    ) -> Result<(Gdt<5>, u32), KernelLoaderError> {
         let null = GdtEntry::new(0, 0, 0);
         let null2 = GdtEntry::new(0, 0, 0);
         let code = GdtEntry::new(0, 0xfffff, 0xc09b);
@@ -303,6 +311,6 @@ impl BzImage {
             .copy_from_slice(params.gdt_start as u64, gdt.as_bytes())
             .map_err(|_| KernelLoaderError::CopyGdtFailed)?;
 
-        Ok(gdt)
+        Ok((gdt, params.gdt_start))
     }
 }
