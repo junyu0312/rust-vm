@@ -50,9 +50,9 @@ impl Vcpu {
     pub async fn setup_vcpu(
         &mut self,
         gdt: Gdt<5>,
-        kernel_start: u32,
         gdt_start: u32,
         boot_params: u32,
+        kernel_start: u32,
     ) -> Result<(), CpuError> {
         use crate::arch::registers::x86_64::X86_64Registers;
 

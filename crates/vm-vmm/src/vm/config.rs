@@ -54,7 +54,7 @@ impl Vm {
         vmm_tx: Arc<mpsc::Sender<VmmCommand>>,
         vm_config: VmConfig,
     ) -> Result<Self, VmmError> {
-        let mut ram_allocator = RangeAllocator::default();
+        let mut ram_allocator = RangeAllocator::<u64>::default();
 
         let mut monitor_server_builder = MonitorServerBuilder::default();
 
@@ -69,6 +69,7 @@ impl Vm {
                 .map_err(|_| VmError::MemoryRegionOverlap)?;
 
             for region in memory_address_space.regions().values() {
+                ram_allocator.insert(region.gpa, region.len()).unwrap();
                 vm_instance.set_user_memory_region(
                     region.hva() as u64,
                     region.gpa,

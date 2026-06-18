@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::path::PathBuf;
 use std::slice::Iter;
 
@@ -16,12 +17,11 @@ use crate::boot_loader::BootLoader;
 use crate::boot_loader::BootLoaderBuilder;
 use crate::boot_loader::Error;
 use crate::boot_loader::Result;
-use crate::initrd_loader;
+use crate::initrd_loader::InitrdLoadResult;
 use crate::initrd_loader::InitrdLoader;
-use crate::kernel_loader;
-use crate::kernel_loader::KernelLoader;
-use crate::kernel_loader::linux::image::AArch64BootParams;
-use crate::kernel_loader::linux::image::Image;
+use crate::kernel_loader::linux::aarch64::image::AArch64BootParams;
+use crate::kernel_loader::linux::aarch64::image::Image;
+use crate::kernel_loader::linux::aarch64::image::LoadResult;
 
 const IRQ_TYPE_LEVEL_LOW: u32 = 0x00000008;
 
@@ -32,50 +32,23 @@ pub struct AArch64BootLoader {
 }
 
 impl AArch64BootLoader {
-    fn load_image(
-        &self,
-        ram_size: u64,
-        ram_allocator: &mut RangeAllocator<u64>,
-        memory: &MemoryAddressSpace,
-    ) -> Result<kernel_loader::LoadResult> {
-        let mut image =
-            Image::new(&self.kernel).map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
-
-        let boot_params = AArch64BootParams {
-            ram_base: RAM_BASE,
-            ram_size,
-        };
-        let load_result = image
-            .load(ram_allocator, memory, &boot_params)
-            .map_err(|err| Error::LoadKernelFailed(err.to_string()))?;
-
-        Ok(load_result)
-    }
-
     fn load_initrd(
         &self,
+        ram_allocator: &mut RangeAllocator<u64>,
         memory: &MemoryAddressSpace,
-    ) -> Result<Option<initrd_loader::LoadResult>> {
-        let Some(initrd) = self.initrd.as_deref() else {
-            return Ok(None);
-        };
+        initrd: &Path,
+    ) -> Result<InitrdLoadResult> {
+        let result = InitrdLoader::new(initrd)?.load(ram_allocator, memory, INITRD_START)?;
 
-        let loader =
-            InitrdLoader::new(initrd).map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
-
-        let addr = INITRD_START;
-
-        let result = loader
-            .load(addr, memory)
-            .map_err(|err| Error::LoadInitrdFailed(err.to_string()))?;
-
-        assert_eq!(result.initrd_start, addr);
-        // layout.set_initrd_len(result.initrd_len)?;
-
-        Ok(Some(result))
+        Ok(result)
     }
 
-    fn load_dtb(&self, memory: &MemoryAddressSpace, dtb: Vec<u8>) -> Result<()> {
+    fn load_dtb(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        memory: &MemoryAddressSpace,
+        dtb: Vec<u8>,
+    ) -> Result<u64> {
         let dtb_start = DTB_START;
 
         if !dtb_start.is_multiple_of(8) {
@@ -88,19 +61,18 @@ impl AArch64BootLoader {
             return Err(Error::LoadDtbFailed("dtb too large".to_string()));
         }
 
+        ram_allocator.reserve(dtb_start, dtb.len())?;
         memory
             .copy_from_slice(dtb_start, &dtb)
             .map_err(|_| Error::LoadDtbFailed("failed to copy".to_string()))?;
 
-        // layout.set_dtb_len(dtb.len())?;
-
-        Ok(())
+        Ok(dtb_start)
     }
 
     fn generate_dtb(
         &self,
         ram_size: u64,
-        initrd_load_result: Option<initrd_loader::LoadResult>,
+        initrd_load_result: Option<InitrdLoadResult>,
         vcpus: usize,
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn Device>>,
@@ -216,6 +188,17 @@ impl AArch64BootLoader {
 
         Ok(fdt.finish()?)
     }
+
+    fn load_image(
+        &self,
+        ram_allocator: &mut RangeAllocator<u64>,
+        memory: &MemoryAddressSpace,
+    ) -> Result<LoadResult> {
+        let boot_params = AArch64BootParams { ram_base: RAM_BASE };
+        let load_result = Image::new(&self.kernel)?.load(ram_allocator, memory, &boot_params)?;
+
+        Ok(load_result)
+    }
 }
 
 impl BootLoaderBuilder for AArch64BootLoader {
@@ -240,27 +223,23 @@ impl BootLoader for AArch64BootLoader {
         irq_chip: &dyn InterruptController,
         devices: Iter<'_, Box<dyn Device>>,
     ) -> Result<()> {
-        let kernel_loader;
-        let initrd_loader;
-        {
-            kernel_loader = self.load_image(ram_size, ram_allocator, memory)?;
-            initrd_loader = self.load_initrd(memory)?;
-        }
+        let initrd_loader = if let Some(initrd) = &self.initrd {
+            let load_result = self.load_initrd(ram_allocator, memory, initrd)?;
+            Some(load_result)
+        } else {
+            None
+        };
 
-        {
+        let dtb_start = {
             let dtb = self.generate_dtb(ram_size, initrd_loader, vcpus, irq_chip, devices)?;
-            self.load_dtb(memory, dtb)?;
-        }
+            self.load_dtb(ram_allocator, memory, dtb)?
+        };
 
-        {
-            boot_vcpu
-                .setup_vcpu(kernel_loader.start_pc, DTB_START)
-                .await
-                .map_err(Error::SetupBootCpuError)?;
-        }
+        let kernel_loader = self.load_image(ram_allocator, memory)?;
 
-        // let layout = virt.get_layout();
-        // layout.validate()?;
+        boot_vcpu
+            .setup_vcpu(kernel_loader.start_pc, dtb_start)
+            .await?;
 
         Ok(())
     }
