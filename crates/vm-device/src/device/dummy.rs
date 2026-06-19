@@ -9,8 +9,6 @@ pub struct Dummy;
 
 impl Dummy {
     pub fn new(pio_allocator: &mut RangeAllocator<u16>) -> Result<Self, DeviceError> {
-        let _ = pio_allocator.reserve(0x1004, 1)?;
-        let _ = pio_allocator.reserve(0x1006, 1)?;
         let _ = pio_allocator.reserve(0x87, 1)?;
 
         Ok(Dummy)
@@ -34,9 +32,6 @@ impl Device for Dummy {
 impl PioDevice for Dummy {
     fn ports(&self) -> Vec<Range<u16>> {
         vec![
-            // acpi pm1a
-            0x1004..0x1005,
-            0x1006..0x1007,
             // TODO
             0x87..0x88,
         ]
