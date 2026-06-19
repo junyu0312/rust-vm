@@ -83,9 +83,7 @@ impl Image {
         let kernel_start = boot_params.ram_base + text_offset;
 
         ram_allocator.reserve(kernel_start, kernel_len)?;
-        memory
-            .copy_from_slice(kernel_start, &self.kernel)
-            .map_err(KernelLoaderError::CopyKernelFailed)?;
+        memory.copy_from_slice(kernel_start, &self.kernel)?;
 
         Ok(LoadResult {
             start_pc: kernel_start,
