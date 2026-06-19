@@ -1,5 +1,4 @@
 use thiserror::Error;
-use vm_firmware::acpi::error::AcpiError;
 use vm_utils::range_allocator::RangeAllocatorError;
 
 #[derive(Error, Debug)]
@@ -20,7 +19,7 @@ pub enum KernelLoaderError {
     InvalidAddressAlignment,
 
     #[error("Copy kernel into memory failed, reason: {0}")]
-    CopyKernelFailed(vm_mm::error::Error),
+    CopyKernelFailed(#[from] vm_mm::error::Error),
 
     #[error("Failed to reserve ram, err: {0}")]
     ReserveRam(#[from] RangeAllocatorError),
@@ -33,11 +32,4 @@ pub enum KernelLoaderError {
 
     #[error("Cmdline too large")]
     CmdlineTooLarge,
-
-    #[cfg(target_arch = "x86_64")]
-    #[error("Copy cmdline into memory failed")]
-    CopyCmdlineFailed,
-
-    #[error("Acpi error: {0}")]
-    Acpi(#[from] AcpiError),
 }

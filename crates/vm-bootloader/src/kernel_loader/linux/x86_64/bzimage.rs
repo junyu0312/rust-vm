@@ -129,9 +129,7 @@ impl BzImage {
             let setup_size = (setup_sects as usize + 1) * 0x200;
             let kernel_len = self.bzimage.len() - setup_size;
             let range = ram_allocator.reserve(params.kernel_start as u64, kernel_len)?;
-            memory
-                .copy_from_slice(range.start, &self.bzimage[setup_size..])
-                .map_err(KernelLoaderError::CopyKernelFailed)?;
+            memory.copy_from_slice(range.start, &self.bzimage[setup_size..])?;
         }
 
         Ok(LoadResult {

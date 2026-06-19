@@ -22,17 +22,11 @@ pub mod arch;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Load dtb failed, reason: {0}")]
-    LoadDtbFailed(String),
-
     #[error("Failed to loader kernel, err: {0}")]
     KernelLoader(#[from] KernelLoaderError),
 
     #[error("Failed to load initrd, err: {0}")]
     LoadInitrdFailed(#[from] InitrdLoaderError),
-
-    #[error("Memory overlap")]
-    MemoryOverlap,
 
     #[error("Failed to reserve memory, err: {0}")]
     ReserveMemory(#[from] RangeAllocatorError),
@@ -43,11 +37,14 @@ pub enum Error {
     #[error("{0}")]
     GenerateDtb(#[from] vm_fdt::Error),
 
-    #[error("Vcpu too much")]
-    VcpuExceedsAcpiCapability,
+    #[error("Load dtb failed, reason: {0}")]
+    LoadDtbFailed(String),
 
     #[error("Failed to setup acpi, err: {0}")]
     Acpi(#[from] AcpiError),
+
+    #[error("Vcpu too much")]
+    VcpuExceedsAcpiCapability,
 
     #[error("Failed to setup gdt, err: {0}")]
     Gdt(String),
