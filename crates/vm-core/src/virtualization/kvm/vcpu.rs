@@ -21,6 +21,8 @@ use crate::virtualization::vcpu::command::VcpuCommandRequest;
 use crate::virtualization::vcpu::command::VcpuCommandResponse;
 use crate::virtualization::vcpu::error::VcpuError;
 
+#[cfg(target_arch = "x86_64")]
+mod cpu_id;
 mod vm_exit;
 
 pub struct KvmVcpuInternal<'a> {
@@ -57,7 +59,17 @@ impl KvmVcpu {
     ) -> Result<Self, VcpuError> {
         let mut vcpu_fd = vm_fd.create_vcpu(vcpu_id)?;
         #[cfg(target_arch = "x86_64")]
-        vcpu_fd.set_cpuid2(supported_cpuid)?;
+        {
+            use crate::virtualization::kvm::vcpu::cpu_id::update_cpuid;
+
+            let cpuid = update_cpuid(
+                supported_cpuid,
+                vcpu_id
+                    .try_into()
+                    .map_err(|_| VcpuError::UpdateCpuid("vcpu_id too large"))?,
+            );
+            vcpu_fd.set_cpuid2(&cpuid)?;
+        }
 
         let (command_tx, mut command_rx) = mpsc::channel(8);
         let is_running = Arc::new(AtomicBool::new(false));

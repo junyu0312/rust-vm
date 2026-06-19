@@ -14,6 +14,16 @@ use crate::acpi::r#type::common_header::CommonHeader;
 use crate::acpi::r#type::generic_address_structure_format::GenericAddressStructureFormat;
 use crate::acpi::utils::checksum;
 
+// A zero indicates the power button is handled as a fixed feature programming model;
+// a one indicates the power button is handled as a control method device.
+// If the system does not have a power button, this value would be “1” and no power button device would be present.
+const ACPI_FADT_POWER_BUTTON: u32 = 1 << 4; /* 04: [V1] Power button is handled as a control method device */
+// A zero indicates the sleep button is handled as a fixed feature programming model;
+// a one indicates the sleep button is handled as a control method device.
+// If the system does not have a sleep button, this value would be “1” and no sleep button device would be present.
+const ACPI_FADT_SLEEP_BUTTON: u32 = 1 << 5; /* 05: [V1] Sleep button is handled as a control method device */
+const FADT_F_HW_REDUCED_ACPI: u32 = 1 << 20; /* 20: [V5] ACPI hardware is not implemented (ACPI 5.0) */
+
 #[derive(Default, Immutable, IntoBytes)]
 #[repr(C, packed)]
 pub struct Fadt {
@@ -89,20 +99,10 @@ impl Fadt {
                 creator_id: CREATOR_ID,
                 creator_revision: CREATOR_REVISION,
             },
-            flags: 0,
+            flags: ACPI_FADT_POWER_BUTTON | ACPI_FADT_SLEEP_BUTTON | FADT_F_HW_REDUCED_ACPI,
             fadt_minor_version: 5, // ACPI 6.6 specification says it is 5.
             x_dsdt,
             hypervisor_vendor_id: HYPERVISOR_VENDOR_ID,
-            // TODO
-            pm1a_cnt_blk: 0x1000,
-            // TODO
-            pm1_evt_len: 16,
-            // TODO
-            pm1a_evt_blk: 0x1004,
-            // TODO
-            pm1_cnt_len: 32,
-            // TODO
-            sci_int: 9,
             ..Default::default()
         };
 
