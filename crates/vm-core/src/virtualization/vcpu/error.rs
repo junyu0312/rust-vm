@@ -4,6 +4,9 @@ use crate::cpu::vm_exit::VmExitHandlerError;
 
 #[derive(Error, Debug)]
 pub enum VcpuError {
+    #[error("Failed to update cpuid, err: {0}")]
+    UpdateCpuid(&'static str),
+
     #[error("Vcpu command channel disconnected")]
     VcpuCommandDisconnected,
 

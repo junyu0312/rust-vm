@@ -31,9 +31,11 @@ impl Device for Dummy {
 
 impl PioDevice for Dummy {
     fn ports(&self) -> Vec<Range<u16>> {
+        let range = 0x87..0x88;
+
         vec![
-            // TODO
-            0x87..0x88,
+            // TODO: What's this
+            range,
         ]
     }
 
