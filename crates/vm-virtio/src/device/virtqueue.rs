@@ -1,80 +1,77 @@
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::atomic::Ordering;
+use std::sync::atomic::fence;
 
+use async_trait::async_trait;
+use tokio::select;
 use tokio::sync::Notify;
-use vm_core::arch::irq::InterruptController;
+use tokio_util::sync::CancellationToken;
 use vm_mm::manager::MemoryAddressSpace;
 
-use crate::device::VirtioDevice;
-use crate::transport::VirtioDev;
-use crate::types::interrupt_status::InterruptStatus;
+use crate::virtqueue::Virtqueue;
 use crate::virtqueue::virtq_desc_table::VirtqDescTableRef;
 
-pub type VirtqueueHandlerFn<D> = Box<
-    dyn Fn(&MemoryAddressSpace, &mut VirtioDev<D>, &VirtqDescTableRef, u16) -> u32 + Send + Sync,
->;
-
-pub struct VirtqueueHandler<D> {
-    pub queue_sel: usize,
-    pub notifier: Arc<Notify>,
-    pub dev: Arc<Mutex<VirtioDev<D>>>,
-    pub mm: Arc<MemoryAddressSpace>,
-    pub irq_chip: Arc<dyn InterruptController>,
-    pub irq_line: u32,
-    pub handle_desc: VirtqueueHandlerFn<D>,
+#[async_trait]
+pub trait VirtqueueHandler: Send + Sync {
+    async fn handle_desc(&self, desc_ring: &VirtqDescTableRef, desc_id: u16) -> u32;
 }
 
-impl<D> VirtqueueHandler<D>
-where
-    D: VirtioDevice,
-{
-    pub async fn run(self) {
-        let mm = self.mm.as_ref();
+pub trait VirtioUsedBufferNotifier: Send + Sync {
+    fn notify_used_buffer(&self);
+}
 
-        loop {
-            self.notifier.notified().await;
+pub trait VirtioConfigurationChangeNotifier: Send + Sync {
+    fn update_config_generation(&self);
+}
 
-            let mut dev = self.dev.lock().unwrap();
+#[derive(Default)]
+pub struct VirtqueueWorkerController {
+    pub queue_notify: Arc<Notify>,
+    pub queue_disable: Arc<CancellationToken>,
+}
 
-            let mut updated = false;
-            loop {
-                let (desc_table, desc_id) = {
-                    // fetch desc from avail ring
-                    let q = dev.get_virtqueue_mut(self.queue_sel).unwrap();
-                    let avail_ring = q.avail_ring(mm).unwrap();
+pub async fn virtqueue_worker(
+    mm: Arc<MemoryAddressSpace>,
+    controller: Arc<VirtqueueWorkerController>,
+    used_buffer_notification: Arc<dyn VirtioUsedBufferNotifier>,
+    virtqueue: Virtqueue,
+    desc_handler: Box<dyn VirtqueueHandler>,
+) {
+    let avail_ring = virtqueue.avail_ring(mm.as_ref()).unwrap();
+    let queue_size = virtqueue.read_queue_size();
+    let mut last_available_idx = 0;
 
-                    if q.last_available_idx() == avail_ring.idx() % q.read_queue_size() {
-                        break;
-                    }
+    loop {
+        select! {
+            _ = controller.queue_notify.notified() => {},
+            _ = controller.queue_disable.cancelled() => break,
+        }
 
-                    let last_available_idx = q.last_available_idx();
-                    let desc_id = avail_ring.ring(last_available_idx);
-                    q.incr_last_available_idx();
-                    (q.desc_table_ref(mm).unwrap(), desc_id)
-                };
+        let mut did_work = false;
 
-                let len = (self.handle_desc)(mm, &mut dev, &desc_table, desc_id);
+        while last_available_idx != avail_ring.idx() {
+            // fetch desc from avail ring
+            let desc_id = avail_ring.ring(last_available_idx % queue_size);
+            last_available_idx += 1;
 
-                {
-                    // update used ring
-                    let q = dev.get_virtqueue_mut(self.queue_sel).unwrap();
+            let desc_table = virtqueue.desc_table_ref(mm.as_ref()).unwrap();
+            let len = desc_handler.handle_desc(&desc_table, desc_id).await;
 
-                    let mut used_ring = q.used_ring(mm).unwrap();
-                    let used_idx = used_ring.idx() % q.read_queue_size();
-                    let used_entry = used_ring.ring(used_idx);
-                    used_entry.id = desc_id as u32;
-                    used_entry.len = len;
-                    used_ring.incr_idx();
-                }
+            // update used ring
+            let mut used_ring = virtqueue.used_ring(mm.as_ref()).unwrap();
+            let used_idx = used_ring.idx() % queue_size;
+            let used_entry = used_ring.ring(used_idx);
+            used_entry.id = desc_id as u32;
+            used_entry.len = len;
+            fence(Ordering::Release);
+            used_ring.incr_idx();
 
-                updated = true;
-            }
+            did_work = true;
+        }
 
-            if updated {
-                let mut isr = dev.get_interrupt_status();
-                isr.insert(InterruptStatus::VIRTIO_MMIO_INT_VRING);
-                dev.update_interrupt_status(isr);
-            }
+        if did_work {
+            // TODO: if !runtime.disable.is_cancelled()?
+            used_buffer_notification.notify_used_buffer();
         }
     }
 }

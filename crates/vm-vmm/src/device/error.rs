@@ -3,6 +3,7 @@ use std::error::Error;
 use thiserror::Error;
 use vm_core::device::error::DeviceError;
 use vm_core::utils::address_space::AddressSpaceError;
+use vm_virtio::result::VirtioError;
 
 #[derive(Error, Debug)]
 pub enum InitDeviceError {
@@ -26,6 +27,9 @@ pub enum InitDeviceError {
 
     #[error("Failed to register monitor command for device {device}")]
     RegisterMonitorCommand { device: String },
+
+    #[error("Failed to register virtio device, err: {0}")]
+    Virtio(#[from] VirtioError),
 
     #[error("Vfio not support")]
     VfioNotSupport,

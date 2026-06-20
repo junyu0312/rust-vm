@@ -1,12 +1,15 @@
-use tracing::error;
+use std::sync::Arc;
+
 use tracing::trace;
-use tracing::warn;
 
 use crate::device::VirtioDevice;
-use crate::result::Result as VirtioResult;
-use crate::transport::VirtioDev;
-use crate::transport::control_register::ControlRegister;
+use crate::device::virtqueue::VirtqueueWorkerController;
+use crate::device::virtqueue::virtqueue_worker;
+use crate::result::Result;
+use crate::result::VirtioError;
+use crate::transport::common::control_register::ControlRegister;
 use crate::transport::mmio::VirtioMmioTransport;
+use crate::transport::mmio::VirtqueueHandler;
 use crate::transport::mmio::control_register::MmioControlRegister;
 use crate::types::interrupt_status::InterruptStatus;
 
@@ -20,76 +23,126 @@ impl<D> VirtioMmioTransport<D>
 where
     D: VirtioDevice,
 {
-    fn read_reg(&self, dev: &VirtioDev<D>, reg: MmioControlRegister) -> u32 {
+    fn read_reg(&self, reg: MmioControlRegister) -> Result<u32> {
+        let common = self.common.lock().unwrap();
+
         match reg {
-            MmioControlRegister::MagicValue => VIRTIO_MMIO_MAGIC_VALUE,
-            MmioControlRegister::Version => VIRTIO_MMIO_VERSION,
-            MmioControlRegister::DeviceId => D::DEVICE_ID as u32,
-            MmioControlRegister::VendorId => VIRTIO_MMIO_VENDOR_ID,
-            MmioControlRegister::DeviceFeatures => dev.read_reg(ControlRegister::DeviceFeatures),
-            MmioControlRegister::QueueSizeMax => dev.read_reg(ControlRegister::QueueSizeMax),
-            MmioControlRegister::QueueReady => dev.read_reg(ControlRegister::QueueReady),
-            MmioControlRegister::InterruptStatus => dev.read_reg(ControlRegister::InterruptStatus),
-            MmioControlRegister::Status => dev.read_reg(ControlRegister::Status),
+            MmioControlRegister::MagicValue => Ok(VIRTIO_MMIO_MAGIC_VALUE),
+            MmioControlRegister::Version => Ok(VIRTIO_MMIO_VERSION),
+            MmioControlRegister::DeviceId => Ok(D::DEVICE_ID as u32),
+            MmioControlRegister::VendorId => Ok(VIRTIO_MMIO_VENDOR_ID),
+            MmioControlRegister::DeviceFeatures => common.read_reg(ControlRegister::DeviceFeatures),
+            MmioControlRegister::QueueSizeMax => common.read_reg(ControlRegister::QueueSizeMax),
+            MmioControlRegister::QueueReady => common.read_reg(ControlRegister::QueueReady),
+            MmioControlRegister::InterruptStatus => {
+                common.read_reg(ControlRegister::InterruptStatus)
+            }
+            MmioControlRegister::Status => common.read_reg(ControlRegister::Status),
             MmioControlRegister::QueueReset => todo!(),
             MmioControlRegister::ConfigGeneration => {
-                dev.read_reg(ControlRegister::ConfigGeneration)
+                common.read_reg(ControlRegister::ConfigGeneration)
             }
-            _ => {
-                warn!(?reg, "try to read a WO register");
-                0 // ignore the error
-            }
+            _ => unreachable!("read a wo register"),
         }
     }
 
-    fn write_reg(
-        &self,
-        dev: &mut VirtioDev<D>,
-        reg: MmioControlRegister,
-        val: u32,
-    ) -> VirtioResult<()> {
+    fn write_reg(&self, reg: MmioControlRegister, val: u32) -> Result<()> {
+        let mut common = self.common.lock().unwrap();
+
         match reg {
             MmioControlRegister::DeviceFeaturesSel => {
-                dev.write_reg(ControlRegister::DeviceFeaturesSel, val)
+                common.write_reg(ControlRegister::DeviceFeaturesSel, val)
             }
             MmioControlRegister::DriverFeatures => {
-                dev.write_reg(ControlRegister::DriverFeatures, val)
+                common.write_reg(ControlRegister::DriverFeatures, val)
             }
             MmioControlRegister::DriverFeaturesSel => {
-                dev.write_reg(ControlRegister::DriverFeaturesSel, val)
+                common.write_reg(ControlRegister::DriverFeaturesSel, val)
             }
-            MmioControlRegister::QueueSel => dev.write_reg(ControlRegister::QueueSel, val),
-            MmioControlRegister::QueueSize => dev.write_reg(ControlRegister::QueueSize, val),
-            MmioControlRegister::QueueReady => dev.write_reg(ControlRegister::QueueReady, val),
-            MmioControlRegister::QueueNotify => dev.write_reg(ControlRegister::QueueNotify, val),
-            MmioControlRegister::InterruptAck => {
-                let mut is = dev.get_interrupt_status();
-                is.remove(InterruptStatus::from_bits_truncate(val));
-                dev.update_interrupt_status(is);
+            MmioControlRegister::QueueSel => common.write_reg(ControlRegister::QueueSel, val),
+            MmioControlRegister::QueueSize => common.write_reg(ControlRegister::QueueSize, val),
+            MmioControlRegister::QueueReady => {
+                let mut virtqueue = self.virtqueue_handlers.write().unwrap();
+                let queue_sel = common.get_queue_sel();
+
+                if val == 0 {
+                    // disable
+                    todo!()
+                } else {
+                    let Some(handler) = common.device.virtqueue_handler(queue_sel) else {
+                        unreachable!("no handler for queue {queue_sel}");
+                    };
+
+                    let controller = Arc::new(VirtqueueWorkerController::default());
+
+                    let _join_handler = self.tokio_runtime.spawn(virtqueue_worker(
+                        self.memory.clone(),
+                        controller.clone(),
+                        self.get_used_buffer_notification(),
+                        *common.get_virtqueue(queue_sel)?,
+                        handler,
+                    ));
+
+                    assert!(
+                        virtqueue
+                            .insert(
+                                queue_sel,
+                                VirtqueueHandler {
+                                    controller,
+                                    _join_handler,
+                                },
+                            )
+                            .is_none()
+                    );
+                }
+
+                common.write_reg(ControlRegister::QueueReady, val)
+            }
+            MmioControlRegister::QueueNotify => {
+                let queue_sel = val
+                    .try_into()
+                    .map_err(|_| VirtioError::QueueExceedsU16 { device: D::NAME })?;
+                let handlers = self.virtqueue_handlers.read().unwrap();
+                let Some(controller) = handlers.get(&queue_sel) else {
+                    unreachable!()
+                };
+                controller.controller.queue_notify.notify_one();
 
                 Ok(())
             }
-            MmioControlRegister::Status => dev.write_reg(ControlRegister::Status, val),
-            MmioControlRegister::QueueDescLow => dev.write_reg(ControlRegister::QueueDescLow, val),
+            MmioControlRegister::InterruptAck => {
+                let is = common.get_interrupt_status();
+                let mut is = is.lock().unwrap();
+
+                is.remove(InterruptStatus::from_bits_truncate(val));
+                if is.is_empty() {
+                    self.irq_chip.trigger_irq(self.irq as u32, false);
+                }
+
+                Ok(())
+            }
+            MmioControlRegister::Status => common.write_reg(ControlRegister::Status, val),
+            MmioControlRegister::QueueDescLow => {
+                common.write_reg(ControlRegister::QueueDescLow, val)
+            }
             MmioControlRegister::QueueDescHigh => {
-                dev.write_reg(ControlRegister::QueueDescHigh, val)
+                common.write_reg(ControlRegister::QueueDescHigh, val)
             }
             MmioControlRegister::QueueAvailLow => {
-                dev.write_reg(ControlRegister::QueueAvailLow, val)
+                common.write_reg(ControlRegister::QueueAvailLow, val)
             }
             MmioControlRegister::QueueAvailHigh => {
-                dev.write_reg(ControlRegister::QueueAvailHigh, val)
+                common.write_reg(ControlRegister::QueueAvailHigh, val)
             }
-            MmioControlRegister::QueueUsedLow => dev.write_reg(ControlRegister::QueueUsedLow, val),
+            MmioControlRegister::QueueUsedLow => {
+                common.write_reg(ControlRegister::QueueUsedLow, val)
+            }
             MmioControlRegister::QueueUsedHigh => {
-                dev.write_reg(ControlRegister::QueueUsedHigh, val)
+                common.write_reg(ControlRegister::QueueUsedHigh, val)
             }
             MmioControlRegister::ShmSel => todo!(),
             MmioControlRegister::QueueReset => todo!(),
-            _ => {
-                warn!(name = D::NAME, ?reg, "Try to write a RO register");
-                Ok(()) // ignore the error
-            }
+            _ => unreachable!("write a ro register"),
         }
     }
 }
@@ -98,57 +151,39 @@ impl<D> VirtioMmioTransport<D>
 where
     D: VirtioDevice,
 {
-    pub fn read(&self, offset: u64, data: &mut [u8]) {
-        let dev = self.dev.lock().unwrap();
+    pub fn read(&self, offset: u64, data: &mut [u8]) -> Result<()> {
+        if offset < CONFIGURATION_SPACE_OFFSET as u64 {
+            let Some(reg) = MmioControlRegister::from_repr(offset as u16) else {
+                return Err(VirtioError::MmioReadInvalidRegisterOffset);
+            };
 
-        let Ok(offset) = usize::try_from(offset) else {
-            warn!(name = D::NAME, offset, "offset too large");
-            return;
-        };
-        if offset < CONFIGURATION_SPACE_OFFSET {
-            if let Some(reg) = MmioControlRegister::from_repr(offset as u16) {
-                if data.len() == 4 {
-                    let val = self.read_reg(&dev, reg);
+            if data.len() == 4 {
+                let val = self.read_reg(reg)?;
 
-                    trace!(
-                        name = D::NAME,
-                        ?reg,
-                        len = data.len(),
-                        val,
-                        "virtio-mmio read"
-                    );
-
-                    data.copy_from_slice(&val.to_le_bytes());
-                } else {
-                    warn!(
-                        name = D::NAME,
-                        ?reg,
-                        len = data.len(),
-                        "invalid virtio-mmio access size"
-                    );
-                    debug_assert!(false);
-                }
-            } else {
-                warn!(
+                trace!(
                     name = D::NAME,
-                    offset,
+                    ?reg,
                     len = data.len(),
-                    ?data,
-                    "read from invalid offset of the virtio-mmio device"
+                    val,
+                    "virtio-mmio read"
                 );
 
-                debug_assert!(false)
-            }
-        } else if let Err(err) = dev.read_config(offset - CONFIGURATION_SPACE_OFFSET, data) {
-            error!(name = D::NAME, ?err, "Failed to read device configuration");
+                data.copy_from_slice(&val.to_le_bytes());
 
-            debug_assert!(false)
+                Ok(())
+            } else {
+                Err(VirtioError::MmioReadInvalidBufSize)
+            }
+        } else {
+            let offset = (offset - CONFIGURATION_SPACE_OFFSET as u64)
+                .try_into()
+                .map_err(|_| VirtioError::MmioOffsetTooLarge)?;
+
+            self.common.lock().unwrap().device.read_config(offset, data)
         }
     }
 
-    pub fn write(&self, offset: u64, data: &[u8]) {
-        let mut dev = self.dev.lock().unwrap();
-
+    pub fn write(&self, offset: u64, data: &[u8]) -> Result<()> {
         trace!(
             name = D::NAME,
             offset,
@@ -157,51 +192,26 @@ where
             "virtio-mmio write"
         );
 
-        let Ok(offset) = usize::try_from(offset) else {
-            warn!(name = D::NAME, offset, "offset too large");
-            return;
-        };
-        if offset < CONFIGURATION_SPACE_OFFSET {
-            if let Some(reg) = MmioControlRegister::from_repr(offset as u16) {
-                if data.len() == 4 {
-                    if let Err(err) =
-                        self.write_reg(&mut dev, reg, u32::from_le_bytes(data.try_into().unwrap()))
-                    {
-                        error!(
-                            name = D::NAME,
-                            ?err,
-                            offset,
-                            len = data.len(),
-                            ?data,
-                            "error while writing virtio-mmio control register"
-                        );
+        if offset < CONFIGURATION_SPACE_OFFSET as u64 {
+            let Some(reg) = MmioControlRegister::from_repr(offset as u16) else {
+                return Err(VirtioError::MmioWriteInvalidRegisterOffset);
+            };
 
-                        debug_assert!(false)
-                    }
-                } else {
-                    warn!(
-                        name = D::NAME,
-                        ?reg,
-                        len = data.len(),
-                        "invalid virtio-mmio access size"
-                    );
-                    debug_assert!(false);
-                }
+            if data.len() == 4 {
+                self.write_reg(reg, u32::from_le_bytes(data.try_into().unwrap()))
             } else {
-                warn!(
-                    name = D::NAME,
-                    offset,
-                    len = data.len(),
-                    ?data,
-                    "write to invalid offset of the virtio-mmio device"
-                );
-
-                debug_assert!(false)
+                Err(VirtioError::MmioWriteInvalidBufSize)
             }
-        } else if let Err(err) = dev.write_config(offset - CONFIGURATION_SPACE_OFFSET, data) {
-            error!(name = D::NAME, ?err, "Failed to write device configuration");
+        } else {
+            let offset = (offset - CONFIGURATION_SPACE_OFFSET as u64)
+                .try_into()
+                .map_err(|_| VirtioError::MmioOffsetTooLarge)?;
 
-            debug_assert!(false)
+            self.common
+                .lock()
+                .unwrap()
+                .device
+                .write_config(offset, data)
         }
     }
 }

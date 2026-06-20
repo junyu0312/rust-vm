@@ -6,7 +6,6 @@ use serde::Serialize;
 
 pub mod cmos;
 pub mod dummy;
-pub mod gic_v3;
 pub mod i8042;
 pub mod pic;
 pub mod post_debug;

@@ -5,6 +5,8 @@ pub struct VirtqAvail {
     queue_size: u16,
     buf: *const u16,
 }
+unsafe impl Send for VirtqAvail {}
+unsafe impl Sync for VirtqAvail {}
 
 impl VirtqAvail {
     pub fn new(queue_size: u16, buf: *const u16) -> Self {

@@ -19,8 +19,9 @@ use vm_pci::root_complex_device::PciRootComplexDevice;
 use vm_utils::range_allocator::RangeAllocator;
 #[cfg(target_os = "linux")]
 use vm_vfio::vfio::container::VfioContainer;
-use vm_virtio::transport::VirtioDev;
-use vm_virtio::transport::mmio::VirtioMmioDevice;
+use vm_virtio::device::VirtioDevice;
+use vm_virtio::transport::VirtioDeviceOps;
+use vm_virtio::transport::pci::VirtioPciDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
 use crate::device::device_manager_v2::DeviceManagerV2;
@@ -57,15 +58,6 @@ pub struct DeviceManagerBuilder<'a> {
 }
 
 impl<'a> DeviceManagerBuilder<'a> {
-    fn alloc_irq(&mut self) -> Result<u32, InitDeviceError> {
-        let irq = self
-            .irq_allocator
-            .alloc()
-            .map_err(|err| InitDeviceError::AllocResource(Box::new(err)))?;
-
-        Ok(irq)
-    }
-
     fn init_device(
         &mut self,
         pci_root_complex: &mut PciRootComplexDevice,
@@ -74,68 +66,100 @@ impl<'a> DeviceManagerBuilder<'a> {
         match device {
             Device::GicV3 => todo!(),
             Device::VirtioBlk { transport } => {
-                let dev = VirtioBlkDevice::new(
-                    self.alloc_irq()?,
-                    self.irq_chip.clone(),
-                    self.memory.clone(),
-                );
+                let dev = VirtioBlkDevice::new(self.memory.clone());
 
                 match transport {
                     VfioTransport::Mmio => {
                         self.device_manager
                             .attach_device(Box::new(dev.into_mmio_device(
                                 &mut self.mmio_allocator,
+                                &mut self.irq_allocator,
                                 &mut self.virtio_mmio_index_allocator,
+                                tokio::runtime::Handle::current(),
+                                self.memory.clone(),
+                                self.irq_chip.clone(),
                             )?))?;
                     }
                     VfioTransport::Pci => {
                         pci_root_complex
-                            .register_device(Box::new(dev.into_pci_device()))
+                            .register_device(Box::new(dev.into_pci_device(
+                                &mut self.irq_allocator,
+                                tokio::runtime::Handle::current(),
+                                self.memory.clone(),
+                                self.irq_chip.clone(),
+                            )?))
                             .map_err(|_| InitDeviceError::RegisterPciDevice)?;
                     }
                 }
             }
             Device::VirtioBalloon { transport } => {
-                let dev = VirtioDev::new(VirtioBalloonTranditional::new(
-                    self.alloc_irq()?,
-                    self.irq_chip.clone(),
-                    self.memory.clone(),
-                ));
+                let dev = VirtioBalloonTranditional::new(self.memory.clone());
 
-                let monitor = VirtioBalloonMonitor::new(dev.clone());
+                let cfg = dev.get_cfg();
+
+                let configuration_change_notifier;
+
+                match transport {
+                    VfioTransport::Mmio => {
+                        let device = dev.into_mmio_device(
+                            &mut self.mmio_allocator,
+                            &mut self.irq_allocator,
+                            &mut self.virtio_mmio_index_allocator,
+                            tokio::runtime::Handle::current(),
+                            self.memory.clone(),
+                            self.irq_chip.clone(),
+                        )?;
+
+                        configuration_change_notifier = device.configuration_change_notifier();
+
+                        self.device_manager.attach_device(Box::new(device))?;
+                    }
+                    VfioTransport::Pci => {
+                        let device = dev.into_virtio_pci_device(
+                            &mut self.irq_allocator,
+                            tokio::runtime::Handle::current(),
+                            self.memory.clone(),
+                            self.irq_chip.clone(),
+                        )?;
+
+                        configuration_change_notifier = device.configuration_change_notifier();
+
+                        pci_root_complex
+                            .register_device(Box::new(VirtioPciDev::try_from(device)?))
+                            .map_err(|_| InitDeviceError::RegisterPciDevice)?;
+                    }
+                }
+
+                let monitor = VirtioBalloonMonitor::new(cfg, configuration_change_notifier);
                 self.monitor_server_builder
                     .register_command_handler("balloon", Box::new(monitor))
                     .map_err(|_| InitDeviceError::RegisterMonitorCommand {
                         device: "balloon".to_string(),
                     })?;
-
-                match transport {
-                    VfioTransport::Mmio => {
-                        todo!()
-                    }
-                    VfioTransport::Pci => {
-                        todo!()
-                    }
-                }
             }
             Device::VirtioEntropy { transport } => {
-                let dev = VirtioEntropy::new(
-                    self.alloc_irq()?,
-                    self.irq_chip.clone(),
-                    self.memory.clone(),
-                );
+                let dev = VirtioEntropy::new(self.memory.clone());
 
                 match transport {
                     VfioTransport::Mmio => {
                         self.device_manager
                             .attach_device(Box::new(dev.into_mmio_device(
                                 &mut self.mmio_allocator,
+                                &mut self.irq_allocator,
                                 &mut self.virtio_mmio_index_allocator,
+                                tokio::runtime::Handle::current(),
+                                self.memory.clone(),
+                                self.irq_chip.clone(),
                             )?))?;
                     }
                     VfioTransport::Pci => {
                         pci_root_complex
-                            .register_device(Box::new(dev.into_pci_device()))
+                            .register_device(Box::new(dev.into_pci_device(
+                                &mut self.irq_allocator,
+                                tokio::runtime::Handle::current(),
+                                self.memory.clone(),
+                                self.irq_chip.clone(),
+                            )?))
                             .map_err(|_| InitDeviceError::RegisterPciDevice)?;
                     }
                 }

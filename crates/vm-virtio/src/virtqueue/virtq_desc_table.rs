@@ -5,11 +5,11 @@ use vm_mm::manager::MemoryAddressSpace;
 use crate::result::Result;
 use crate::result::VirtioError;
 
-/* This marks a buffer as continuing via the next field. */
+/// This marks a buffer as continuing via the next field.
 pub const VIRTQ_DESC_F_NEXT: u16 = 1;
-/* This marks a buffer as device write-only (otherwise device read-only). */
+/// This marks a buffer as device write-only (otherwise device read-only).
 pub const VIRTQ_DESC_F_WRITE: u16 = 2;
-/* This means the buffer contains a list of buffer descriptors. */
+/// This means the buffer contains a list of buffer descriptors.
 pub const VIRTQ_DESC_F_INDIRECT: u16 = 4;
 
 #[derive(Debug)]
@@ -24,6 +24,8 @@ pub struct VirtqDesc {
     /// Next field if flags & NEXT
     pub next: u16,
 }
+unsafe impl Send for VirtqDesc {}
+unsafe impl Sync for VirtqDesc {}
 
 impl VirtqDesc {
     /// Get hva of the buf
@@ -39,6 +41,8 @@ pub struct VirtqDescTableRef {
     queue_size: u16,
     table: *mut VirtqDesc,
 }
+unsafe impl Send for VirtqDescTableRef {}
+unsafe impl Sync for VirtqDescTableRef {}
 
 impl VirtqDescTableRef {
     pub fn new(queue_size: u16, table: *mut u8) -> Self {

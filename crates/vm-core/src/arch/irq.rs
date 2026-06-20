@@ -16,7 +16,7 @@ pub enum Phandle {
 pub trait InterruptController: Send + Sync + 'static {
     fn trigger_irq(&self, irq_line: u32, active: bool);
 
-    fn send_msi(&self, intid: u32);
+    fn send_msi(&self, address_lo: u32, address_hi: u32, data: u32);
 
     fn write_device_tree(&self, fdt: &mut FdtWriter) -> Result<Phandle, IrqChipError>;
 

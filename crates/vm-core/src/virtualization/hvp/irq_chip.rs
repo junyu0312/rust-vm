@@ -3,7 +3,6 @@ use std::io::Write;
 
 use applevisor::gic::GicConfig;
 use applevisor_sys::hv_error_t;
-use applevisor_sys::hv_gic_send_msi;
 use applevisor_sys::hv_gic_set_spi;
 use tracing::warn;
 
@@ -40,8 +39,8 @@ impl InterruptController for HvpGicV3 {
         }
     }
 
-    fn send_msi(&self, intid: u32) {
-        hv_unsafe_call!(hv_gic_send_msi(self.msi_base, intid)).unwrap()
+    fn send_msi(&self, _address_lo: u32, _address_hi: u32, _data: u32) {
+        todo!()
     }
 
     fn write_device_tree(&self, fdt: &mut vm_fdt::FdtWriter) -> Result<Phandle, IrqChipError> {

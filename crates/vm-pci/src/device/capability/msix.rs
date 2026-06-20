@@ -4,11 +4,35 @@ use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
 use crate::device::capability::PciCapId;
+use crate::types::configuration_space::capability::StandardCapability;
+
+pub const PCI_MSIX_FLAGS_MASKALL: u16 = 0x4000; /* Mask all vectors for this function */
+pub const PCI_MSIX_FLAGS_ENABLE: u16 = 0x8000; /* MSI-X enable */
+
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[repr(C, packed)]
+pub struct MsixEntry {
+    pub addr_lo: u32,
+    pub addr_hi: u32,
+    pub data: u32,
+    pub control: u32,
+}
+
+impl Default for MsixEntry {
+    fn default() -> Self {
+        Self {
+            addr_lo: Default::default(),
+            addr_hi: Default::default(),
+            data: Default::default(),
+            control: 1, // Masked as default?
+        }
+    }
+}
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct PciMsixCap {
-    cap: u8,
+    pub cap: u8,
     next: u8,
     pub ctrl: u16,
     pub table_offset: u32,
@@ -28,7 +52,13 @@ impl PciMsixCap {
             next: Default::default(),
             ctrl,
             table_offset: (table_offset << 3) | ((table_bar & 0x7) as u32),
-            pba_offset: (pba_offset << 3) | (pba_offset & 0x7),
+            pba_offset: (pba_offset << 3) | ((pba_bar & 0x7) as u32),
         }
+    }
+}
+
+impl From<PciMsixCap> for StandardCapability {
+    fn from(cap: PciMsixCap) -> Self {
+        StandardCapability::new(cap.cap, cap.as_bytes()[2..].into())
     }
 }

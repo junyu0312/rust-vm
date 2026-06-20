@@ -45,11 +45,12 @@ where
     T: PciType0Function,
 {
     fn write_bar(&self, n: u8, buf: &[u8]) {
-        let mut internal = self.internal.lock().unwrap();
+        let internal = self.internal.lock().unwrap();
         let bar_size = internal.function.bar_size();
 
         let val = u32::from_le_bytes(buf.try_into().unwrap());
-        let header = internal.configuration_space.as_header_mut::<Type0Header>();
+        let mut configuration_space = internal.configuration_space.lock().unwrap();
+        let header = configuration_space.as_header_mut::<Type0Header>();
 
         if let Some(bar_size) = bar_size[n as usize] {
             if val == u32::MAX {
@@ -65,10 +66,11 @@ where
     fn write_command(&self, command: u16) -> Option<EcamUpdateCallback> {
         let mut callback_ops = vec![];
 
-        let mut internal = self.internal.lock().unwrap();
+        let internal = self.internal.lock().unwrap();
         let bar_size = internal.function.bar_size();
 
-        let header = internal.configuration_space.as_header_mut::<Type0Header>();
+        let mut configuration_space = internal.configuration_space.lock().unwrap();
+        let header = configuration_space.as_header_mut::<Type0Header>();
         let old_command = header.common.command;
         header.common.command = command;
 
@@ -120,6 +122,8 @@ where
             .lock()
             .unwrap()
             .configuration_space
+            .lock()
+            .unwrap()
             .read(offset, buf);
     }
 
@@ -138,7 +142,7 @@ where
             }
             _ => {
                 let configuration_space = &mut self.internal.lock().unwrap().configuration_space;
-                configuration_space.write(offset, buf);
+                configuration_space.lock().unwrap().write(offset, buf);
             }
         }
 
