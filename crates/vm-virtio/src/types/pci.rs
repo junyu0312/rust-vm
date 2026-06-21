@@ -5,6 +5,9 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
+/* Vector value used to disable MSI for queue */
+pub const VIRTIO_MSI_NO_VECTOR: u16 = 0xffff;
+
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct VirtioPciCap {

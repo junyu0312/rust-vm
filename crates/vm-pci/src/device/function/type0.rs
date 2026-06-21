@@ -11,7 +11,7 @@ use crate::error::Error;
 use crate::types::configuration_space::ConfigurationSpace;
 use crate::types::configuration_space::header::type0::Type0Header;
 
-#[derive(FromRepr)]
+#[derive(Clone, Copy, FromRepr)]
 #[repr(u8)]
 pub enum Bar {
     Bar0 = 0,
@@ -39,7 +39,7 @@ pub trait PciType0Function: PciTypeFunctionCommon {
 }
 
 pub(crate) struct Type0FunctionInternal<T> {
-    pub(crate) configuration_space: ConfigurationSpace,
+    pub(crate) configuration_space: Arc<Mutex<ConfigurationSpace>>,
     pub(crate) function: T,
 }
 
@@ -52,11 +52,18 @@ where
     T: PciType0Function,
 {
     pub fn new(function: T) -> Result<Self, Error> {
-        let mut configuration_space = ConfigurationSpace::default();
-        configuration_space.init(&function, 0);
-        function.init_capability(&mut configuration_space)?;
+        Self::new_with_configuration_space(Default::default(), function)
+    }
 
-        let header = configuration_space.as_header_mut::<Type0Header>();
+    pub fn new_with_configuration_space(
+        configuration_space: Arc<Mutex<ConfigurationSpace>>,
+        function: T,
+    ) -> Result<Self, Error> {
+        let mut cfg = configuration_space.lock().unwrap();
+        cfg.init(&function, 0);
+        function.init_capability(&mut cfg)?;
+
+        let header = cfg.as_header_mut::<Type0Header>();
         if let Some((irq_line, irq_pin)) = function.legacy_interrupt() {
             header.interrupt_line = irq_line;
             header.interrupt_pin = irq_pin;
@@ -64,6 +71,8 @@ where
             header.interrupt_line = 0xff;
             header.interrupt_pin = 0x00;
         }
+
+        drop(cfg);
 
         let function = Type0Function {
             internal: Arc::new(Mutex::new(Type0FunctionInternal {
@@ -86,7 +95,7 @@ where
     pub fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
         let dev = self.internal.lock().unwrap();
 
-        writer.write_all(&dev.configuration_space.buf)?;
+        writer.write_all(&dev.configuration_space.lock().unwrap().buf)?;
         dev.function.save(writer)?;
 
         Ok(())
@@ -95,7 +104,7 @@ where
     pub fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
         let mut dev = self.internal.lock().unwrap();
 
-        reader.read_exact(&mut dev.configuration_space.buf)?;
+        reader.read_exact(&mut dev.configuration_space.lock().unwrap().buf)?;
         dev.function.load(reader)?;
 
         Ok(())

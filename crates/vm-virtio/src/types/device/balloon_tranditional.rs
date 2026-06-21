@@ -4,6 +4,7 @@ use zerocopy::Immutable;
 use zerocopy::IntoBytes;
 
 #[derive(FromRepr)]
+#[repr(u16)]
 pub enum VirtioBalloonTranditionalVirtqueue {
     Inflateq = 0,
     Defalteq = 1,

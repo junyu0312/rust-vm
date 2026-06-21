@@ -35,4 +35,7 @@ pub enum DeviceError {
 
     #[error("Failed to write fdt: {0}")]
     Fdt(#[from] vm_fdt::Error),
+
+    #[error("Device error: {0}")]
+    Device(Box<dyn std::error::Error + Send + Sync>),
 }

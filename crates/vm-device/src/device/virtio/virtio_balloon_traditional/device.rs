@@ -2,95 +2,107 @@ use std::collections::HashSet;
 use std::io::Read;
 use std::io::Write;
 use std::sync::Arc;
-use std::sync::Mutex;
 
-use tokio::sync::Notify;
-use vm_core::arch::irq::InterruptController;
+use async_trait::async_trait;
+use tokio::sync::Mutex;
 use vm_core::device::error::DeviceSnapshotError;
 use vm_mm::manager::MemoryAddressSpace;
+use vm_pci::device::interrupt::legacy::InterruptPin;
 use vm_snapshot::helper::read_u32;
 use vm_snapshot::helper::read_usize;
 use vm_snapshot::helper::write_u32;
 use vm_snapshot::helper::write_usize;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::device::virtqueue::VirtqueueHandler;
-use vm_virtio::device::virtqueue::VirtqueueHandlerFn;
 use vm_virtio::result::VirtioError;
-use vm_virtio::transport::VirtioDev;
+use vm_virtio::transport::pci::VirtioPciDevice;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalConfig;
 use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalVirtqueue;
 use vm_virtio::types::device_features::VIRTIO_F_VERSION_1;
 use vm_virtio::types::device_id::DeviceId;
+use vm_virtio::virtqueue::virtq_desc_table::VirtqDescTableRef;
 use zerocopy::IntoBytes;
 
-pub trait VirtioBalloonApi {
-    fn update_num_pages(&mut self, num_pages: u32);
+const INFLATEQ_QUEUE_SIZE_MAX: u16 = 512;
+const DEFLATEQ_QUEUE_SIZE_MAX: u16 = 512;
+
+struct InflateqHandler {
+    balloon: Arc<Mutex<HashSet<u32>>>,
+    memory: Arc<MemoryAddressSpace>,
 }
 
-const INFLATEQ_QUEUE_SIZE_MAX: u32 = 512;
-const DEFLATEQ_QUEUE_SIZE_MAX: u32 = 512;
-
-fn inflateq_handler() -> VirtqueueHandlerFn<VirtioBalloonTranditional> {
-    Box::new(|mm, dev, desc_ring, desc_id| {
+#[async_trait]
+impl VirtqueueHandler for InflateqHandler {
+    async fn handle_desc(&self, desc_ring: &VirtqDescTableRef, desc_id: u16) -> u32 {
         let desc = desc_ring.get(desc_id);
         let len = desc.len;
         assert!(len.is_multiple_of(4));
 
-        let array = desc.addr(mm).unwrap().as_ptr() as *const u32;
+        let array: &[u32] = unsafe {
+            std::slice::from_raw_parts(
+                desc.addr(&self.memory).unwrap().as_ptr() as *const u32,
+                (len / 4) as usize,
+            )
+        };
 
-        for i in 0..(len / 4) {
-            let pfn = unsafe { *array.add(i as usize) };
-            assert!(dev.device.balloon.insert(pfn));
+        for &pfn in array {
+            assert!(self.balloon.lock().await.insert(pfn));
             let gpa = (pfn as u64) << 12;
-            let _hva = mm.gpa_to_hva(gpa).unwrap();
+            let _hva = self.memory.gpa_to_hva(gpa).unwrap();
             // TODO: mmap
         }
 
         len
-    })
+    }
 }
 
-fn deflateq_handler() -> VirtqueueHandlerFn<VirtioBalloonTranditional> {
-    Box::new(|mm, dev, desc_ring, desc_id| {
+struct DeflateqHandler {
+    balloon: Arc<Mutex<HashSet<u32>>>,
+    memory: Arc<MemoryAddressSpace>,
+}
+
+#[async_trait]
+impl VirtqueueHandler for DeflateqHandler {
+    async fn handle_desc(&self, desc_ring: &VirtqDescTableRef, desc_id: u16) -> u32 {
         let desc = desc_ring.get(desc_id);
         let len = desc.len;
         assert!(len.is_multiple_of(4));
 
-        let array = desc.addr(mm).unwrap().as_ptr() as *const u32;
+        let array: &[u32] = unsafe {
+            std::slice::from_raw_parts(
+                desc.addr(&self.memory).unwrap().as_ptr() as *const u32,
+                (len / 4) as usize,
+            )
+        };
 
-        for i in 0..(len / 4) {
-            let pfn = unsafe { *array.add(i as usize) };
-            assert!(dev.device.balloon.remove(&pfn));
-            let gpa = (pfn as u64) << 12;
-            let _hva = mm.gpa_to_hva(gpa).unwrap();
+        for pfn in array {
+            assert!(self.balloon.lock().await.remove(pfn));
+            let gpa = (*pfn as u64) << 12;
+            let _hva = self.memory.gpa_to_hva(gpa).unwrap();
             // TODO: mmap
         }
 
         len
-    })
+    }
 }
 
 pub struct VirtioBalloonTranditional {
-    pub(crate) irq: u32,
-    pub(crate) irq_chip: Arc<dyn InterruptController>,
-    pub(crate) mm: Arc<MemoryAddressSpace>,
-    pub(crate) cfg: VirtioBalloonTranditionalConfig,
-    pub(crate) balloon: HashSet<u32>,
+    cfg: Arc<Mutex<VirtioBalloonTranditionalConfig>>,
+    balloon: Arc<Mutex<HashSet<u32>>>,
+    memory: Arc<MemoryAddressSpace>,
 }
 
 impl VirtioBalloonTranditional {
-    pub fn new(
-        irq: u32,
-        irq_chip: Arc<dyn InterruptController>,
-        mm: Arc<MemoryAddressSpace>,
-    ) -> Self {
+    pub fn new(memory: Arc<MemoryAddressSpace>) -> Self {
         VirtioBalloonTranditional {
-            irq,
-            irq_chip,
-            mm,
-            cfg: VirtioBalloonTranditionalConfig::default(),
+            cfg: Default::default(),
             balloon: Default::default(),
+            memory,
         }
+    }
+
+    pub fn get_cfg(&self) -> Arc<Mutex<VirtioBalloonTranditionalConfig>> {
+        self.cfg.clone()
     }
 }
 
@@ -99,46 +111,23 @@ impl VirtioDevice for VirtioBalloonTranditional {
     const DEVICE_ID: u16 = DeviceId::Balloon as u16;
     const DEVICE_FEATURES: u64 = (1 << VIRTIO_F_VERSION_1);
 
-    fn virtqueues_size_max(&self) -> Vec<Option<u32>> {
-        vec![Some(INFLATEQ_QUEUE_SIZE_MAX), Some(DEFLATEQ_QUEUE_SIZE_MAX)]
-    }
-
-    fn irq(&self) -> u32 {
-        self.irq
-    }
-
-    fn irq_chip(&self) -> &dyn InterruptController {
-        self.irq_chip.as_ref()
+    fn virtqueues_size_max(&self) -> Vec<u16> {
+        vec![INFLATEQ_QUEUE_SIZE_MAX, DEFLATEQ_QUEUE_SIZE_MAX]
     }
 
     fn reset(&mut self) {}
 
-    fn virtqueue_handler(
-        &self,
-        queue: usize,
-        notifier: Arc<Notify>,
-        dev: Arc<Mutex<VirtioDev<Self>>>,
-    ) -> Option<VirtqueueHandler<Self>> {
+    fn virtqueue_handler(&self, queue: u16) -> Option<Box<dyn VirtqueueHandler>> {
         match VirtioBalloonTranditionalVirtqueue::from_repr(queue) {
             Some(virtq) => match virtq {
-                VirtioBalloonTranditionalVirtqueue::Inflateq => Some(VirtqueueHandler {
-                    queue_sel: VirtioBalloonTranditionalVirtqueue::Inflateq as usize,
-                    notifier,
-                    dev,
-                    mm: self.mm.clone(),
-                    irq_chip: self.irq_chip.clone(),
-                    irq_line: self.irq + 32,
-                    handle_desc: inflateq_handler(),
-                }),
-                VirtioBalloonTranditionalVirtqueue::Defalteq => Some(VirtqueueHandler {
-                    queue_sel: VirtioBalloonTranditionalVirtqueue::Defalteq as usize,
-                    notifier,
-                    dev,
-                    mm: self.mm.clone(),
-                    irq_chip: self.irq_chip.clone(),
-                    irq_line: self.irq + 32,
-                    handle_desc: deflateq_handler(),
-                }),
+                VirtioBalloonTranditionalVirtqueue::Inflateq => Some(Box::new(InflateqHandler {
+                    balloon: self.balloon.clone(),
+                    memory: self.memory.clone(),
+                })),
+                VirtioBalloonTranditionalVirtqueue::Defalteq => Some(Box::new(DeflateqHandler {
+                    balloon: self.balloon.clone(),
+                    memory: self.memory.clone(),
+                })),
                 VirtioBalloonTranditionalVirtqueue::Statsq => None,
                 VirtioBalloonTranditionalVirtqueue::FreePageVq => None,
                 VirtioBalloonTranditionalVirtqueue::ReportingVq => None,
@@ -148,12 +137,12 @@ impl VirtioDevice for VirtioBalloonTranditional {
     }
 
     fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<(), VirtioError> {
-        buf.copy_from_slice(&self.cfg.as_bytes()[offset..offset + buf.len()]);
+        buf.copy_from_slice(&self.cfg.blocking_lock().as_bytes()[offset..offset + buf.len()]);
         Ok(())
     }
 
     fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<(), VirtioError> {
-        self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
+        self.cfg.blocking_lock().as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);
         Ok(())
     }
 
@@ -166,39 +155,37 @@ impl VirtioDevice for VirtioBalloonTranditional {
     }
 
     fn save(&self, writer: &mut dyn Write) -> Result<(), DeviceSnapshotError> {
-        writer.write_all(self.cfg.as_bytes())?;
+        writer.write_all(self.cfg.blocking_lock().as_bytes())?;
 
-        write_usize(writer, self.balloon.len())?;
-        for v in &self.balloon {
-            write_u32(writer, *v)?;
+        {
+            let balloon = self.balloon.blocking_lock();
+            write_usize(writer, balloon.len())?;
+            for v in balloon.iter() {
+                write_u32(writer, *v)?;
+            }
         }
 
         Ok(())
     }
 
     fn load(&mut self, reader: &mut dyn Read) -> Result<(), DeviceSnapshotError> {
-        reader.read_exact(self.cfg.as_mut_bytes())?;
+        reader.read_exact(self.cfg.blocking_lock().as_mut_bytes())?;
 
-        let len = read_usize(reader)?;
-        let mut balloon = HashSet::with_capacity(len);
-        for _ in 0..len {
-            balloon.insert(read_u32(reader)?);
+        {
+            let mut balloon = self.balloon.blocking_lock();
+            let len = read_usize(reader)?;
+            for _ in 0..len {
+                balloon.insert(read_u32(reader)?);
+            }
         }
-        self.balloon = balloon;
 
         Ok(())
     }
 }
 
-pub type VirtioBalloonDev = VirtioDev<VirtioBalloonTranditional>;
-
-impl VirtioBalloonApi for VirtioBalloonDev {
-    fn update_num_pages(&mut self, num_pages: u32) {
-        if self.device.cfg.num_pages == num_pages {
-            return;
-        }
-
-        self.device.cfg.num_pages = num_pages;
-        self.update_config_generation_and_notify();
-    }
+impl VirtioPciDevice for VirtioBalloonTranditional {
+    const DEVICE_SPECIFICATION_CONFIGURATION_LEN: usize =
+        size_of::<VirtioBalloonTranditionalConfig>();
+    const CLASS_CODE: u32 = 0xff0000;
+    const IRQ_PIN: u8 = InterruptPin::INTA as u8;
 }

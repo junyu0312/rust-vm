@@ -2,6 +2,7 @@ use std::io::Read;
 use std::io::Write;
 use std::sync::Arc;
 
+use kvm_bindings::kvm_msi;
 use kvm_ioctls::VmFd;
 use vm_fdt::FdtWriter;
 
@@ -24,8 +25,15 @@ impl InterruptController for KvmIrqChip {
         let _ = self.vm_fd.set_irq_line(irq + GIC_SPI_START, active);
     }
 
-    fn send_msi(&self, _intid: u32) {
-        todo!()
+    fn send_msi(&self, address_lo: u32, address_hi: u32, data: u32) {
+        let msi = kvm_msi {
+            address_lo,
+            address_hi,
+            data,
+            ..Default::default()
+        };
+
+        self.vm_fd.signal_msi(msi).unwrap();
     }
 
     fn write_device_tree(&self, _fdt: &mut FdtWriter) -> Result<Phandle, IrqChipError> {

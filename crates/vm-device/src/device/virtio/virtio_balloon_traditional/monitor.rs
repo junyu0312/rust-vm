@@ -1,14 +1,12 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use async_trait::async_trait;
 use serde::Serialize;
+use tokio::sync::Mutex;
 use vm_core::monitor::MonitorCommandOps;
 use vm_core::monitor::MonitorError;
-use vm_virtio::transport::VirtioDev;
-
-use crate::device::virtio::virtio_balloon_traditional::device::VirtioBalloonApi;
-use crate::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;
+use vm_virtio::device::virtqueue::VirtioConfigurationChangeNotifier;
+use vm_virtio::types::device::balloon_tranditional::VirtioBalloonTranditionalConfig;
 
 #[derive(Serialize)]
 pub struct BalloonInfo {
@@ -17,33 +15,40 @@ pub struct BalloonInfo {
 }
 
 pub struct VirtioBalloonMonitor {
-    device: Arc<Mutex<VirtioDev<VirtioBalloonTranditional>>>,
+    config: Arc<Mutex<VirtioBalloonTranditionalConfig>>,
+    configuration_change_notifier: Arc<dyn VirtioConfigurationChangeNotifier>,
 }
 
 impl VirtioBalloonMonitor {
-    pub fn new(device: Arc<Mutex<VirtioDev<VirtioBalloonTranditional>>>) -> Self {
-        VirtioBalloonMonitor { device }
+    pub fn new(
+        config: Arc<Mutex<VirtioBalloonTranditionalConfig>>,
+        configuration_change_notifier: Arc<dyn VirtioConfigurationChangeNotifier>,
+    ) -> Self {
+        VirtioBalloonMonitor {
+            config,
+            configuration_change_notifier,
+        }
     }
 }
 
 #[async_trait]
 impl MonitorCommandOps for VirtioBalloonMonitor {
     async fn handle_command(&self, subcommands: &[&str]) -> Result<String, MonitorError> {
+        let mut config = self.config.lock().await;
+
         match *subcommands {
-            ["info"] => {
-                let dev = self.device.lock().unwrap();
-                Ok(serde_json::to_string_pretty(&BalloonInfo {
-                    actual: dev.device.cfg.actual,
-                    num_pages: dev.device.cfg.num_pages,
-                })?)
-            }
+            ["info"] => Ok(serde_json::to_string_pretty(&BalloonInfo {
+                actual: config.actual,
+                num_pages: config.num_pages,
+            })?),
             ["update_num_pages", num_pages] => {
                 let num_pages = num_pages.parse().map_err(|_err| {
                     MonitorError::Error(format!("failed to parse num_pages: {num_pages}"))
                 })?;
 
-                let mut dev = self.device.lock().unwrap();
-                dev.update_num_pages(num_pages);
+                config.num_pages = num_pages;
+                self.configuration_change_notifier
+                    .update_config_generation();
 
                 Ok(num_pages.to_string())
             }

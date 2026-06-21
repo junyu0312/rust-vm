@@ -1,7 +1,12 @@
+use std::sync::Arc;
+
 use strum_macros::FromRepr;
 use tracing::warn;
 
-use crate::transport::control_register::ControlRegister;
+use crate::device::virtqueue::VirtqueueWorkerController;
+use crate::device::virtqueue::virtqueue_worker;
+use crate::transport::common::VirtqueueHandler;
+use crate::transport::common::control_register::ControlRegister;
 use crate::transport::pci::VirtioPciDevice;
 use crate::transport::pci::VirtioPciTransport;
 
@@ -46,30 +51,38 @@ where
             return;
         };
 
-        let dev = self.dev.lock().unwrap();
+        let dev = self.common.lock().unwrap();
 
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => {
                 assert_eq!(data.len(), 4);
-                let sel = dev.read_reg(ControlRegister::DeviceFeaturesSel);
+                let sel = dev.read_reg(ControlRegister::DeviceFeaturesSel).unwrap();
                 data.copy_from_slice(&sel.to_le_bytes());
             }
             CommonCfgOffset::DeviceFeature => {
                 assert_eq!(data.len(), 4);
-                let feat = dev.read_reg(ControlRegister::DeviceFeatures);
+                let feat = dev.read_reg(ControlRegister::DeviceFeatures).unwrap();
                 data.copy_from_slice(&feat.to_le_bytes());
             }
             CommonCfgOffset::DriverFeatureSelect => {
                 assert_eq!(data.len(), 4);
-                let sel = dev.read_reg(ControlRegister::DriverFeaturesSel);
+                let sel = dev.read_reg(ControlRegister::DriverFeaturesSel).unwrap();
                 data.copy_from_slice(&sel.to_le_bytes());
             }
             CommonCfgOffset::DriverFeature => {
                 assert_eq!(data.len(), 4);
-                let feat = dev.read_reg(ControlRegister::DriverFeatures);
+                let feat = dev.read_reg(ControlRegister::DriverFeatures).unwrap();
                 data.copy_from_slice(&feat.to_le_bytes());
             }
-            CommonCfgOffset::ConfigMsixVector => todo!(),
+            CommonCfgOffset::ConfigMsixVector => {
+                assert_eq!(data.len(), 2);
+                let virtio_pci_msix_vector = self
+                    .interrupt_dispatcher
+                    .virtio_pci_msix_vector
+                    .read()
+                    .unwrap();
+                data.copy_from_slice(&virtio_pci_msix_vector.config_msix_vector.to_le_bytes());
+            }
             CommonCfgOffset::NumQueues => {
                 assert_eq!(data.len(), 2);
                 let num_queues = dev.device.num_queues();
@@ -77,30 +90,50 @@ where
             }
             CommonCfgOffset::DeviceStatus => {
                 assert_eq!(data.len(), 1);
-                let status = dev.read_reg(ControlRegister::Status);
+                let status = dev.read_reg(ControlRegister::Status).unwrap();
                 data[0] = status.try_into().unwrap();
             }
             CommonCfgOffset::ConfigGeneration => {
                 let cfg_generation: u8 = dev
                     .read_reg(ControlRegister::ConfigGeneration)
+                    .unwrap()
                     .try_into()
                     .unwrap();
                 data[0] = cfg_generation;
             }
             CommonCfgOffset::QueueSelect => {
                 assert_eq!(data.len(), 2);
-                let queue_sel: u16 = dev.read_reg(ControlRegister::QueueSel).try_into().unwrap();
+                let queue_sel: u16 = dev
+                    .read_reg(ControlRegister::QueueSel)
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
                 data.copy_from_slice(&queue_sel.to_le_bytes());
             }
             CommonCfgOffset::QueueSize => {
                 assert_eq!(data.len(), 2);
-                let queue_size: u16 = dev.read_reg(ControlRegister::QueueSize).try_into().unwrap();
+                let queue_size: u16 = dev
+                    .read_reg(ControlRegister::QueueSize)
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
                 data.copy_from_slice(&queue_size.to_le_bytes());
             }
-            CommonCfgOffset::QueueMsixVector => todo!(),
+            CommonCfgOffset::QueueMsixVector => {
+                assert_eq!(data.len(), 2);
+                let sel = dev.get_queue_sel();
+                let virtio_pci_msix_vector = self
+                    .interrupt_dispatcher
+                    .virtio_pci_msix_vector
+                    .read()
+                    .unwrap();
+                data.copy_from_slice(
+                    &virtio_pci_msix_vector.queue_msix_vector[sel as usize].to_le_bytes(),
+                );
+            }
             CommonCfgOffset::QueueEnable => {
                 assert_eq!(data.len(), 2);
-                let queue_ready = dev.read_reg(ControlRegister::QueueReady) as u16;
+                let queue_ready = dev.read_reg(ControlRegister::QueueReady).unwrap() as u16;
                 data.copy_from_slice(&queue_ready.to_le_bytes());
             }
             CommonCfgOffset::QueueNotifyOff => {
@@ -108,32 +141,32 @@ where
             }
             CommonCfgOffset::QueueDescLow => {
                 assert_eq!(data.len(), 4);
-                let addr = dev.read_reg(ControlRegister::QueueDescLow);
+                let addr = dev.read_reg(ControlRegister::QueueDescLow).unwrap();
                 data.copy_from_slice(&addr.to_le_bytes());
             }
             CommonCfgOffset::QueueDescHigh => {
                 assert_eq!(data.len(), 4);
-                let addr = dev.read_reg(ControlRegister::QueueDescHigh);
+                let addr = dev.read_reg(ControlRegister::QueueDescHigh).unwrap();
                 data.copy_from_slice(&addr.to_le_bytes());
             }
             CommonCfgOffset::QueueDriverLow => {
                 assert_eq!(data.len(), 4);
-                let addr = dev.read_reg(ControlRegister::QueueAvailLow);
+                let addr = dev.read_reg(ControlRegister::QueueAvailLow).unwrap();
                 data.copy_from_slice(&addr.to_le_bytes());
             }
             CommonCfgOffset::QueueDriverHigh => {
                 assert_eq!(data.len(), 4);
-                let addr = dev.read_reg(ControlRegister::QueueAvailHigh);
+                let addr = dev.read_reg(ControlRegister::QueueAvailHigh).unwrap();
                 data.copy_from_slice(&addr.to_le_bytes());
             }
             CommonCfgOffset::QueueDeviceLow => {
                 assert_eq!(data.len(), 4);
-                let addr = dev.read_reg(ControlRegister::QueueUsedLow);
+                let addr = dev.read_reg(ControlRegister::QueueUsedLow).unwrap();
                 data.copy_from_slice(&addr.to_le_bytes());
             }
             CommonCfgOffset::QueueDeviceHigh => {
                 assert_eq!(data.len(), 4);
-                let addr = dev.read_reg(ControlRegister::QueueUsedHigh);
+                let addr = dev.read_reg(ControlRegister::QueueUsedHigh).unwrap();
                 data.copy_from_slice(&addr.to_le_bytes());
             }
         }
@@ -145,7 +178,7 @@ where
             return;
         };
 
-        let mut dev = self.dev.lock().unwrap();
+        let mut dev = self.common.lock().unwrap();
 
         match offset {
             CommonCfgOffset::DeviceFeatureSelect => {
@@ -165,7 +198,16 @@ where
                 let sel = u32::from_le_bytes(data.try_into().unwrap());
                 dev.write_reg(ControlRegister::DriverFeatures, sel).unwrap();
             }
-            CommonCfgOffset::ConfigMsixVector => todo!(),
+            CommonCfgOffset::ConfigMsixVector => {
+                assert_eq!(data.len(), 2);
+                let config_msix_vector = u16::from_le_bytes(data.try_into().unwrap());
+                let mut virtio_pci_msix_vector = self
+                    .interrupt_dispatcher
+                    .virtio_pci_msix_vector
+                    .write()
+                    .unwrap();
+                virtio_pci_msix_vector.config_msix_vector = config_msix_vector;
+            }
             CommonCfgOffset::DeviceStatus => {
                 assert_eq!(data.len(), 1);
                 let status = data[0];
@@ -184,9 +226,54 @@ where
                 dev.write_reg(ControlRegister::QueueSize, queue_size as u32)
                     .unwrap();
             }
-            CommonCfgOffset::QueueMsixVector => todo!(),
+            CommonCfgOffset::QueueMsixVector => {
+                assert_eq!(data.len(), 2);
+                let queue_msix_vector = u16::from_le_bytes(data.try_into().unwrap());
+                let sel = dev.get_queue_sel();
+
+                let mut virtio_pci_msix_vector = self
+                    .interrupt_dispatcher
+                    .virtio_pci_msix_vector
+                    .write()
+                    .unwrap();
+                virtio_pci_msix_vector.queue_msix_vector[sel as usize] = queue_msix_vector;
+            }
             CommonCfgOffset::QueueEnable => {
                 let queue_enable = u16::from_le_bytes(data.try_into().unwrap());
+                let mut virtqueue = self.virtqueue_handlers.write().unwrap();
+                let queue_sel = dev.get_queue_sel();
+
+                if queue_enable == 0 {
+                    // disable
+                    todo!()
+                } else {
+                    let Some(handler) = dev.device.virtqueue_handler(queue_sel) else {
+                        unreachable!("no handler for queue {queue_sel}");
+                    };
+
+                    let controller = Arc::new(VirtqueueWorkerController::default());
+
+                    let _join_handler = self.tokio_runtime.spawn(virtqueue_worker(
+                        self.memory.clone(),
+                        controller.clone(),
+                        self.get_used_buffer_notification(dev.get_interrupt_status(), queue_sel),
+                        *dev.get_virtqueue(queue_sel).unwrap(),
+                        handler,
+                    ));
+
+                    assert!(
+                        virtqueue
+                            .insert(
+                                queue_sel,
+                                VirtqueueHandler {
+                                    controller,
+                                    _join_handler,
+                                },
+                            )
+                            .is_none()
+                    );
+                }
+
                 dev.write_reg(ControlRegister::QueueReady, queue_enable as u32)
                     .unwrap();
             }

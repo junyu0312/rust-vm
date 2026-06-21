@@ -24,9 +24,6 @@ pub enum ControlRegister {
     /// Queue ready
     QueueReady,
 
-    /// Queue notify
-    QueueNotify,
-
     /// Interrupt status
     InterruptStatus,
 
