@@ -1,18 +1,19 @@
+use strum_macros::FromRepr;
+use zerocopy::FromBytes;
 use zerocopy::Immutable;
 use zerocopy::IntoBytes;
+use zerocopy::KnownLayout;
 
 use crate::device::capability::PciCapId;
+use crate::types::configuration_space::capability::StandardCapability;
 
-#[derive(IntoBytes, Immutable)]
-#[repr(C, packed)]
-pub struct PciMsiCap {
-    capability_id: u8,
-    next_pointer: u8,
-    pub message_control: u16,
-    pub message_address: u64,
-    pub message_data: u16,
-}
+pub const PCI_MSI_FLAGS_ENABLE: u16 = 0x0001; /* MSI feature enabled */
+pub const PCI_MSI_FLAGS_QMASK: u16 = 0x000e; /* Maximum queue size available */
+pub const PCI_MSI_FLAGS_QSIZE: u16 = 0x0070; /* Message queue size configured */
+pub const PCI_MSI_FLAGS_64BIT: u16 = 0x0080; /* 64-bit addresses allowed */
+pub const PCI_MSI_FLAGS_MASKBIT: u16 = 0x0100; /* Per-vector masking capable */
 
+#[derive(Clone, Copy, FromRepr)]
 #[repr(u8)]
 pub enum PciMsiMmc {
     N1 = 0b000,
@@ -23,17 +24,128 @@ pub enum PciMsiMmc {
     N32 = 0b101,
 }
 
+impl PciMsiMmc {
+    pub fn vectors(&self) -> u8 {
+        1 << *self as u8
+    }
+}
+
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[repr(C, packed)]
+pub struct PciMsiCap {
+    control: u16,
+    address_lo: u32,
+    data: u16,
+}
+
 impl PciMsiCap {
     pub fn new(mmc: PciMsiMmc) -> Self {
-        // Enable 2^mmc vectors and enable 64bit address
-        let message_control = ((mmc as u16) << 1) | (1 << 7);
+        let control = (mmc as u16) << 1;
 
-        Self {
-            capability_id: PciCapId::Msi as u8,
-            next_pointer: Default::default(),
-            message_control,
-            message_address: Default::default(),
-            message_data: Default::default(),
+        PciMsiCap {
+            control,
+            address_lo: Default::default(),
+            data: Default::default(),
         }
+    }
+}
+
+impl From<PciMsiCap> for StandardCapability {
+    fn from(cap: PciMsiCap) -> Self {
+        StandardCapability::new(PciCapId::Msi as u8, cap.as_bytes().to_vec())
+    }
+}
+
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[repr(C, packed)]
+pub struct PciMsiCap64 {
+    control: u16,
+    address_lo: u32,
+    address_hi: u32,
+    data: u16,
+}
+
+impl PciMsiCap64 {
+    pub fn new(mmc: PciMsiMmc) -> Self {
+        let control = (mmc as u16) << 1 | PCI_MSI_FLAGS_64BIT;
+
+        PciMsiCap64 {
+            control,
+            address_lo: Default::default(),
+            address_hi: Default::default(),
+            data: Default::default(),
+        }
+    }
+}
+
+impl From<PciMsiCap64> for StandardCapability {
+    fn from(cap: PciMsiCap64) -> Self {
+        StandardCapability::new(PciCapId::Msi as u8, cap.as_bytes().to_vec())
+    }
+}
+
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[repr(C, packed)]
+pub struct PciMsiCapMask {
+    control: u16,
+    address_lo: u32,
+    data: u16,
+    reserved: u16,
+    mask_bits: u32,
+    pending_bits: u32,
+}
+
+impl PciMsiCapMask {
+    pub fn new(mmc: PciMsiMmc) -> Self {
+        let control = (mmc as u16) << 1 | PCI_MSI_FLAGS_MASKBIT;
+
+        PciMsiCapMask {
+            control,
+            address_lo: Default::default(),
+            data: Default::default(),
+            reserved: Default::default(),
+            mask_bits: Default::default(),
+            pending_bits: Default::default(),
+        }
+    }
+}
+
+impl From<PciMsiCapMask> for StandardCapability {
+    fn from(cap: PciMsiCapMask) -> Self {
+        StandardCapability::new(PciCapId::Msi as u8, cap.as_bytes().to_vec())
+    }
+}
+
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[repr(C, packed)]
+pub struct PciMsiCap64Mask {
+    control: u16,
+    address_lo: u32,
+    address_hi: u32,
+    data: u16,
+    reserved: u16,
+    mask_bits: u32,
+    pending_bits: u32,
+}
+
+impl PciMsiCap64Mask {
+    pub fn new(mmc: PciMsiMmc) -> Self {
+        let control = (mmc as u16) << 1 | PCI_MSI_FLAGS_64BIT | PCI_MSI_FLAGS_MASKBIT;
+
+        PciMsiCap64Mask {
+            control,
+            address_lo: Default::default(),
+            address_hi: Default::default(),
+            data: Default::default(),
+            reserved: Default::default(),
+            mask_bits: Default::default(),
+            pending_bits: Default::default(),
+        }
+    }
+}
+
+impl From<PciMsiCap64Mask> for StandardCapability {
+    fn from(cap: PciMsiCap64Mask) -> Self {
+        StandardCapability::new(PciCapId::Msi as u8, cap.as_bytes().to_vec())
     }
 }

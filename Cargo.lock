@@ -1298,6 +1298,7 @@ dependencies = [
  "vm-firmware",
  "vm-mm",
  "vm-utils",
+ "vmm-sys-util",
 ]
 
 [[package]]
@@ -1387,6 +1388,7 @@ name = "vm-pci"
 version = "0.1.0"
 dependencies = [
  "acpi_tables",
+ "bitflags 2.10.0",
  "rangemap",
  "strum_macros",
  "thiserror",
@@ -1419,6 +1421,7 @@ dependencies = [
  "vfio-ioctls",
  "vm-core",
  "vm-pci",
+ "vmm-sys-util",
  "zerocopy",
 ]
 

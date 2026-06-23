@@ -12,9 +12,64 @@ use crate::types::configuration_space::header::HeaderCommon;
 use crate::types::configuration_space::status::PciStatus;
 
 pub mod capability;
-
+pub mod command;
 pub mod header;
-mod status;
+pub mod status;
+
+pub struct PciConfigurationSpace {
+    buf: [u8; 4096],
+}
+
+impl PciConfigurationSpace {
+    pub fn from_buf(buf: [u8; 4096]) -> Self {
+        PciConfigurationSpace { buf }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.buf
+    }
+
+    pub fn as_common_header(&self) -> &HeaderCommon {
+        self.as_header::<HeaderCommon>()
+    }
+
+    pub fn as_header<T>(&self) -> &T
+    where
+        T: IntoBytes + FromBytes + KnownLayout + Immutable,
+    {
+        T::ref_from_bytes(&self.buf[0..size_of::<T>()]).unwrap()
+    }
+
+    pub fn read(&self, offset: u16, buf: &mut [u8]) {
+        buf.copy_from_slice(&self.buf[offset as usize..offset as usize + buf.len()]);
+    }
+
+    pub fn write(&mut self, offset: u16, buf: &[u8]) {
+        self.buf[offset as usize..offset as usize + buf.len()].copy_from_slice(buf);
+    }
+
+    pub fn find_cap(&self, cap_type: u8) -> Option<u16> {
+        let header = self.as_common_header();
+        if header.status & PciStatus::CapList as u16 == 0 {
+            return None;
+        }
+
+        let mut pos = (self.buf[CommonHeaderOffset::CapabilityPointer as usize] & !0x3) as usize;
+
+        while pos != 0 {
+            let cap_id = self.buf[pos];
+
+            if cap_id == cap_type {
+                return Some(pos as u16);
+            }
+
+            let next = self.buf[pos + 1];
+            pos = (next & !0x3) as usize;
+        }
+
+        None
+    }
+}
 
 pub struct ConfigurationSpace {
     pub(crate) buf: [u8; 4096],

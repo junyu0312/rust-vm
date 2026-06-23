@@ -8,6 +8,15 @@ use crate::types::configuration_space::capability::StandardCapability;
 
 pub const PCI_MSIX_FLAGS_MASKALL: u16 = 0x4000; /* Mask all vectors for this function */
 pub const PCI_MSIX_FLAGS_ENABLE: u16 = 0x8000; /* MSI-X enable */
+pub const PCI_MSIX_FLAGS_QSIZE: u16 = 0x07ff; /* Table size */
+
+pub const PCI_MSIX_TABLE_BIR: u32 = 0x00000007; /* BAR index */
+pub const PCI_MSIX_TABLE_OFFSET: u32 = 0xfffffff8; /* Offset into specified BAR */
+
+pub const PCI_MSIX_PBA_BIR: u32 = 0x00000007; /* BAR index */
+pub const PCI_MSIX_PBA_OFFSET: u32 = 0xfffffff8; /* Offset into specified BAR */
+
+pub const PCI_MSIX_ENTRY_CTRL_MASKBIT: u32 = 0x00000001;
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]

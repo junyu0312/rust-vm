@@ -50,5 +50,6 @@ vm-utils = { path = "crates/vm-utils" }
 vm-vfio = { path = "crates/vm-vfio" }
 vm-virtio = { path = "crates/vm-virtio" }
 vm-vmm = { path = "crates/vm-vmm" }
+vmm-sys-util = "0.15.0"
 winnow = "1.0.2"
 zerocopy = { version = "0.8.33", features = ["derive"] }

@@ -8,6 +8,7 @@ use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::*;
 use vm_core::virtualization::irq_allocator::IrqAllocator;
+use vm_core::virtualization::vm::HypervisorVm;
 use vm_device::device::Device;
 use vm_device::device::VfioTransport;
 use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;
@@ -39,6 +40,8 @@ mod arch;
 mod vfio;
 
 pub struct DeviceManagerBuilder<'a> {
+    #[allow(dead_code)]
+    vm: &'a dyn HypervisorVm,
     irq_allocator: IrqAllocator,
     irq_chip: Arc<dyn InterruptController>,
     memory: Arc<MemoryAddressSpace>,
@@ -195,6 +198,7 @@ impl<'a> DeviceManagerBuilder<'a> {
     }
 
     pub fn new(
+        vm: &'a dyn HypervisorVm,
         irq_chip: Arc<dyn InterruptController>,
         irq_allocator: IrqAllocator,
         memory: Arc<MemoryAddressSpace>,
@@ -206,6 +210,7 @@ impl<'a> DeviceManagerBuilder<'a> {
         virtio_mmio_index_allocator.insert(0, 128).unwrap();
 
         Ok(DeviceManagerBuilder {
+            vm,
             irq_allocator,
             irq_chip,
             memory,

@@ -1,6 +1,11 @@
 use std::path::Path;
 
+use vfio_bindings::bindings::vfio::VFIO_PCI_INTX_IRQ_INDEX;
+use vfio_bindings::bindings::vfio::VFIO_PCI_MSI_IRQ_INDEX;
+use vfio_bindings::bindings::vfio::VFIO_PCI_MSIX_IRQ_INDEX;
+use vfio_ioctls::VfioIrq;
 use vfio_ioctls::VfioRegionInfoCap;
+use vmm_sys_util::eventfd::EventFd;
 
 use crate::error::Error;
 use crate::error::Result;
@@ -64,5 +69,31 @@ impl VfioDevice {
         self.device.region_write(index, buf, addr);
 
         Ok(())
+    }
+
+    pub(crate) fn get_intx_irq_info(&self) -> Option<&VfioIrq> {
+        self.device.get_irq_info(VFIO_PCI_INTX_IRQ_INDEX)
+    }
+
+    pub(crate) fn enable_intx(&self, event_fd: &EventFd) -> Result<()> {
+        self.device
+            .enable_irq(VFIO_PCI_INTX_IRQ_INDEX, vec![event_fd])?;
+
+        Ok(())
+    }
+
+    pub(crate) fn set_intx_resample_fd(&self, event_fd: &EventFd) -> Result<()> {
+        self.device
+            .set_irq_resample_fd(VFIO_PCI_INTX_IRQ_INDEX, vec![event_fd])?;
+
+        Ok(())
+    }
+
+    pub(crate) fn get_msix_irq_info(&self) -> Option<&VfioIrq> {
+        self.device.get_irq_info(VFIO_PCI_MSIX_IRQ_INDEX)
+    }
+
+    pub(crate) fn get_msi_irq_info(&self) -> Option<&VfioIrq> {
+        self.device.get_irq_info(VFIO_PCI_MSI_IRQ_INDEX)
     }
 }

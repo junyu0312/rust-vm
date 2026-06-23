@@ -18,14 +18,24 @@ pub enum Error {
     #[error("Pci device is not endpoint")]
     VfioPciDeviceIsNotEndpoint,
 
+    #[error("Failed to parse msi-x cap")]
+    ParseMsiX,
+
+    #[error("Failed to parse msi cap")]
+    ParseMsi,
+
+    #[error("Failed to parse intx cap")]
+    ParseIntx,
+
+    #[error("Failed to prepare irq, err: {0}")]
+    PrepareIrq(Box<dyn std::error::Error + Send + Sync>),
+
     #[error("Pci bar({0}) has invalid type({1:x}")]
     InvalidMmioBarType(usize, u32),
 
     #[error("Failed to get info for 64-bit mmio bar({0})")]
     Invalid64BitMemoryBar(usize),
 
-    // #[error("The length of bar {bar} too large {size}")]
-    // BarRegionTooLarge { bar: usize, size: u64 },
     #[error("Failed to alloc pio region, length: {0}")]
     AllocPio(usize),
 
