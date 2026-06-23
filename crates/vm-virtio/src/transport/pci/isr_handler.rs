@@ -1,6 +1,6 @@
-use vm_pci::types::configuration_space::header::PCI_COMMAND_INTX_DISABLE;
-use vm_pci::types::configuration_space::header::PCI_STATUS_INTERRUPT;
+use vm_pci::types::configuration_space::command::PciCommand;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
+use vm_pci::types::configuration_space::status::PciStatus;
 
 use crate::transport::common::control_register::ControlRegister;
 use crate::transport::pci::VirtioPciDevice;
@@ -30,8 +30,8 @@ where
             .lock()
             .unwrap();
         let header = cfg.as_header_mut::<Type0Header>();
-        if header.common.command & PCI_COMMAND_INTX_DISABLE == 0 {
-            header.common.status &= !PCI_STATUS_INTERRUPT;
+        if !PciCommand::from_bits_retain(header.common.command).contains(PciCommand::INTX_DISABLE) {
+            header.common.status &= !(PciStatus::Interrupt as u16);
             let irq = self.interrupt_dispatcher.legacy_int.as_ref().unwrap();
             self.interrupt_dispatcher
                 .irq_chip

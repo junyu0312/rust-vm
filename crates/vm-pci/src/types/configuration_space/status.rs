@@ -1,5 +1,3 @@
-#[allow(dead_code)]
-#[repr(u16)]
 pub enum PciStatus {
     ImmReady = 0x01,    /* Immediate Readiness */
     Interrupt = 0x08,   /* Interrupt status */

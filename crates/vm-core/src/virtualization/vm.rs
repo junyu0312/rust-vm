@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use vm_mm::manager::MemoryAddressSpace;
+#[cfg(target_os = "linux")]
+use vmm_sys_util::eventfd::EventFd;
 
 use crate::arch::irq::InterruptController;
 use crate::cpu::vm_exit::VmExit;
@@ -33,5 +35,16 @@ pub trait HypervisorVm: Send + Sync {
         guest_phys_addr: u64,
         memory_size: usize,
         flags: SetUserMemoryRegionFlags,
+    ) -> Result<(), VmError>;
+
+    #[cfg(target_os = "linux")]
+    fn set_irqfd(&self, fd: &EventFd, gsi: u32) -> Result<(), VmError>;
+
+    #[cfg(target_os = "linux")]
+    fn set_irqfd_with_resample(
+        &self,
+        fd: &EventFd,
+        resamplefd: &EventFd,
+        gsi: u32,
     ) -> Result<(), VmError>;
 }

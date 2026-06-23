@@ -6,9 +6,9 @@ use vm_core::arch::irq::InterruptController;
 use vm_pci::device::capability::msix::PCI_MSIX_FLAGS_ENABLE;
 use vm_pci::device::capability::msix::PciMsixCap;
 use vm_pci::types::configuration_space::ConfigurationSpace;
-use vm_pci::types::configuration_space::header::PCI_COMMAND_INTX_DISABLE;
-use vm_pci::types::configuration_space::header::PCI_STATUS_INTERRUPT;
+use vm_pci::types::configuration_space::command::PciCommand;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
+use vm_pci::types::configuration_space::status::PciStatus;
 use zerocopy::FromBytes;
 
 use crate::device::virtqueue::VirtioConfigurationChangeNotifier;
@@ -45,8 +45,10 @@ impl VirtioPciIrqDispatcher {
             // then asserts/deasserts INT#x interrupts unless masked according to standard PCI rules [PCI].
             let mut cfg = self.configuration_space.lock().unwrap();
             let header = cfg.as_header_mut::<Type0Header>();
-            if header.common.command & PCI_COMMAND_INTX_DISABLE == 0 {
-                header.common.status |= PCI_STATUS_INTERRUPT;
+            if !PciCommand::from_bits_retain(header.common.command)
+                .contains(PciCommand::INTX_DISABLE)
+            {
+                header.common.status |= PciStatus::Interrupt as u16;
                 let irq = self.legacy_int.as_ref().unwrap();
                 self.irq_chip.trigger_irq(*irq as u32, true);
             }

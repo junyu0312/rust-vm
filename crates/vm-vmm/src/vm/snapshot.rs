@@ -115,6 +115,7 @@ impl Vm {
 
         let device_manager = {
             let mut device_manager = DeviceManagerBuilder::new(
+                vm_instance.as_ref(),
                 irq_chip.clone(),
                 vm_instance.create_irq_allocator()?,
                 memory_address_space.clone(),

@@ -5,6 +5,7 @@ use kvm_bindings::CpuId;
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::VmFd;
 use vm_mm::manager::MemoryAddressSpace;
+use vmm_sys_util::eventfd::EventFd;
 
 #[cfg(target_arch = "aarch64")]
 use crate::arch::aarch64::layout::IRQ_ALLOCATION_END;
@@ -91,6 +92,24 @@ impl HypervisorVm for KvmVm {
                     userspace_addr,
                 })
         })?;
+
+        Ok(())
+    }
+
+    fn set_irqfd(&self, fd: &EventFd, gsi: u32) -> Result<(), VmError> {
+        self.vm_fd.register_irqfd(fd, gsi)?;
+
+        Ok(())
+    }
+
+    fn set_irqfd_with_resample(
+        &self,
+        fd: &EventFd,
+        resamplefd: &EventFd,
+        gsi: u32,
+    ) -> Result<(), VmError> {
+        self.vm_fd
+            .register_irqfd_with_resample(fd, resamplefd, gsi)?;
 
         Ok(())
     }

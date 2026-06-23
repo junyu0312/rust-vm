@@ -5,8 +5,7 @@ use vm_pci::types::bar::address_of_bar;
 use vm_pci::types::bar::is_mmio_bar;
 use vm_pci::types::bar::is_pio_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
-use vm_pci::types::configuration_space::header::PCI_COMMAND_IO;
-use vm_pci::types::configuration_space::header::PCI_COMMAND_MEMORY;
+use vm_pci::types::configuration_space::command::PciCommand;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
 use vm_pci::types::function::EcamUpdateCallback;
 use vm_pci::types::function::EcamUpdateCallbackOps;
@@ -83,9 +82,8 @@ impl VfioPciFunction {
         let old_command = header.common.command;
         header.common.command = command;
 
-        let update_io_space = (old_command & PCI_COMMAND_IO) != (command & PCI_COMMAND_IO);
-        let update_memory_space =
-            (old_command & PCI_COMMAND_MEMORY) != (command & PCI_COMMAND_MEMORY);
+        let old_command = PciCommand::from_bits_retain(old_command);
+        let command = PciCommand::from_bits_retain(command);
 
         for (i, bar) in bars.iter().enumerate() {
             let Some(bar_info) = bar else {
@@ -95,25 +93,29 @@ impl VfioPciFunction {
             let bar = header.bar[i];
             let address = address_of_bar(bar);
 
-            if update_io_space && is_pio_bar(bar) {
-                if command & PCI_COMMAND_IO == 0 {
-                    callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
-                } else {
+            if is_pio_bar(bar) {
+                if command.contains(PciCommand::IO) && !old_command.contains(PciCommand::IO) {
                     callback_ops.push(EcamUpdateCallbackOps::AddPioRouter {
                         bar: i as u8,
                         port: address as u16..address as u16 + bar_info.size as u16,
                     });
+                } else if !command.contains(PciCommand::IO) && old_command.contains(PciCommand::IO)
+                {
+                    callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
                 }
             }
 
-            if update_memory_space && is_mmio_bar(bar) {
-                if command & PCI_COMMAND_MEMORY == 0 {
-                    callback_ops.push(EcamUpdateCallbackOps::RemoveMmioRouter { bar: i as u8 });
-                } else {
+            if is_mmio_bar(bar) {
+                if command.contains(PciCommand::MEMORY) && !old_command.contains(PciCommand::MEMORY)
+                {
                     callback_ops.push(EcamUpdateCallbackOps::AddMmioRouter {
                         bar: i as u8,
                         pci_address_range: address as u64..address as u64 + bar_info.size,
                     });
+                } else if !command.contains(PciCommand::MEMORY)
+                    && old_command.contains(PciCommand::MEMORY)
+                {
+                    callback_ops.push(EcamUpdateCallbackOps::RemoveMmioRouter { bar: i as u8 });
                 }
             }
         }

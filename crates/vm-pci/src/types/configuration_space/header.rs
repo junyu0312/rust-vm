@@ -6,14 +6,6 @@ use zerocopy::KnownLayout;
 
 pub mod type0;
 
-pub const PCI_STATUS_CAP_LIST: u16 = 0x10; /* Support Capability List */
-
-pub const PCI_COMMAND_IO: u16 = 0x01;
-pub const PCI_COMMAND_MEMORY: u16 = 0x02;
-pub const PCI_COMMAND_INTX_DISABLE: u16 = 0x400;
-
-pub const PCI_STATUS_INTERRUPT: u16 = 0x08; /* Interrupt status */
-
 #[derive(FromRepr, PartialEq)]
 #[repr(u8)]
 pub enum PciHeaderType {
