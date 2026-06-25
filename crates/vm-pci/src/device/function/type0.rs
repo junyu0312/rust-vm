@@ -5,11 +5,54 @@ use std::sync::Mutex;
 
 use strum_macros::FromRepr;
 use vm_core::device::error::DeviceSnapshotError;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::device::function::PciTypeFunctionCommon;
 use crate::error::Error;
+use crate::types::bar::PciBarInfo;
+#[cfg(target_arch = "x86_64")]
+use crate::types::bar::pci_io_bar;
+use crate::types::bar::pci_mmio_32_bar;
 use crate::types::configuration_space::ConfigurationSpace;
 use crate::types::configuration_space::header::type0::Type0Header;
+
+fn init_bar<F>(
+    #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
+    pci_mmio_window_allocator: &mut RangeAllocator<u64>,
+    cfg: &mut ConfigurationSpace,
+    function: &F,
+) -> Result<(), Error>
+where
+    F: PciType0Function,
+{
+    let header = cfg.as_header_mut::<Type0Header>();
+
+    for bar_index in 0..6 {
+        if let Some(bar_info) = &function.bar_info()[bar_index] {
+            match bar_info {
+                #[cfg(target_arch = "x86_64")]
+                PciBarInfo::Pio { len } => {
+                    let start = pci_io_window_allocator
+                        .alloc(*len)
+                        .map_err(|_| Error::AllocPio)?;
+
+                    header.bar[bar_index] = pci_io_bar(start.start);
+                }
+                PciBarInfo::Mmio { is_64bit, len } => {
+                    assert!(!is_64bit);
+
+                    let start = pci_mmio_window_allocator
+                        .alloc(*len)
+                        .map_err(|_| Error::AllocMmio)?;
+
+                    header.bar[bar_index] = pci_mmio_32_bar(start.start.try_into().unwrap());
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
 
 #[derive(Clone, Copy, FromRepr)]
 #[repr(u8)]
@@ -23,7 +66,7 @@ pub enum Bar {
 }
 
 pub trait PciType0Function: PciTypeFunctionCommon {
-    fn bar_size(&self) -> [Option<u32>; 6];
+    fn bar_info(&self) -> [Option<PciBarInfo>; 6];
 
     fn bar_read(&self, bar: Bar, offset: u64, buf: &mut [u8]);
 
@@ -51,11 +94,23 @@ impl<T> Type0Function<T>
 where
     T: PciType0Function,
 {
-    pub fn new(function: T) -> Result<Self, Error> {
-        Self::new_with_configuration_space(Default::default(), function)
+    pub fn new(
+        #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
+        pci_mmio_window_allocator: &mut RangeAllocator<u64>,
+        function: T,
+    ) -> Result<Self, Error> {
+        Self::new_with_configuration_space(
+            #[cfg(target_arch = "x86_64")]
+            pci_io_window_allocator,
+            pci_mmio_window_allocator,
+            Default::default(),
+            function,
+        )
     }
 
     pub fn new_with_configuration_space(
+        #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
+        pci_mmio_window_allocator: &mut RangeAllocator<u64>,
         configuration_space: Arc<Mutex<ConfigurationSpace>>,
         function: T,
     ) -> Result<Self, Error> {
@@ -71,6 +126,14 @@ where
             header.interrupt_line = 0xff;
             header.interrupt_pin = 0x00;
         }
+
+        init_bar(
+            #[cfg(target_arch = "x86_64")]
+            pci_io_window_allocator,
+            pci_mmio_window_allocator,
+            &mut cfg,
+            &function,
+        )?;
 
         drop(cfg);
 

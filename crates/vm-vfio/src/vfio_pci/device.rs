@@ -30,6 +30,11 @@ use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_32;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_64;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_MEM_TYPE_MASK;
 use vm_pci::types::bar::PCI_BASE_ADDRESS_SPACE;
+use vm_pci::types::bar::PciBarInfo;
+#[cfg(target_arch = "x86_64")]
+use vm_pci::types::bar::pci_io_bar;
+use vm_pci::types::bar::pci_mmio_32_bar;
+use vm_pci::types::bar::pci_mmio_64_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::PciConfigurationSpace;
 use vm_pci::types::configuration_space::command::PciCommand;
@@ -39,14 +44,13 @@ use vm_pci::types::configuration_space::header::type0::Type0Header;
 use vm_pci::types::configuration_space::status::PciStatus;
 use vm_pci::types::device::PciDevice;
 use vm_pci::types::function::PciFunction;
+use vm_utils::range_allocator::RangeAllocator;
 use vmm_sys_util::eventfd::EventFd;
 use zerocopy::FromBytes;
 
 use crate::error::Error;
 use crate::error::Result;
 use crate::vfio::device::VfioDevice;
-use crate::vfio_pci::function::VfioBarInfo;
-use crate::vfio_pci::function::VfioBarResource;
 use crate::vfio_pci::function::VfioPciFunction;
 use crate::vfio_pci::interrupt::VfioInterruptManager;
 use crate::vfio_pci::interrupt::intx::VfioIntx;
@@ -219,8 +223,10 @@ impl VfioPciDevice {
     pub fn new(
         name: String,
         vm: &dyn HypervisorVm,
-        vfio_device: VfioDevice,
+        #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
+        pci_mmio_window_allocator: &mut RangeAllocator<u64>,
         irq_allocator: &mut IrqAllocator,
+        vfio_device: VfioDevice,
     ) -> Result<Self> {
         vfio_device.reset()?;
 
@@ -282,7 +288,8 @@ impl VfioPciDevice {
 
         let mut bar_info = [const { None }; 6];
         {
-            let header = raw_configuration_space.as_header::<Type0Header>();
+            let raw_header = raw_configuration_space.as_header::<Type0Header>();
+            let header = configuration_space.as_header_mut::<Type0Header>();
 
             for index in VFIO_PCI_BAR0_REGION_INDEX..=VFIO_PCI_BAR5_REGION_INDEX {
                 let region = vfio_device.get_region_info(index)?;
@@ -291,8 +298,9 @@ impl VfioPciDevice {
                     continue;
                 }
 
+                let len: usize = region.size.try_into().unwrap();
                 let index = index as usize;
-                let bar = header.bar[index];
+                let bar = raw_header.bar[index];
 
                 let is_mmio = bar & PCI_BASE_ADDRESS_SPACE == 0;
 
@@ -306,16 +314,34 @@ impl VfioPciDevice {
                         return Err(Error::InvalidMmioBarType(index, bar_mem_type));
                     };
 
-                    VfioBarResource::Mmio { is_64bit }
+                    let range = pci_mmio_window_allocator.alloc(len).unwrap();
+                    if is_64bit {
+                        let addr = range.start;
+                        let low = (addr & 0xFFFF_FFFF) as u32;
+                        let high = (addr >> 32) as u32;
+                        header.bar[index] = pci_mmio_64_bar(low);
+                        header.bar[index + 1] = high;
+                    } else {
+                        header.bar[index] = pci_mmio_32_bar(range.start.try_into().unwrap())
+                    };
+
+                    PciBarInfo::Mmio { is_64bit, len }
                 } else {
-                    VfioBarResource::Pio
+                    #[cfg(target_arch = "x86_64")]
+                    {
+                        let range = pci_io_window_allocator.alloc(len).unwrap();
+                        header.bar[index] = pci_io_bar(range.start);
+
+                        PciBarInfo::Pio { len }
+                    }
+
+                    #[cfg(not(target_arch = "x86_64"))]
+                    {
+                        unreachable!()
+                    }
                 };
 
-                bar_info[index] = Some(VfioBarInfo {
-                    size: region.size,
-                    // TODO: We should alloc resource from vmm/pci mananger
-                    resource,
-                });
+                bar_info[index] = Some(resource);
             }
         }
 

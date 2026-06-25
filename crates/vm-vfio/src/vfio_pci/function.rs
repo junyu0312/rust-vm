@@ -1,9 +1,8 @@
 use std::sync::Mutex;
 
 use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
+use vm_pci::types::bar::PciBarInfo;
 use vm_pci::types::bar::address_of_bar;
-use vm_pci::types::bar::is_mmio_bar;
-use vm_pci::types::bar::is_pio_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::command::PciCommand;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
@@ -16,29 +15,16 @@ use vm_pci::types::interrupt::InterruptMapEntry;
 
 use crate::vfio::device::VfioDevice;
 
-#[derive(Clone, Debug)]
-pub enum VfioBarResource {
-    Pio,
-    Mmio { is_64bit: bool },
-}
-
-#[derive(Clone, Debug)]
-pub struct VfioBarInfo {
-    pub(crate) size: u64,
-    #[allow(dead_code)]
-    pub(crate) resource: VfioBarResource,
-}
-
 pub struct VfioPciFunction {
     configuration_space: Mutex<ConfigurationSpace>,
-    bars: [Option<VfioBarInfo>; 6],
+    bars: [Option<PciBarInfo>; 6],
     device: VfioDevice,
 }
 
 impl VfioPciFunction {
     pub(crate) fn new(
         configuration_space: ConfigurationSpace,
-        bars: [Option<VfioBarInfo>; 6],
+        bars: [Option<PciBarInfo>; 6],
         device: VfioDevice,
     ) -> Self {
         VfioPciFunction {
@@ -56,12 +42,20 @@ impl VfioPciFunction {
 
         if data == u32::MAX {
             let size = if let Some(bar_info) = &self.bars[bar_index] {
-                bar_info.size as u32
+                let len: usize = match bar_info {
+                    #[cfg(target_arch = "x86_64")]
+                    PciBarInfo::Pio { len } => *len,
+                    PciBarInfo::Mmio { len, .. } => *len,
+                };
+                len.try_into().unwrap()
             } else if bar_index > 0
                 && let Some(bar_info) = &self.bars[bar_index - 1]
-                && let VfioBarResource::Mmio { is_64bit: true } = bar_info.resource
+                && let PciBarInfo::Mmio {
+                    is_64bit: true,
+                    len,
+                } = bar_info
             {
-                (bar_info.size >> 32) as u32
+                (*len >> 32) as u32
             } else {
                 0
             };
@@ -93,29 +87,33 @@ impl VfioPciFunction {
             let bar = header.bar[i];
             let address = address_of_bar(bar);
 
-            if is_pio_bar(bar) {
-                if command.contains(PciCommand::IO) && !old_command.contains(PciCommand::IO) {
-                    callback_ops.push(EcamUpdateCallbackOps::AddPioRouter {
-                        bar: i as u8,
-                        port: address as u16..address as u16 + bar_info.size as u16,
-                    });
-                } else if !command.contains(PciCommand::IO) && old_command.contains(PciCommand::IO)
-                {
-                    callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
+            match bar_info {
+                #[cfg(target_arch = "x86_64")]
+                PciBarInfo::Pio { len } => {
+                    if command.contains(PciCommand::IO) && !old_command.contains(PciCommand::IO) {
+                        callback_ops.push(EcamUpdateCallbackOps::AddPioRouter {
+                            bar: i as u8,
+                            port: address as u16..address as u16 + *len as u16,
+                        });
+                    } else if !command.contains(PciCommand::IO)
+                        && old_command.contains(PciCommand::IO)
+                    {
+                        callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
+                    }
                 }
-            }
-
-            if is_mmio_bar(bar) {
-                if command.contains(PciCommand::MEMORY) && !old_command.contains(PciCommand::MEMORY)
-                {
-                    callback_ops.push(EcamUpdateCallbackOps::AddMmioRouter {
-                        bar: i as u8,
-                        pci_address_range: address as u64..address as u64 + bar_info.size,
-                    });
-                } else if !command.contains(PciCommand::MEMORY)
-                    && old_command.contains(PciCommand::MEMORY)
-                {
-                    callback_ops.push(EcamUpdateCallbackOps::RemoveMmioRouter { bar: i as u8 });
+                PciBarInfo::Mmio { len, .. } => {
+                    if command.contains(PciCommand::MEMORY)
+                        && !old_command.contains(PciCommand::MEMORY)
+                    {
+                        callback_ops.push(EcamUpdateCallbackOps::AddMmioRouter {
+                            bar: i as u8,
+                            pci_address_range: address as u64..address as u64 + *len as u64,
+                        });
+                    } else if !command.contains(PciCommand::MEMORY)
+                        && old_command.contains(PciCommand::MEMORY)
+                    {
+                        callback_ops.push(EcamUpdateCallbackOps::RemoveMmioRouter { bar: i as u8 });
+                    }
                 }
             }
         }

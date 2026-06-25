@@ -16,7 +16,7 @@ pub mod virtio;
 pub mod pl011;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum VfioTransport {
+pub enum VirtioTransport {
     Mmio,
     Pci,
 }
@@ -25,13 +25,13 @@ pub enum VfioTransport {
 pub enum Device {
     GicV3,
     VirtioBlk {
-        transport: VfioTransport,
+        transport: VirtioTransport,
     },
     VirtioBalloon {
-        transport: VfioTransport,
+        transport: VirtioTransport,
     },
     VirtioEntropy {
-        transport: VfioTransport,
+        transport: VirtioTransport,
     },
     #[cfg(target_os = "linux")]
     VfioPci {

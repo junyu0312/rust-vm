@@ -18,15 +18,16 @@ use vm_pci::device::function::type0::Bar;
 use vm_pci::device::function::type0::PciType0Function;
 use vm_pci::device::function::type0::Type0Function;
 use vm_pci::error::Error;
+use vm_pci::types::bar::PciBarInfo;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::device::PciDevice;
 use vm_pci::types::function::PciFunction;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::device::VirtioDevice;
 use crate::device::virtqueue::VirtioConfigurationChangeNotifier;
 use crate::device::virtqueue::VirtioUsedBufferNotifier;
 use crate::result::Result;
-use crate::result::VirtioError;
 use crate::transport::VirtioDeviceOps;
 use crate::transport::common::VirtioTransportCommon;
 use crate::transport::common::VirtqueueHandler;
@@ -73,6 +74,23 @@ impl<D> VirtioPciTransport<D>
 where
     D: VirtioPciDevice,
 {
+    pub fn into_pci_device(
+        self,
+        #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
+        pci_mmio_window_allocator: &mut RangeAllocator<u64>,
+    ) -> Result<VirtioPciDev<D>> {
+        let function = Type0Function::new_with_configuration_space(
+            #[cfg(target_arch = "x86_64")]
+            pci_io_window_allocator,
+            pci_mmio_window_allocator,
+            self.configuration_space.clone(),
+            self,
+        )
+        .unwrap();
+
+        Ok(VirtioPciDev { function })
+    }
+
     fn new(
         irq_allocator: &mut IrqAllocator,
         tokio_runtime: Handle,
@@ -245,24 +263,39 @@ impl<D> PciType0Function for VirtioPciTransport<D>
 where
     D: VirtioPciDevice,
 {
-    fn bar_size(&self) -> [Option<u32>; 6] {
+    fn bar_info(&self) -> [Option<PciBarInfo>; 6] {
         [
             // virtio_pci_common_cfg
-            Some(0x1000),
+            Some(PciBarInfo::Mmio {
+                is_64bit: false,
+                len: 0x1000,
+            }),
             // virtio_pci_notify_cap
-            Some(0x1000),
+            Some(PciBarInfo::Mmio {
+                is_64bit: false,
+                len: 0x1000,
+            }),
             // virtio_pci_isr_cap
-            Some(0x1000),
+            Some(PciBarInfo::Mmio {
+                is_64bit: false,
+                len: 0x1000,
+            }),
             // device_spec_cfg
             if D::DEVICE_SPECIFICATION_CONFIGURATION_LEN == 0 {
                 None
             } else {
-                Some(0x1000)
+                Some(PciBarInfo::Mmio {
+                    is_64bit: false,
+                    len: 0x1000,
+                })
             },
             self.interrupt_dispatcher
                 .msix
                 .as_ref()
-                .map(|msix| msix.read().unwrap().bar_size()),
+                .map(|msix| PciBarInfo::Mmio {
+                    is_64bit: false,
+                    len: msix.read().unwrap().bar_size().try_into().unwrap(),
+                }),
             None,
         ]
     }
@@ -320,20 +353,6 @@ where
     D: VirtioPciDevice,
 {
     function: Type0Function<VirtioPciTransport<D>>,
-}
-
-impl<D> TryFrom<VirtioPciTransport<D>> for VirtioPciDev<D>
-where
-    D: VirtioPciDevice,
-{
-    type Error = VirtioError;
-
-    fn try_from(dev: VirtioPciTransport<D>) -> Result<Self> {
-        let function =
-            Type0Function::new_with_configuration_space(dev.configuration_space.clone(), dev)
-                .unwrap();
-        Ok(VirtioPciDev { function })
-    }
 }
 
 impl<D> Device for VirtioPciDev<D>
@@ -410,14 +429,18 @@ pub trait VirtioPciDevice: VirtioDevice {
 
     fn into_pci_device(
         self,
+        #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
+        pci_mmio_window_allocator: &mut RangeAllocator<u64>,
         irq_allocator: &mut IrqAllocator,
         tokio_runtime: Handle,
         memory: Arc<MemoryAddressSpace>,
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<VirtioPciDev<Self>> {
-        let virtio_dev =
-            self.into_virtio_pci_device(irq_allocator, tokio_runtime, memory, irq_chip)?;
-
-        VirtioPciDev::try_from(virtio_dev)
+        self.into_virtio_pci_device(irq_allocator, tokio_runtime, memory, irq_chip)?
+            .into_pci_device(
+                #[cfg(target_arch = "x86_64")]
+                pci_io_window_allocator,
+                pci_mmio_window_allocator,
+            )
     }
 }

@@ -4,6 +4,7 @@ use std::sync::RwLock;
 
 use tracing::debug;
 use vm_core::device::error::DeviceSnapshotError;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::bus::PciBus;
 use crate::host_bridge::new_host_bridge;
@@ -19,8 +20,11 @@ pub struct PciRootComplex {
     allocation: usize,
 }
 
-impl Default for PciRootComplex {
-    fn default() -> Self {
+impl PciRootComplex {
+    pub fn new(
+        #[cfg(target_arch = "x86_64")] pci_pio_allocator: &mut RangeAllocator<u16>,
+        pci_mmio_allocator: &mut RangeAllocator<u64>,
+    ) -> Self {
         let mut rc = PciRootComplex {
             bus: vec![PciBus::default()],
             pio_router: Default::default(),
@@ -28,15 +32,20 @@ impl Default for PciRootComplex {
             allocation: 0,
         };
 
-        rc.register_device(Box::new(new_host_bridge().unwrap()))
-            .map_err(|_| "failed to register host bridge")
-            .unwrap();
+        rc.register_device(Box::new(
+            new_host_bridge(
+                #[cfg(target_arch = "x86_64")]
+                pci_pio_allocator,
+                pci_mmio_allocator,
+            )
+            .unwrap(),
+        ))
+        .map_err(|_| "failed to register host bridge")
+        .unwrap();
 
         rc
     }
-}
 
-impl PciRootComplex {
     pub fn register_device(
         &mut self,
         device: Box<dyn PciDevice>,

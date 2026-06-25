@@ -4,12 +4,14 @@ use std::iter;
 
 use vm_core::device::Device;
 use vm_core::device::error::DeviceSnapshotError;
+use vm_utils::range_allocator::RangeAllocator;
 
 use crate::device::function::PciTypeFunctionCommon;
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
 use crate::device::function::type0::Type0Function;
 use crate::error::Error;
+use crate::types::bar::PciBarInfo;
 use crate::types::configuration_space::ConfigurationSpace;
 use crate::types::device::PciDevice;
 use crate::types::function::PciFunction;
@@ -39,7 +41,7 @@ impl PciTypeFunctionCommon for HostBridgeFunction {
 }
 
 impl PciType0Function for HostBridgeFunction {
-    fn bar_size(&self) -> [Option<u32>; 6] {
+    fn bar_info(&self) -> [Option<PciBarInfo>; 6] {
         [None, None, None, None, None, None]
     }
 
@@ -116,8 +118,16 @@ impl PciDevice for HostBridgeDevice {
     }
 }
 
-pub fn new_host_bridge() -> Result<HostBridgeDevice, Error> {
-    let function = Type0Function::new(HostBridgeFunction)?;
+pub fn new_host_bridge(
+    #[cfg(target_arch = "x86_64")] pci_pio_allocator: &mut RangeAllocator<u16>,
+    pci_mmio_allocator: &mut RangeAllocator<u64>,
+) -> Result<HostBridgeDevice, Error> {
+    let function = Type0Function::new(
+        #[cfg(target_arch = "x86_64")]
+        pci_pio_allocator,
+        pci_mmio_allocator,
+        HostBridgeFunction,
+    )?;
 
     Ok(HostBridgeDevice { function })
 }

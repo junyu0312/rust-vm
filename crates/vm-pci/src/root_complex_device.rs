@@ -40,13 +40,19 @@ pub struct PciRootComplexDevice {
 
 impl PciRootComplexDevice {
     pub fn new(
+        #[cfg(target_arch = "x86_64")] pci_pio_allocator: &mut RangeAllocator<u16>,
+        pci_mmio_allocator: &mut RangeAllocator<u64>,
         #[cfg(target_arch = "x86_64")] pio_allocator: &mut RangeAllocator<u16>,
         mmio_allocator: &mut RangeAllocator<u64>,
         #[cfg(target_arch = "x86_64")] io_port_window: Range<u16>,
         ecam_range: Range<u64>,
         bar_mmio_window: Range<u64>,
     ) -> Result<Self, DeviceError> {
-        let internal = Arc::new(RwLock::new(PciRootComplex::default()));
+        let internal = Arc::new(RwLock::new(PciRootComplex::new(
+            #[cfg(target_arch = "x86_64")]
+            pci_pio_allocator,
+            pci_mmio_allocator,
+        )));
         let device = PciRootComplexDevice {
             #[cfg(target_arch = "x86_64")]
             pio_transport: PioTransport::new(
