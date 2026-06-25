@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use vm_device::device::VfioTransport;
+use vm_device::device::VirtioTransport;
 
 #[derive(Debug, Clone, Deserialize)]
 pub enum Device {
@@ -24,19 +24,19 @@ impl From<Device> for vm_device::device::Device {
         match device {
             Device::GicV3 => vm_device::device::Device::GicV3,
             Device::VirtioMmioBlk => vm_device::device::Device::VirtioBlk {
-                transport: VfioTransport::Mmio,
+                transport: VirtioTransport::Mmio,
             },
             Device::VirtioPciBlk => vm_device::device::Device::VirtioBlk {
-                transport: VfioTransport::Pci,
+                transport: VirtioTransport::Pci,
             },
             Device::VirtioMmioBalloon => vm_device::device::Device::VirtioBalloon {
-                transport: VfioTransport::Mmio,
+                transport: VirtioTransport::Mmio,
             },
             Device::VirtioMmioEntropy => vm_device::device::Device::VirtioEntropy {
-                transport: VfioTransport::Mmio,
+                transport: VirtioTransport::Mmio,
             },
             Device::VirtioPciEntropy => vm_device::device::Device::VirtioEntropy {
-                transport: VfioTransport::Pci,
+                transport: VirtioTransport::Pci,
             },
             #[cfg(target_os = "linux")]
             Device::VfioPci { name, path } => vm_device::device::Device::VfioPci { name, path },

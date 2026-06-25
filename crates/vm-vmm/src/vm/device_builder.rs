@@ -1,4 +1,3 @@
-#[cfg(target_os = "linux")]
 use std::cell::OnceCell;
 use std::sync::Arc;
 
@@ -10,7 +9,7 @@ use vm_core::arch::x86_64::layout::*;
 use vm_core::virtualization::irq_allocator::IrqAllocator;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_device::device::Device;
-use vm_device::device::VfioTransport;
+use vm_device::device::VirtioTransport;
 use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloonTranditional;
 use vm_device::device::virtio::virtio_balloon_traditional::monitor::VirtioBalloonMonitor;
 use vm_device::device::virtio::virtio_blk::VirtioBlkDevice;
@@ -22,7 +21,6 @@ use vm_utils::range_allocator::RangeAllocator;
 use vm_vfio::vfio::container::VfioContainer;
 use vm_virtio::device::VirtioDevice;
 use vm_virtio::transport::VirtioDeviceOps;
-use vm_virtio::transport::pci::VirtioPciDev;
 use vm_virtio::transport::pci::VirtioPciDevice;
 
 use crate::device::device_manager_v2::DeviceManagerV2;
@@ -56,7 +54,10 @@ pub struct DeviceManagerBuilder<'a> {
 
     #[cfg(target_arch = "x86_64")]
     pio_allocator: RangeAllocator<u16>,
+    #[cfg(target_arch = "x86_64")]
+    pci_pio_allocator: OnceCell<RangeAllocator<u16>>,
     mmio_allocator: RangeAllocator<u64>,
+    pci_mmio_allocator: OnceCell<RangeAllocator<u64>>,
     virtio_mmio_index_allocator: RangeAllocator<u8>,
 }
 
@@ -72,7 +73,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                 let dev = VirtioBlkDevice::new(self.memory.clone());
 
                 match transport {
-                    VfioTransport::Mmio => {
+                    VirtioTransport::Mmio => {
                         self.device_manager
                             .attach_device(Box::new(dev.into_mmio_device(
                                 &mut self.mmio_allocator,
@@ -83,9 +84,12 @@ impl<'a> DeviceManagerBuilder<'a> {
                                 self.irq_chip.clone(),
                             )?))?;
                     }
-                    VfioTransport::Pci => {
+                    VirtioTransport::Pci => {
                         pci_root_complex
                             .register_device(Box::new(dev.into_pci_device(
+                                #[cfg(target_arch = "x86_64")]
+                                self.pci_pio_allocator.get_mut().unwrap(),
+                                self.pci_mmio_allocator.get_mut().unwrap(),
                                 &mut self.irq_allocator,
                                 tokio::runtime::Handle::current(),
                                 self.memory.clone(),
@@ -103,7 +107,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                 let configuration_change_notifier;
 
                 match transport {
-                    VfioTransport::Mmio => {
+                    VirtioTransport::Mmio => {
                         let device = dev.into_mmio_device(
                             &mut self.mmio_allocator,
                             &mut self.irq_allocator,
@@ -117,7 +121,7 @@ impl<'a> DeviceManagerBuilder<'a> {
 
                         self.device_manager.attach_device(Box::new(device))?;
                     }
-                    VfioTransport::Pci => {
+                    VirtioTransport::Pci => {
                         let device = dev.into_virtio_pci_device(
                             &mut self.irq_allocator,
                             tokio::runtime::Handle::current(),
@@ -127,8 +131,14 @@ impl<'a> DeviceManagerBuilder<'a> {
 
                         configuration_change_notifier = device.configuration_change_notifier();
 
+                        let device = device.into_pci_device(
+                            #[cfg(target_arch = "x86_64")]
+                            self.pci_pio_allocator.get_mut().unwrap(),
+                            self.pci_mmio_allocator.get_mut().unwrap(),
+                        )?;
+
                         pci_root_complex
-                            .register_device(Box::new(VirtioPciDev::try_from(device)?))
+                            .register_device(Box::new(device))
                             .map_err(|_| InitDeviceError::RegisterPciDevice)?;
                     }
                 }
@@ -144,7 +154,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                 let dev = VirtioEntropy::new(self.memory.clone());
 
                 match transport {
-                    VfioTransport::Mmio => {
+                    VirtioTransport::Mmio => {
                         self.device_manager
                             .attach_device(Box::new(dev.into_mmio_device(
                                 &mut self.mmio_allocator,
@@ -155,9 +165,12 @@ impl<'a> DeviceManagerBuilder<'a> {
                                 self.irq_chip.clone(),
                             )?))?;
                     }
-                    VfioTransport::Pci => {
+                    VirtioTransport::Pci => {
                         pci_root_complex
                             .register_device(Box::new(dev.into_pci_device(
+                                #[cfg(target_arch = "x86_64")]
+                                self.pci_pio_allocator.get_mut().unwrap(),
+                                self.pci_mmio_allocator.get_mut().unwrap(),
                                 &mut self.irq_allocator,
                                 tokio::runtime::Handle::current(),
                                 self.memory.clone(),
@@ -185,7 +198,30 @@ impl<'a> DeviceManagerBuilder<'a> {
     }
 
     fn init_pci_root_complex(&mut self) -> Result<PciRootComplexDevice, InitDeviceError> {
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut pci_io_port_allocator = RangeAllocator::<u16>::default();
+            pci_io_port_allocator
+                .insert(PCI_IO_PORT_WINDOW_START, PCI_IO_PORT_WINDOW_LENGTH as usize)
+                .unwrap();
+            assert!(self.pci_pio_allocator.set(pci_io_port_allocator).is_ok());
+        }
+
+        {
+            let mut pci_mmio_allocator = RangeAllocator::<u64>::default();
+            pci_mmio_allocator
+                .insert(
+                    PCI_BAR_MMIO_WINDOW_START as u64,
+                    PCI_BAR_MMIO_WINDOW_LENGTH as usize,
+                )
+                .unwrap();
+            assert!(self.pci_mmio_allocator.set(pci_mmio_allocator).is_ok());
+        }
+
         Ok(PciRootComplexDevice::new(
+            #[cfg(target_arch = "x86_64")]
+            self.pci_pio_allocator.get_mut().unwrap(),
+            self.pci_mmio_allocator.get_mut().unwrap(),
             #[cfg(target_arch = "x86_64")]
             &mut self.pio_allocator,
             &mut self.mmio_allocator,
@@ -224,7 +260,10 @@ impl<'a> DeviceManagerBuilder<'a> {
 
             #[cfg(target_arch = "x86_64")]
             pio_allocator: pio_allocator(),
+            #[cfg(target_arch = "x86_64")]
+            pci_pio_allocator: Default::default(),
             mmio_allocator: mmio_allocator(),
+            pci_mmio_allocator: Default::default(),
             virtio_mmio_index_allocator,
         })
     }

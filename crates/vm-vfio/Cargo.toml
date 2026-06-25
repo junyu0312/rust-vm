@@ -11,5 +11,6 @@ vfio-bindings = { workspace = true }
 vfio-ioctls = { workspace = true }
 vm-core = { workspace = true }
 vm-pci = { workspace = true }
+vm-utils = { workspace = true }
 vmm-sys-util = { workspace = true }
 zerocopy = { workspace = true }

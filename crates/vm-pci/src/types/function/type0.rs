@@ -3,9 +3,8 @@ use strum_macros::FromRepr;
 use crate::device::function::type0::Bar;
 use crate::device::function::type0::PciType0Function;
 use crate::device::function::type0::Type0Function;
+use crate::types::bar::PciBarInfo;
 use crate::types::bar::address_of_bar;
-use crate::types::bar::is_mmio_bar;
-use crate::types::bar::is_pio_bar;
 use crate::types::configuration_space::command::PciCommand;
 use crate::types::configuration_space::header::type0::Type0Header;
 use crate::types::function::EcamUpdateCallback;
@@ -45,13 +44,21 @@ where
 {
     fn write_bar(&self, n: u8, buf: &[u8]) {
         let internal = self.internal.lock().unwrap();
-        let bar_size = internal.function.bar_size();
+        let bar_info = internal.function.bar_info();
 
         let val = u32::from_le_bytes(buf.try_into().unwrap());
         let mut configuration_space = internal.configuration_space.lock().unwrap();
         let header = configuration_space.as_header_mut::<Type0Header>();
 
-        if let Some(bar_size) = bar_size[n as usize] {
+        if let Some(bar_info) = &bar_info[n as usize] {
+            let bar_size: u32 = match bar_info {
+                #[cfg(target_arch = "x86_64")]
+                PciBarInfo::Pio { len } => *len,
+                PciBarInfo::Mmio { len, .. } => *len,
+            }
+            .try_into()
+            .unwrap();
+
             if val == u32::MAX {
                 header.bar[n as usize] = !(bar_size - 1);
             } else {
@@ -66,7 +73,7 @@ where
         let mut callback_ops = vec![];
 
         let internal = self.internal.lock().unwrap();
-        let bar_size = internal.function.bar_size();
+        let bar_info = internal.function.bar_info();
 
         let mut configuration_space = internal.configuration_space.lock().unwrap();
         let header = configuration_space.as_header_mut::<Type0Header>();
@@ -76,37 +83,41 @@ where
         let old_command = PciCommand::from_bits_retain(old_command);
         let command = PciCommand::from_bits_retain(command);
 
-        for (i, size) in bar_size.iter().enumerate() {
-            let Some(len) = size else {
+        for (i, info) in bar_info.iter().enumerate() {
+            let Some(info) = info else {
                 continue;
             };
 
             let bar = header.bar[i];
             let address = address_of_bar(bar);
 
-            if is_pio_bar(bar) {
-                if command.contains(PciCommand::IO) && !old_command.contains(PciCommand::IO) {
-                    callback_ops.push(EcamUpdateCallbackOps::AddPioRouter {
-                        bar: i as u8,
-                        port: address as u16..address as u16 + *len as u16,
-                    });
-                } else if !command.contains(PciCommand::IO) && old_command.contains(PciCommand::IO)
-                {
-                    callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
+            match info {
+                #[cfg(target_arch = "x86_64")]
+                PciBarInfo::Pio { len } => {
+                    if command.contains(PciCommand::IO) && !old_command.contains(PciCommand::IO) {
+                        callback_ops.push(EcamUpdateCallbackOps::AddPioRouter {
+                            bar: i as u8,
+                            port: address as u16..address as u16 + *len as u16,
+                        });
+                    } else if !command.contains(PciCommand::IO)
+                        && old_command.contains(PciCommand::IO)
+                    {
+                        callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
+                    }
                 }
-            }
-
-            if is_mmio_bar(bar) {
-                if command.contains(PciCommand::MEMORY) && !old_command.contains(PciCommand::MEMORY)
-                {
-                    callback_ops.push(EcamUpdateCallbackOps::AddMmioRouter {
-                        bar: i as u8,
-                        pci_address_range: address as u64..address as u64 + *len as u64,
-                    });
-                } else if !command.contains(PciCommand::MEMORY)
-                    && old_command.contains(PciCommand::MEMORY)
-                {
-                    callback_ops.push(EcamUpdateCallbackOps::RemoveMmioRouter { bar: i as u8 });
+                PciBarInfo::Mmio { len, .. } => {
+                    if command.contains(PciCommand::MEMORY)
+                        && !old_command.contains(PciCommand::MEMORY)
+                    {
+                        callback_ops.push(EcamUpdateCallbackOps::AddMmioRouter {
+                            bar: i as u8,
+                            pci_address_range: address as u64..address as u64 + *len as u64,
+                        });
+                    } else if !command.contains(PciCommand::MEMORY)
+                        && old_command.contains(PciCommand::MEMORY)
+                    {
+                        callback_ops.push(EcamUpdateCallbackOps::RemoveMmioRouter { bar: i as u8 });
+                    }
                 }
             }
         }
