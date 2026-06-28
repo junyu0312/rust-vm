@@ -18,7 +18,16 @@ pub const PCI_MSIX_PBA_OFFSET: u32 = 0xfffffff8; /* Offset into specified BAR */
 
 pub const PCI_MSIX_ENTRY_CTRL_MASKBIT: u32 = 0x00000001;
 
-#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[repr(u8)]
+pub enum PciMsixCapOffset {
+    Cap = 0x00,
+    Next = 0x01,
+    Ctrl = 0x02,
+    TableOffset = 0x04,
+    PbaOffset = 0x08,
+}
+
+#[derive(Clone, FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct MsixEntry {
     pub addr_lo: u32,
@@ -35,6 +44,12 @@ impl Default for MsixEntry {
             data: Default::default(),
             control: 1, // Masked as default?
         }
+    }
+}
+
+impl MsixEntry {
+    pub fn is_mask(&self) -> bool {
+        self.control & PCI_MSIX_ENTRY_CTRL_MASKBIT != 0
     }
 }
 
@@ -63,6 +78,15 @@ impl PciMsixCap {
             table_offset: (table_offset << 3) | ((table_bar & 0x7) as u32),
             pba_offset: (pba_offset << 3) | ((pba_bar & 0x7) as u32),
         }
+    }
+
+    pub fn enable(&self) -> bool {
+        self.ctrl & PCI_MSIX_FLAGS_ENABLE != 0
+    }
+
+    // Mask all vectors
+    pub fn function_mask(&self) -> bool {
+        self.ctrl & PCI_MSIX_FLAGS_MASKALL != 0
     }
 }
 

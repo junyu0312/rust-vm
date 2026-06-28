@@ -13,7 +13,7 @@ use crate::types::function::PciFunction;
 
 mod arch;
 
-#[derive(FromRepr)]
+#[derive(Debug, FromRepr)]
 #[repr(u16)]
 pub enum Type0HeaderOffset {
     VendorId = 0x00,
@@ -34,8 +34,16 @@ pub enum Type0HeaderOffset {
     Bar3 = 0x1c,
     Bar4 = 0x20,
     Bar5 = 0x24,
-    // TODO: More
-    RomAddress = 0x30,
+    CardbusCisPointer = 0x28,
+    SubsystemVendorId = 0x2c,
+    SubsystemId = 0x2e,
+    RomBaseAddress = 0x30,
+    CapPointer = 0x34,
+    Reserved = 0x38,
+    InterruptLine = 0x3c,
+    InterruptPin = 0x3d,
+    MinGnt = 0x3e,
+    MaxLat = 0x3f,
 }
 
 impl<T> Type0Function<T>
