@@ -1,4 +1,5 @@
 use std::iter;
+use std::sync::Arc;
 
 use vfio_bindings::bindings::vfio::VFIO_IRQ_INFO_EVENTFD;
 use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
@@ -37,6 +38,7 @@ use vm_pci::types::bar::pci_mmio_32_bar;
 use vm_pci::types::bar::pci_mmio_64_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::PciConfigurationSpace;
+use vm_pci::types::configuration_space::capability::StandardCapability;
 use vm_pci::types::configuration_space::command::PciCommand;
 use vm_pci::types::configuration_space::header::CommonHeaderOffset;
 use vm_pci::types::configuration_space::header::PciHeaderType;
@@ -47,24 +49,30 @@ use vm_pci::types::function::PciFunction;
 use vm_utils::range_allocator::RangeAllocator;
 use vmm_sys_util::eventfd::EventFd;
 use zerocopy::FromBytes;
+use zerocopy::IntoBytes;
 
 use crate::error::Error;
 use crate::error::Result;
 use crate::vfio::device::VfioDevice;
 use crate::vfio_pci::function::VfioPciFunction;
+use crate::vfio_pci::interrupt::VfioInterruptInfo;
 use crate::vfio_pci::interrupt::VfioInterruptManager;
 use crate::vfio_pci::interrupt::intx::VfioIntx;
+use crate::vfio_pci::interrupt::intx::VfioIntxInfo;
 use crate::vfio_pci::interrupt::msi::VfioMsi;
+use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsix;
+use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
 fn setup_interrupt_capability(
     vm: &dyn HypervisorVm,
-    vfio_device: &VfioDevice,
+    vfio_device: Arc<VfioDevice>,
     irq_allocator: &mut IrqAllocator,
     raw: &PciConfigurationSpace,
     cfg: &mut ConfigurationSpace,
-) -> Result<VfioInterruptManager> {
+) -> Result<(VfioInterruptInfo, VfioInterruptManager)> {
     let mut msix = None;
+    let mut msix_info = None;
     if let Some(offset) = raw.find_cap(PciCapId::MsiX as u8) {
         let cap = PciMsixCap::ref_from_bytes(
             &raw.as_bytes()[offset as usize..offset as usize + size_of::<PciMsixCap>()],
@@ -79,24 +87,28 @@ fn setup_interrupt_capability(
         for entry in table.iter_mut() {
             entry.control = PCI_MSIX_ENTRY_CTRL_MASKBIT;
         }
-        let pba = vec![0; vectors.div_ceil(8) as usize];
         let table_bar = (cap.table_offset & PCI_MSIX_TABLE_BIR) as u8;
-        let pba_bar = (cap.pba_offset & PCI_MSIX_TABLE_BIR) as u8;
         let table_offset = cap.table_offset & PCI_MSIX_TABLE_OFFSET;
-        let pba_offset = cap.pba_offset & PCI_MSIX_PBA_OFFSET;
+        let table_len = table.as_bytes().len();
 
-        msix = Some(VfioMsix {
-            table,
+        let pba = vec![0; vectors.div_ceil(8) as usize];
+        let pba_bar = (cap.pba_offset & PCI_MSIX_TABLE_BIR) as u8;
+        let pba_offset = cap.pba_offset & PCI_MSIX_PBA_OFFSET;
+        let pba_len = pba.as_bytes().len();
+
+        let event_fds = (0..vectors)
+            .map(|_| EventFd::new(0).unwrap())
+            .collect::<Vec<_>>();
+
+        let cap = StandardCapability::from(PciMsixCap::new(
+            vectors,
             table_bar,
             table_offset,
-            pba,
             pba_bar,
             pba_offset,
-        });
-
-        cfg.alloc_capability(
-            PciMsixCap::new(vectors, table_bar, table_offset, pba_bar, pba_offset).into(),
-        )?;
+        ));
+        let cap_len = cap.cap_len();
+        let cap_offset = cfg.alloc_capability(cap)?;
 
         let irq_info = vfio_device
             .get_msix_irq_info()
@@ -113,8 +125,26 @@ fn setup_interrupt_capability(
         if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
             return Err(Error::PrepareIrq("msi-x does not support eventfd".into()));
         }
+
+        msix_info = Some(VfioMsixInfo {
+            event_fds,
+            table_bar,
+            table_offset,
+            table_len,
+            pba_bar,
+            pba_offset,
+            pba_len,
+            cap_offset: cap_offset as u16,
+            cap_len: cap_len as u16,
+        });
+        msix = Some(VfioMsix {
+            table,
+            pba,
+            enabled: false,
+        });
     }
 
+    let mut msi_info = None;
     let mut msi = None;
     if let Some(offset) = raw.find_cap(PciCapId::Msi as u8) {
         let ctrl = u16::from_le_bytes(
@@ -127,9 +157,10 @@ fn setup_interrupt_capability(
         let bit64 = ctrl & PCI_MSI_FLAGS_64BIT != 0;
         let mask = ctrl & PCI_MSI_FLAGS_MASKBIT != 0;
 
-        msi = Some(VfioMsi {
+        msi_info = Some(VfioMsiInfo {
             vectors: mmc.vectors(),
         });
+        msi = Some(VfioMsi { enabled: false });
 
         match (bit64, mask) {
             (false, false) => {
@@ -168,30 +199,29 @@ fn setup_interrupt_capability(
     }
 
     let mut intx = None;
+    let mut intx_info = None;
+    if let Some(irq_info) = vfio_device.get_intx_irq_info()
+        && irq_info.count != 0
     {
+        assert_eq!(irq_info.count, 1);
+
         let raw_header = raw.as_header::<Type0Header>();
         if raw_header.interrupt_pin != InterruptPin::Empty as u8 {
             let header = cfg.as_header_mut::<Type0Header>();
-            intx = Some(VfioIntx {
-                pin: InterruptPin::from_repr(raw_header.interrupt_pin).ok_or(Error::ParseIntx)?,
-                line: raw_header.interrupt_line,
-            });
-            header.interrupt_pin = InterruptPin::INTA as u8;
+
+            let interrupt_pin =
+                InterruptPin::from_repr(raw_header.interrupt_pin).ok_or(Error::ParseIntx)?;
+            header.interrupt_pin = interrupt_pin as u8;
             header.interrupt_line = irq_allocator
                 .alloc()
-                .map_err(|err| Error::PrepareIrq(Box::new(err)))?
+                .map_err(|_| Error::AllocIrq)?
                 .try_into()
-                .map_err(|err| Error::PrepareIrq(Box::new(err)))?;
-
-            let irq_info = vfio_device
-                .get_intx_irq_info()
-                .ok_or(Error::PrepareIrq("Failed to get intx info".into()))?;
-
-            if irq_info.count == 0 {
-                return Err(Error::PrepareIrq("intx count is zero".into()));
-            }
-
-            debug_assert_eq!(irq_info.count, 1);
+                .unwrap();
+            intx_info = Some(VfioIntxInfo {
+                pin: interrupt_pin,
+                line: header.interrupt_line,
+            });
+            intx = Some(VfioIntx { enabled: true });
 
             if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
                 return Err(Error::PrepareIrq("intx does not support eventfd".into()));
@@ -208,26 +238,31 @@ fn setup_interrupt_capability(
         }
     }
 
+    let interrupt_info = VfioInterruptInfo {
+        intx: intx_info,
+        msi: msi_info,
+        msix: msix_info,
+    };
     let interrupt_manager = VfioInterruptManager { intx, msi, msix };
 
-    Ok(interrupt_manager)
+    Ok((interrupt_info, interrupt_manager))
 }
 
 pub struct VfioPciDevice {
     name: String,
     function: VfioPciFunction,
-    interrupt_manager: VfioInterruptManager,
 }
 
 impl VfioPciDevice {
     pub fn new(
         name: String,
-        vm: &dyn HypervisorVm,
+        vm: Arc<dyn HypervisorVm>,
         #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
         pci_mmio_window_allocator: &mut RangeAllocator<u64>,
         irq_allocator: &mut IrqAllocator,
         vfio_device: VfioDevice,
     ) -> Result<Self> {
+        let vfio_device = Arc::new(vfio_device);
         vfio_device.reset()?;
 
         // Get raw header from device
@@ -278,9 +313,9 @@ impl VfioPciDevice {
                 .fill(0);
         }
 
-        let interrupt_manager = setup_interrupt_capability(
-            vm,
-            &vfio_device,
+        let (interrupt_info, interrupt_manager) = setup_interrupt_capability(
+            vm.as_ref(),
+            vfio_device.clone(),
             irq_allocator,
             &raw_configuration_space,
             &mut configuration_space,
@@ -345,7 +380,6 @@ impl VfioPciDevice {
             }
         }
 
-        // TODO
         if false {
             vfio_device.region_write(
                 VFIO_PCI_CONFIG_REGION_INDEX,
@@ -354,13 +388,17 @@ impl VfioPciDevice {
             )?;
         }
 
-        let function = VfioPciFunction::new(configuration_space, bar_info, vfio_device);
-
-        Ok(VfioPciDevice {
-            name,
-            function,
+        let function = VfioPciFunction::new(
+            vm,
+            raw_configuration_space,
+            configuration_space,
+            bar_info,
+            vfio_device,
+            interrupt_info,
             interrupt_manager,
-        })
+        );
+
+        Ok(VfioPciDevice { name, function })
     }
 }
 

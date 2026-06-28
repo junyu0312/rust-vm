@@ -32,7 +32,7 @@ impl<'a> DeviceManagerBuilder<'a> {
 
         let vfio_pci_device = VfioPciDevice::new(
             name,
-            self.vm,
+            self.vm.clone(),
             #[cfg(target_arch = "x86_64")]
             self.pci_pio_allocator.get_mut().unwrap(),
             self.pci_mmio_allocator.get_mut().unwrap(),

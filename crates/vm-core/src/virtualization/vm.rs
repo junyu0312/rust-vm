@@ -41,10 +41,15 @@ pub trait HypervisorVm: Send + Sync {
     fn set_irqfd(&self, fd: &EventFd, gsi: u32) -> Result<(), VmError>;
 
     #[cfg(target_os = "linux")]
+    fn del_irqfd(&self, fd: &EventFd, gsi: u32) -> Result<(), VmError>;
+
+    #[cfg(target_os = "linux")]
     fn set_irqfd_with_resample(
         &self,
         fd: &EventFd,
         resamplefd: &EventFd,
         gsi: u32,
     ) -> Result<(), VmError>;
+
+    fn set_gsi_routing(&self) -> Result<(), VmError>;
 }

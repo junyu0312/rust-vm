@@ -38,6 +38,12 @@ impl Default for MsixEntry {
     }
 }
 
+impl MsixEntry {
+    pub fn is_mask(&self) -> bool {
+        self.control & PCI_MSIX_ENTRY_CTRL_MASKBIT != 0
+    }
+}
+
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct PciMsixCap {
@@ -63,6 +69,15 @@ impl PciMsixCap {
             table_offset: (table_offset << 3) | ((table_bar & 0x7) as u32),
             pba_offset: (pba_offset << 3) | ((pba_bar & 0x7) as u32),
         }
+    }
+
+    pub fn enable(&self) -> bool {
+        self.ctrl & PCI_MSIX_FLAGS_ENABLE != 0
+    }
+
+    // Mask all vectors
+    pub fn function_mask(&self) -> bool {
+        self.ctrl & PCI_MSIX_FLAGS_MASKALL != 0
     }
 }
 

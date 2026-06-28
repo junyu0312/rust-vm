@@ -1,10 +1,18 @@
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
+use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
+use vm_core::virtualization::kvm::gsi_routing::get_kvm_sgi_routing_instance;
+use vm_core::virtualization::vm::HypervisorVm;
+use vm_pci::device::capability::msix::MsixEntry;
+use vm_pci::device::capability::msix::PciMsixCap;
 use vm_pci::types::bar::PciBarInfo;
 use vm_pci::types::bar::address_of_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
+use vm_pci::types::configuration_space::PciConfigurationSpace;
 use vm_pci::types::configuration_space::command::PciCommand;
+use vm_pci::types::configuration_space::header::CommonHeaderOffset;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
 use vm_pci::types::function::EcamUpdateCallback;
 use vm_pci::types::function::EcamUpdateCallbackOps;
@@ -12,26 +20,173 @@ use vm_pci::types::function::PciFunction;
 use vm_pci::types::function::PciFunctionArch;
 use vm_pci::types::function::type0::Type0HeaderOffset;
 use vm_pci::types::interrupt::InterruptMapEntry;
+use zerocopy::FromBytes;
+use zerocopy::IntoBytes;
 
 use crate::vfio::device::VfioDevice;
+use crate::vfio_pci::interrupt::VfioInterruptInfo;
+use crate::vfio_pci::interrupt::VfioInterruptManager;
+use crate::vfio_pci::interrupt::msix::VfioMsix;
 
 pub struct VfioPciFunction {
+    vm: Arc<dyn HypervisorVm>,
+    raw_configuration_space: PciConfigurationSpace,
     configuration_space: Mutex<ConfigurationSpace>,
     bars: [Option<PciBarInfo>; 6],
-    device: VfioDevice,
+    device: Arc<VfioDevice>,
+    interrupt_manager: Arc<Mutex<VfioInterruptManager>>,
+    interrupt_info: VfioInterruptInfo,
 }
 
 impl VfioPciFunction {
     pub(crate) fn new(
+        vm: Arc<dyn HypervisorVm>,
+        raw_configuration_space: PciConfigurationSpace,
         configuration_space: ConfigurationSpace,
         bars: [Option<PciBarInfo>; 6],
-        device: VfioDevice,
+        device: Arc<VfioDevice>,
+        interrupt_info: VfioInterruptInfo,
+        interrupt_manager: VfioInterruptManager,
     ) -> Self {
         VfioPciFunction {
+            vm,
+            raw_configuration_space,
             configuration_space: configuration_space.into(),
             bars,
             device,
+            interrupt_info,
+            interrupt_manager: Arc::new(Mutex::new(interrupt_manager)),
         }
+    }
+
+    fn read_msix_table(&self, offset: usize, buf: &mut [u8]) {
+        let interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let msix = interrupt_manager.msix.as_ref().unwrap();
+
+        buf.copy_from_slice(&msix.table.as_bytes()[offset..offset + buf.len()]);
+    }
+
+    fn write_msix_table(&self, offset: usize, buf: &[u8]) {
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let msix = interrupt_manager.msix.as_mut().unwrap();
+
+        let vector = usize::try_from(offset).unwrap() / size_of::<MsixEntry>();
+        let offset_within_entry = offset % size_of::<MsixEntry>();
+
+        let entry = &mut msix.table[vector];
+        let ctrl_old = entry.control;
+        {
+            let ctrl = entry.control;
+            println!(
+                "before vector: {vector}, offset_within_entry: {offset_within_entry} ctrl: {}",
+                ctrl
+            );
+        }
+        entry.as_mut_bytes()[offset_within_entry..offset_within_entry + buf.len()]
+            .copy_from_slice(buf);
+        let ctrl_new = entry.control;
+
+        {
+            let ctrl = entry.control;
+            println!(
+                "after vector: {vector}, offset_within_entry {offset_within_entry} ctrl: {}",
+                ctrl
+            );
+        }
+
+        if ctrl_old != ctrl_new {
+            println!("update roting");
+            let sgi = (32 + vector) as u32;
+            let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
+            sgi_routing.add_msi_gsi_routing(sgi, entry.addr_lo, entry.addr_hi, entry.data);
+            drop(sgi_routing);
+            self.vm.set_gsi_routing().unwrap();
+
+            if entry.is_mask() {
+                println!("mask msi {sgi}");
+                self.vm
+                    .del_irqfd(
+                        &self.interrupt_info.msix.as_ref().unwrap().event_fds[vector],
+                        sgi,
+                    )
+                    .unwrap();
+            } else {
+                println!("unmask msi {sgi}");
+                self.vm
+                    .set_irqfd(
+                        &self.interrupt_info.msix.as_ref().unwrap().event_fds[vector],
+                        sgi,
+                    )
+                    .unwrap();
+            }
+
+            // std::thread::spawn({
+            //     let device = self.device.clone();
+            //     move || {
+            //         loop {
+            //             sleep(Duration::from_secs(5));
+            //             device.trigger_msix(0).unwrap();
+            //         }
+            //     }
+            // });
+        }
+    }
+
+    fn read_msix_pba(&self, offset: usize, buf: &mut [u8]) {
+        println!("offset: {offset} buf: {buf:?}");
+        todo!()
+    }
+
+    fn write_msix_pba(&self, offset: usize, buf: &[u8]) {
+        println!("offset: {offset} buf: {buf:?}");
+        todo!()
+    }
+
+    fn write_capability(&self, offset: u16, buf: &[u8]) {
+        let mut configuration_space = self.configuration_space.lock().unwrap();
+
+        if let Some(msix) = &self.interrupt_info.msix
+            && offset >= msix.cap_offset
+            && offset < msix.cap_offset + msix.cap_len
+        {
+            let cap = PciMsixCap::mut_from_bytes(
+                &mut configuration_space.as_bytes_mut()
+                    [msix.cap_offset as usize..msix.cap_offset as usize + msix.cap_len as usize],
+            )
+            .unwrap();
+
+            let offset_within_cap = offset - msix.cap_offset;
+
+            if offset_within_cap == 2 {
+                let ctrl = u16::from_le_bytes(buf.try_into().unwrap());
+                cap.ctrl = ctrl;
+
+                let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+
+                if !interrupt_manager.msix.as_mut().unwrap().enabled && cap.enable() {
+                    if let Some(intx) = &mut interrupt_manager.intx
+                        && intx.enabled
+                    {
+                        intx.enabled = false;
+                        self.device.disable_intx().unwrap();
+                    }
+
+                    interrupt_manager.msix.as_mut().unwrap().enabled = true;
+                    self.device
+                        .enable_msix(msix.event_fds.iter().collect())
+                        .unwrap();
+                } else if interrupt_manager.msix.as_mut().unwrap().enabled && !cap.enable() {
+                    interrupt_manager.msix.as_mut().unwrap().enabled = false;
+                    self.device.disable_msix().unwrap();
+                }
+            } else {
+                todo!("offset_within_cap: {}", offset_within_cap);
+            }
+
+            return;
+        }
+
+        todo!()
     }
 
     fn write_bar(&self, bar_index: usize, buf: &[u8]) {
@@ -135,25 +290,117 @@ impl PciFunctionArch for VfioPciFunction {
 
 impl PciFunction for VfioPciFunction {
     fn ecam_read(&self, offset: u16, buf: &mut [u8]) {
-        self.configuration_space.lock().unwrap().read(offset, buf);
+        let Some(field) = Type0HeaderOffset::from_repr(offset) else {
+            // capability
+
+            assert!(
+                offset >= CommonHeaderOffset::CapabilityStart as u16,
+                "offset: {offset}"
+            );
+
+            self.configuration_space
+                .lock()
+                .unwrap()
+                .read(offset as u16, buf);
+
+            return;
+        };
+
+        match field {
+            Type0HeaderOffset::VendorId
+            | Type0HeaderOffset::DeviceId
+            | Type0HeaderOffset::RevisionId
+            | Type0HeaderOffset::ProgIf
+            | Type0HeaderOffset::Subclass
+            | Type0HeaderOffset::ClassCode
+            | Type0HeaderOffset::CacheLineSize
+            | Type0HeaderOffset::LatencyTimer
+            | Type0HeaderOffset::HeaderType
+            | Type0HeaderOffset::Bist
+            | Type0HeaderOffset::CardbusCisPointer
+            | Type0HeaderOffset::SubsystemVendorId
+            | Type0HeaderOffset::SubsystemId
+            | Type0HeaderOffset::Reserved
+            | Type0HeaderOffset::InterruptLine
+            | Type0HeaderOffset::InterruptPin
+            | Type0HeaderOffset::MinGnt
+            | Type0HeaderOffset::MaxLat => {
+                buf.copy_from_slice(
+                    &self.raw_configuration_space.as_bytes()
+                        [offset as usize..offset as usize + buf.len()],
+                );
+            }
+            Type0HeaderOffset::Command | Type0HeaderOffset::Status => {
+                self.device
+                    .region_read(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
+                    .unwrap();
+            }
+            Type0HeaderOffset::Bar0
+            | Type0HeaderOffset::Bar1
+            | Type0HeaderOffset::Bar2
+            | Type0HeaderOffset::Bar3
+            | Type0HeaderOffset::Bar4
+            | Type0HeaderOffset::Bar5
+            | Type0HeaderOffset::CapPointer => self
+                .configuration_space
+                .lock()
+                .unwrap()
+                .read(offset as u16, buf),
+            Type0HeaderOffset::RomBaseAddress => (),
+        }
     }
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Option<EcamUpdateCallback> {
-        match Type0HeaderOffset::from_repr(offset) {
-            Some(Type0HeaderOffset::Bar0) => self.write_bar(0, buf),
-            Some(Type0HeaderOffset::Bar1) => self.write_bar(1, buf),
-            Some(Type0HeaderOffset::Bar2) => self.write_bar(2, buf),
-            Some(Type0HeaderOffset::Bar3) => self.write_bar(3, buf),
-            Some(Type0HeaderOffset::Bar4) => self.write_bar(4, buf),
-            Some(Type0HeaderOffset::Bar5) => self.write_bar(5, buf),
-            // Some(Type0HeaderOffset::RomAddress) => todo!(),
-            Some(Type0HeaderOffset::Command) => {
-                let command = u16::from_le_bytes(buf.try_into().unwrap());
-                return self.write_command(command);
+        let Some(offset) = Type0HeaderOffset::from_repr(offset) else {
+            // capability
+            assert!(offset >= CommonHeaderOffset::CapabilityStart as u16);
+
+            self.write_capability(offset, buf);
+
+            return None;
+        };
+
+        match offset {
+            Type0HeaderOffset::VendorId
+            | Type0HeaderOffset::DeviceId
+            | Type0HeaderOffset::RevisionId
+            | Type0HeaderOffset::ProgIf
+            | Type0HeaderOffset::Subclass
+            | Type0HeaderOffset::ClassCode
+            | Type0HeaderOffset::CacheLineSize
+            | Type0HeaderOffset::HeaderType
+            | Type0HeaderOffset::Bist
+            | Type0HeaderOffset::CardbusCisPointer
+            | Type0HeaderOffset::SubsystemVendorId
+            | Type0HeaderOffset::SubsystemId
+            | Type0HeaderOffset::CapPointer
+            | Type0HeaderOffset::Reserved
+            | Type0HeaderOffset::InterruptLine
+            | Type0HeaderOffset::InterruptPin
+            | Type0HeaderOffset::MinGnt
+            | Type0HeaderOffset::MaxLat => {
+                panic!("should not write by guest, {offset:?}");
             }
-            _ => {
-                self.configuration_space.lock().unwrap().write(offset, buf);
+
+            Type0HeaderOffset::Command => {
+                let cb = self.write_command(u16::from_le_bytes(buf.try_into().unwrap()));
+                self.device
+                    .region_write(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
+                    .unwrap();
+                return cb;
             }
+            Type0HeaderOffset::Status => {
+                self.device
+                    .region_write(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
+                    .unwrap();
+            }
+            Type0HeaderOffset::Bar0 => self.write_bar(0, buf),
+            Type0HeaderOffset::Bar1 => self.write_bar(1, buf),
+            Type0HeaderOffset::Bar2 => self.write_bar(2, buf),
+            Type0HeaderOffset::Bar3 => self.write_bar(3, buf),
+            Type0HeaderOffset::Bar4 => self.write_bar(4, buf),
+            Type0HeaderOffset::Bar5 => self.write_bar(5, buf),
+            Type0HeaderOffset::LatencyTimer | Type0HeaderOffset::RomBaseAddress => (), // TODO
         }
 
         None
@@ -163,12 +410,44 @@ impl PciFunction for VfioPciFunction {
         self.device
             .region_read(VFIO_PCI_BAR0_REGION_INDEX + bar as u32, buf, offset)
             .unwrap();
+
+        if let Some(msix) = &self.interrupt_info.msix
+            && msix.table_bar == bar
+            && offset >= msix.table_offset as u64
+            && offset < msix.table_offset as u64 + msix.table_len as u64
+        {
+            self.read_msix_table((offset - msix.table_offset as u64).try_into().unwrap(), buf);
+        }
+
+        if let Some(msix) = &self.interrupt_info.msix
+            && msix.pba_bar == bar
+            && offset >= msix.pba_offset as u64
+            && offset < msix.pba_offset as u64 + msix.pba_len as u64
+        {
+            self.read_msix_pba((offset - msix.pba_offset as u64).try_into().unwrap(), buf);
+        }
     }
 
     fn bar_write(&self, bar: u8, offset: u64, buf: &[u8]) {
         self.device
             .region_write(VFIO_PCI_BAR0_REGION_INDEX + bar as u32, buf, offset)
             .unwrap();
+
+        if let Some(msix) = &self.interrupt_info.msix
+            && msix.table_bar == bar
+            && offset >= msix.table_offset as u64
+            && offset < msix.table_offset as u64 + msix.table_len as u64
+        {
+            self.write_msix_table((offset - msix.table_offset as u64).try_into().unwrap(), buf);
+        }
+
+        if let Some(msix) = &self.interrupt_info.msix
+            && msix.pba_bar == bar
+            && offset >= msix.pba_offset as u64
+            && offset < msix.pba_offset as u64 + msix.pba_len as u64
+        {
+            self.write_msix_pba((offset - msix.pba_offset as u64).try_into().unwrap(), buf);
+        }
     }
 
     fn legacy_irq(&self) -> Option<(u8, u8)> {

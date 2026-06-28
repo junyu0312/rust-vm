@@ -1,6 +1,6 @@
 use strum_macros::FromRepr;
 
-#[derive(FromRepr)]
+#[derive(Clone, Copy, FromRepr)]
 #[repr(u8)]
 pub enum InterruptPin {
     Empty = 0x00,
