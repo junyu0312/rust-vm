@@ -1,3 +1,5 @@
+use std::io;
+
 use thiserror::Error;
 use vfio_ioctls::VfioError;
 
@@ -47,6 +49,9 @@ pub enum Error {
 
     #[error("{0}")]
     Pci(#[from] vm_pci::error::Error),
+
+    #[error("Io error: {0}")]
+    Io(#[from] io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

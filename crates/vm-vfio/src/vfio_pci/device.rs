@@ -81,6 +81,22 @@ fn setup_interrupt_capability(
 
         let vectors = (cap.ctrl & PCI_MSIX_FLAGS_QSIZE) + 1;
 
+        let irq_info = vfio_device
+            .get_msix_irq_info()
+            .ok_or(Error::PrepareIrq("Failed to get msi-x info".into()))?;
+
+        if irq_info.count == 0 {
+            return Err(Error::PrepareIrq("msi-x count is zero".into()));
+        }
+
+        if irq_info.count != vectors as u32 {
+            return Err(Error::PrepareIrq("msi-x count inconsistent".into()));
+        }
+
+        if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
+            return Err(Error::PrepareIrq("msi-x does not support eventfd".into()));
+        }
+
         let mut table = (0..vectors)
             .map(|_| MsixEntry::default())
             .collect::<Vec<_>>();
@@ -97,8 +113,8 @@ fn setup_interrupt_capability(
         let pba_len = pba.as_bytes().len();
 
         let event_fds = (0..vectors)
-            .map(|_| EventFd::new(0).unwrap())
-            .collect::<Vec<_>>();
+            .map(|_| EventFd::new(0))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         let cap = StandardCapability::from(PciMsixCap::new(
             vectors,
@@ -109,22 +125,6 @@ fn setup_interrupt_capability(
         ));
         let cap_len = cap.cap_len();
         let cap_offset = cfg.alloc_capability(cap)?;
-
-        let irq_info = vfio_device
-            .get_msix_irq_info()
-            .ok_or(Error::PrepareIrq("Failed to get msi-x info".into()))?;
-
-        if irq_info.count == 0 {
-            return Err(Error::PrepareIrq("msi-x count is zero".into()));
-        }
-
-        if irq_info.count != vectors as u32 {
-            return Err(Error::PrepareIrq("msi-x count inconsistent".into()));
-        }
-
-        if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
-            return Err(Error::PrepareIrq("msi-x does not support eventfd".into()));
-        }
 
         msix_info = Some(VfioMsixInfo {
             event_fds,
