@@ -123,12 +123,10 @@ impl VfioPciFunction {
     }
 
     fn read_msix_pba(&self, offset: u64, buf: &mut [u8]) {
-        println!("offset: {offset} buf: {buf:?}");
         todo!()
     }
 
     fn write_msix_pba(&self, offset: u64, buf: &[u8]) {
-        println!("offset: {offset} buf: {buf:?}");
         todo!()
     }
 
@@ -136,17 +134,17 @@ impl VfioPciFunction {
         let mut configuration_space = self.configuration_space.lock().unwrap();
 
         if let Some(msix) = &self.interrupt_info.msix
-            && offset >= msix.cap_offset
-            && offset < msix.cap_offset + msix.cap_len
+            && msix.cap_offset_range.contains(&offset)
         {
             let cap = PciMsixCap::mut_from_bytes(
                 &mut configuration_space.as_bytes_mut()
-                    [msix.cap_offset as usize..msix.cap_offset as usize + msix.cap_len as usize],
+                    [msix.cap_offset_range.start as usize..msix.cap_offset_range.end as usize],
             )
             .unwrap();
 
-            let offset_within_cap = offset - msix.cap_offset;
+            let offset_within_cap = offset - msix.cap_offset_range.start;
 
+            // ctrl
             if offset_within_cap == 2 {
                 let ctrl = u16::from_le_bytes(buf.try_into().unwrap());
                 cap.ctrl = ctrl;
@@ -170,13 +168,15 @@ impl VfioPciFunction {
                     self.device.disable_msix().unwrap();
                 }
             } else {
-                todo!("offset_within_cap: {}", offset_within_cap);
+                panic!("guest try to write a invalid field of msi-x cap")
             }
-
-            return;
         }
 
-        todo!()
+        if let Some(msi) = &self.interrupt_info.msi
+            && msi.cap_offset_range.contains(&offset)
+        {
+            todo!()
+        }
     }
 
     fn write_bar(&self, bar_index: usize, buf: &[u8]) {

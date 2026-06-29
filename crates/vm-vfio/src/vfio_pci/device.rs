@@ -138,8 +138,7 @@ fn setup_interrupt_capability(
             pba_bar,
             pba_offset,
             pba_len: pba_len.try_into().unwrap(),
-            cap_offset: cap_offset as u16,
-            cap_len: cap_len as u16,
+            cap_offset_range: cap_offset as u16..cap_offset as u16 + cap_len as u16,
         });
         msix = Some(VfioMsix {
             table,
@@ -178,22 +177,28 @@ fn setup_interrupt_capability(
 
         let bit64 = ctrl & PCI_MSI_FLAGS_64BIT != 0;
         let mask = ctrl & PCI_MSI_FLAGS_MASKBIT != 0;
+        let cap_offset;
+        let cap_len;
         match (bit64, mask) {
             (false, false) => {
-                let cap = PciMsiCap::new(mmc);
-                cfg.alloc_capability(cap.into())?;
+                let cap: StandardCapability = PciMsiCap::new(mmc).into();
+                cap_len = cap.cap_len();
+                cap_offset = cfg.alloc_capability(cap)?;
             }
             (true, false) => {
-                let cap = PciMsiCap64::new(mmc);
-                cfg.alloc_capability(cap.into())?;
+                let cap: StandardCapability = PciMsiCap64::new(mmc).into();
+                cap_len = cap.cap_len();
+                cap_offset = cfg.alloc_capability(cap)?;
             }
             (false, true) => {
-                let cap = PciMsiCapMask::new(mmc);
-                cfg.alloc_capability(cap.into())?;
+                let cap: StandardCapability = PciMsiCapMask::new(mmc).into();
+                cap_len = cap.cap_len();
+                cap_offset = cfg.alloc_capability(cap)?;
             }
             (true, true) => {
-                let cap = PciMsiCap64Mask::new(mmc);
-                cfg.alloc_capability(cap.into())?;
+                let cap: StandardCapability = PciMsiCap64Mask::new(mmc).into();
+                cap_len = cap.cap_len();
+                cap_offset = cfg.alloc_capability(cap)?;
             }
         }
 
@@ -204,6 +209,7 @@ fn setup_interrupt_capability(
         msi_info = Some(VfioMsiInfo {
             event_fds,
             vectors: mmc.vectors(),
+            cap_offset_range: cap_offset as u16..cap_offset as u16 + cap_len as u16,
         });
         msi = Some(VfioMsi { enabled: false });
     }
