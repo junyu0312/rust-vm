@@ -39,7 +39,7 @@ mod vfio;
 
 pub struct DeviceManagerBuilder<'a> {
     #[allow(dead_code)]
-    vm: &'a dyn HypervisorVm,
+    vm: Arc<dyn HypervisorVm>,
     irq_allocator: IrqAllocator,
     irq_chip: Arc<dyn InterruptController>,
     memory: Arc<MemoryAddressSpace>,
@@ -234,7 +234,7 @@ impl<'a> DeviceManagerBuilder<'a> {
     }
 
     pub fn new(
-        vm: &'a dyn HypervisorVm,
+        vm: Arc<dyn HypervisorVm>,
         irq_chip: Arc<dyn InterruptController>,
         irq_allocator: IrqAllocator,
         memory: Arc<MemoryAddressSpace>,

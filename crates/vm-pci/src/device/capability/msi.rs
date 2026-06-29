@@ -13,6 +13,9 @@ pub const PCI_MSI_FLAGS_QSIZE: u16 = 0x0070; /* Message queue size configured */
 pub const PCI_MSI_FLAGS_64BIT: u16 = 0x0080; /* 64-bit addresses allowed */
 pub const PCI_MSI_FLAGS_MASKBIT: u16 = 0x0100; /* Per-vector masking capable */
 
+const PCI_MSI_MASK_32: usize = 0x0c; /* Mask bits register for 32-bit devices */
+const PCI_MSI_MASK_64: usize = 0x10; /* Mask bits register for 64-bit devices */
+
 #[derive(Clone, Copy, FromRepr)]
 #[repr(u8)]
 pub enum PciMsiMmc {
@@ -30,12 +33,79 @@ impl PciMsiMmc {
     }
 }
 
+pub trait PciMsiCapOps {
+    fn mask_bits_offset(&self) -> Option<usize> {
+        None
+    }
+
+    fn available_vectors(&self) -> usize {
+        1 << (((self.ctrl() & PCI_MSI_FLAGS_QMASK) >> 1) as usize)
+    }
+
+    fn configured_vectors(&self) -> usize {
+        1 << (((self.ctrl() & PCI_MSI_FLAGS_QSIZE) >> 4) as usize)
+    }
+
+    fn ctrl(&self) -> u16;
+
+    fn set_ctrl(&mut self, ctrl: u16);
+
+    fn enable(&self) -> bool {
+        self.ctrl() & PCI_MSI_FLAGS_ENABLE != 0
+    }
+
+    fn address_lo(&self) -> u32;
+
+    fn address_hi(&self) -> u32 {
+        0
+    }
+
+    fn data(&self) -> u16;
+
+    fn vector_data(&self, vector: usize) -> u32 {
+        let mut data = self.data() as u32;
+        data &= !(self.configured_vectors() as u32 - 1);
+        data |= vector as u32;
+        data
+    }
+
+    fn mask_bits(&self) -> u32 {
+        0
+    }
+
+    fn set_mask_bits(&mut self, _mask_bits: u32) {
+        unreachable!()
+    }
+
+    fn is_mask(&self, vector: usize) -> bool {
+        (self.mask_bits() & (1 << vector as u32)) != 0
+    }
+}
+
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct PciMsiCap {
     control: u16,
     address_lo: u32,
     data: u16,
+}
+
+impl PciMsiCapOps for PciMsiCap {
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
 }
 
 impl PciMsiCap {
@@ -63,6 +133,28 @@ pub struct PciMsiCap64 {
     address_lo: u32,
     address_hi: u32,
     data: u16,
+}
+
+impl PciMsiCapOps for PciMsiCap64 {
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn address_hi(&self) -> u32 {
+        self.address_hi
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
 }
 
 impl PciMsiCap64 {
@@ -93,6 +185,36 @@ pub struct PciMsiCapMask {
     reserved: u16,
     mask_bits: u32,
     pending_bits: u32,
+}
+
+impl PciMsiCapOps for PciMsiCapMask {
+    fn mask_bits_offset(&self) -> Option<usize> {
+        Some(PCI_MSI_MASK_32)
+    }
+
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
+
+    fn mask_bits(&self) -> u32 {
+        self.mask_bits
+    }
+
+    fn set_mask_bits(&mut self, mask_bits: u32) {
+        self.mask_bits = mask_bits;
+    }
 }
 
 impl PciMsiCapMask {
@@ -126,6 +248,40 @@ pub struct PciMsiCap64Mask {
     reserved: u16,
     mask_bits: u32,
     pending_bits: u32,
+}
+
+impl PciMsiCapOps for PciMsiCap64Mask {
+    fn mask_bits_offset(&self) -> Option<usize> {
+        Some(PCI_MSI_MASK_64)
+    }
+
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn address_hi(&self) -> u32 {
+        self.address_hi
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
+
+    fn mask_bits(&self) -> u32 {
+        self.mask_bits
+    }
+
+    fn set_mask_bits(&mut self, mask_bits: u32) {
+        self.mask_bits = mask_bits;
+    }
 }
 
 impl PciMsiCap64Mask {

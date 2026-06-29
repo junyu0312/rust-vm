@@ -15,7 +15,6 @@ pub struct VfioRegionInfo {
     pub(crate) flags: u32,
     pub(crate) _caps: Vec<VfioRegionInfoCap>,
     pub(crate) size: u64,
-    pub(crate) _offset: u64,
 }
 
 pub struct VfioDevice {
@@ -49,13 +48,11 @@ impl VfioDevice {
         let flags = self.device.get_region_flags(index);
         let caps = self.device.get_region_caps(index);
         let size = self.device.get_region_size(index);
-        let offset = self.device.get_region_offset(index);
 
         Ok(VfioRegionInfo {
             flags,
             _caps: caps,
             size,
-            _offset: offset,
         })
     }
 
@@ -89,8 +86,44 @@ impl VfioDevice {
         Ok(())
     }
 
+    pub(crate) fn disable_intx(&self) -> Result<()> {
+        self.device.disable_irq(VFIO_PCI_INTX_IRQ_INDEX)?;
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn unmask_intx(&self) -> Result<()> {
+        self.device.unmask_irq(VFIO_PCI_INTX_IRQ_INDEX)?;
+        Ok(())
+    }
+
+    pub(crate) fn enable_msi(&self, fds: Vec<&EventFd>) -> Result<()> {
+        self.device.enable_msi(fds)?;
+
+        Ok(())
+    }
+
+    pub(crate) fn disable_msi(&self) -> Result<()> {
+        self.device.disable_msi()?;
+
+        Ok(())
+    }
+
     pub(crate) fn get_msix_irq_info(&self) -> Option<&VfioIrq> {
         self.device.get_irq_info(VFIO_PCI_MSIX_IRQ_INDEX)
+    }
+
+    pub(crate) fn enable_msix(&self, fds: Vec<&EventFd>) -> Result<()> {
+        self.device.enable_msix(fds)?;
+
+        Ok(())
+    }
+
+    pub(crate) fn disable_msix(&self) -> Result<()> {
+        self.device.disable_msix()?;
+
+        Ok(())
     }
 
     pub(crate) fn get_msi_irq_info(&self) -> Option<&VfioIrq> {

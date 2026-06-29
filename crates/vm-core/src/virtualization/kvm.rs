@@ -15,6 +15,8 @@ use crate::virtualization::hypervisor::error::HypervisorError;
 use crate::virtualization::kvm::vm::KvmVm;
 use crate::virtualization::vm::HypervisorVm;
 
+pub mod gsi_routing;
+
 mod arch;
 mod irq_chip;
 mod vcpu;

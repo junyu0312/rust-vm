@@ -14,6 +14,9 @@ pub enum VmError {
     #[error("Failed to create irq_chip: {0}")]
     CreateIrqChipError(String),
 
+    #[error("Failed to set gsi routing")]
+    SetGsiRouting(Box<dyn std::error::Error + Send + Sync>),
+
     #[error("Failed to set_user_memory_region: {0}")]
     SetUserMemoryRegionError(String),
 
