@@ -134,10 +134,10 @@ fn setup_interrupt_capability(
             event_fds,
             table_bar,
             table_offset,
-            table_len,
+            table_len: table_len.try_into().unwrap(),
             pba_bar,
             pba_offset,
-            pba_len,
+            pba_len: pba_len.try_into().unwrap(),
             cap_offset: cap_offset as u16,
             cap_len: cap_len as u16,
         });
@@ -158,6 +158,7 @@ fn setup_interrupt_capability(
         );
         let mmc = PciMsiMmc::from_repr(((ctrl & PCI_MSI_FLAGS_QMASK) >> 1) as u8)
             .ok_or(Error::ParseMsi)?;
+        let vectors = mmc.vectors();
 
         let irq_info = vfio_device
             .get_msi_irq_info()
@@ -167,7 +168,7 @@ fn setup_interrupt_capability(
             return Err(Error::PrepareIrq("msi count is zero".into()));
         }
 
-        if irq_info.count != mmc.vectors() as u32 {
+        if irq_info.count != vectors as u32 {
             return Err(Error::PrepareIrq("msi count inconsistent".into()));
         }
 
@@ -196,7 +197,12 @@ fn setup_interrupt_capability(
             }
         }
 
+        let event_fds = (0..mmc.vectors())
+            .map(|_| EventFd::new(0))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
         msi_info = Some(VfioMsiInfo {
+            event_fds,
             vectors: mmc.vectors(),
         });
         msi = Some(VfioMsi { enabled: false });

@@ -70,7 +70,10 @@ impl VfioPciFunction {
         let msix = interrupt_manager.msix.as_mut().unwrap();
 
         let vector = offset / size_of::<MsixEntry>();
+        let vector = usize::try_from(vector).unwrap();
+
         let offset_within_entry = offset % size_of::<MsixEntry>();
+        let offset_within_entry = usize::try_from(offset_within_entry).unwrap();
 
         let entry = &mut msix.table[vector];
         let ctrl_old = entry.control;
@@ -94,7 +97,6 @@ impl VfioPciFunction {
         }
 
         if ctrl_old != ctrl_new {
-            println!("update roting");
             let sgi = (32 + vector) as u32;
             let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
             sgi_routing.add_msi_gsi_routing(sgi, entry.addr_lo, entry.addr_hi, entry.data);
@@ -102,7 +104,6 @@ impl VfioPciFunction {
             self.vm.set_gsi_routing().unwrap();
 
             if entry.is_mask() {
-                println!("mask msi {sgi}");
                 self.vm
                     .del_irqfd(
                         &self.interrupt_info.msix.as_ref().unwrap().event_fds[vector],
@@ -110,7 +111,6 @@ impl VfioPciFunction {
                     )
                     .unwrap();
             } else {
-                println!("unmask msi {sgi}");
                 self.vm
                     .set_irqfd(
                         &self.interrupt_info.msix.as_ref().unwrap().event_fds[vector],
@@ -118,25 +118,15 @@ impl VfioPciFunction {
                     )
                     .unwrap();
             }
-
-            // std::thread::spawn({
-            //     let device = self.device.clone();
-            //     move || {
-            //         loop {
-            //             sleep(Duration::from_secs(5));
-            //             device.trigger_msix(0).unwrap();
-            //         }
-            //     }
-            // });
         }
     }
 
-    fn read_msix_pba(&self, offset: usize, buf: &mut [u8]) {
+    fn read_msix_pba(&self, offset: u64, buf: &mut [u8]) {
         println!("offset: {offset} buf: {buf:?}");
         todo!()
     }
 
-    fn write_msix_pba(&self, offset: usize, buf: &[u8]) {
+    fn write_msix_pba(&self, offset: u64, buf: &[u8]) {
         println!("offset: {offset} buf: {buf:?}");
         todo!()
     }
@@ -405,20 +395,18 @@ impl PciFunction for VfioPciFunction {
             .region_read(VFIO_PCI_BAR0_REGION_INDEX + bar as u32, buf, offset)
             .unwrap();
 
-        if let Some(msix) = &self.interrupt_info.msix
-            && msix.table_bar == bar
-            && offset >= msix.table_offset as u64
-            && offset < msix.table_offset as u64 + msix.table_len as u64
-        {
-            self.read_msix_table((offset - msix.table_offset as u64).try_into().unwrap(), buf);
-        }
+        if let Some(msix) = &self.interrupt_info.msix {
+            let table_range =
+                msix.table_offset as u64..msix.table_offset as u64 + msix.table_len as u64;
+            let pba_range = msix.pba_offset as u64..msix.pba_offset as u64 + msix.pba_len as u64;
 
-        if let Some(msix) = &self.interrupt_info.msix
-            && msix.pba_bar == bar
-            && offset >= msix.pba_offset as u64
-            && offset < msix.pba_offset as u64 + msix.pba_len as u64
-        {
-            self.read_msix_pba((offset - msix.pba_offset as u64).try_into().unwrap(), buf);
+            if msix.table_bar == bar && table_range.contains(&offset) {
+                self.read_msix_table((offset - table_range.start).try_into().unwrap(), buf);
+            }
+
+            if msix.pba_bar == bar && pba_range.contains(&offset) {
+                self.read_msix_pba((offset - pba_range.start).try_into().unwrap(), buf);
+            }
         }
     }
 
@@ -427,20 +415,18 @@ impl PciFunction for VfioPciFunction {
             .region_write(VFIO_PCI_BAR0_REGION_INDEX + bar as u32, buf, offset)
             .unwrap();
 
-        if let Some(msix) = &self.interrupt_info.msix
-            && msix.table_bar == bar
-            && offset >= msix.table_offset as u64
-            && offset < msix.table_offset as u64 + msix.table_len as u64
-        {
-            self.write_msix_table((offset - msix.table_offset as u64).try_into().unwrap(), buf);
-        }
+        if let Some(msix) = &self.interrupt_info.msix {
+            let table_range =
+                msix.table_offset as u64..msix.table_offset as u64 + msix.table_len as u64;
+            let pba_range = msix.pba_offset as u64..msix.pba_offset as u64 + msix.pba_len as u64;
 
-        if let Some(msix) = &self.interrupt_info.msix
-            && msix.pba_bar == bar
-            && offset >= msix.pba_offset as u64
-            && offset < msix.pba_offset as u64 + msix.pba_len as u64
-        {
-            self.write_msix_pba((offset - msix.pba_offset as u64).try_into().unwrap(), buf);
+            if msix.table_bar == bar && table_range.contains(&offset) {
+                self.write_msix_table((offset - table_range.start).try_into().unwrap(), buf);
+            }
+
+            if msix.pba_bar == bar && pba_range.contains(&offset) {
+                self.write_msix_pba((offset - pba_range.start).try_into().unwrap(), buf);
+            }
         }
     }
 
