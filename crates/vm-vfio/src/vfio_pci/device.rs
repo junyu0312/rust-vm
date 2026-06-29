@@ -64,7 +64,7 @@ use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsix;
 use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
-pub const DEBUG_ENABLE_MSIX: bool = false;
+pub const DEBUG_ENABLE_MSIX: bool = true;
 pub const DEBUG_ENABLE_MSI: bool = true;
 pub const DEBUG_ENABLE_INTX: bool = true;
 
@@ -330,6 +330,8 @@ impl VfioPciDevice {
                 }
             }
             header.expansion_rom_base_address = 0;
+            header.interrupt_line = 0xff;
+            header.interrupt_pin = InterruptPin::Empty as u8;
             header.common.status &= !(PciStatus::CapList as u16);
             header.cap_pointer = 0;
             configuration_space.as_bytes_mut()[CommonHeaderOffset::CapabilityStart as usize..]
