@@ -161,7 +161,7 @@ impl VfioPciFunction {
         };
 
         if !msi.enabled {
-            for vector in 0..msi_info.vectors {
+            for vector in 0..msi_cap.mme() {
                 // TODO: introduce sgi allocator
                 let sgi = (32 + vector) as u32;
                 let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
@@ -169,7 +169,7 @@ impl VfioPciFunction {
                     sgi,
                     msi_cap.address_lo(),
                     msi_cap.address_hi(),
-                    msi_cap.data() as u32,
+                    msi_cap.vector_data(vector),
                 );
                 drop(sgi_routing);
                 self.vm.set_gsi_routing().unwrap();
@@ -195,6 +195,8 @@ impl VfioPciFunction {
         if msi.enabled {
             self.device.disable_msi().unwrap();
             msi.enabled = false;
+
+            todo!("update router, del irqrd")
         }
     }
 

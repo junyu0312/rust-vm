@@ -48,6 +48,13 @@ pub trait PciMsiCapOps {
     fn address_hi(&self) -> u32;
 
     fn data(&self) -> u16;
+
+    fn vector_data(&self, vector: usize) -> u32 {
+        let mut data = self.data() as u32;
+        data &= !(self.mme() as u32 - 1);
+        data |= vector as u32;
+        data
+    }
 }
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]

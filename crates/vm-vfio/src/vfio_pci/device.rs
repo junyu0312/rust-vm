@@ -64,7 +64,7 @@ use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsix;
 use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
-pub const DEBUG_ENABLE_MSIX: bool = true;
+pub const DEBUG_ENABLE_MSIX: bool = false;
 pub const DEBUG_ENABLE_MSI: bool = true;
 pub const DEBUG_ENABLE_INTX: bool = true;
 
