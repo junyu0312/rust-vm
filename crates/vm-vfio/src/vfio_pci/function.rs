@@ -29,6 +29,7 @@ use zerocopy::IntoBytes;
 use crate::vfio::device::VfioDevice;
 use crate::vfio_pci::interrupt::VfioInterruptInfo;
 use crate::vfio_pci::interrupt::VfioInterruptManager;
+use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
 pub struct VfioPciFunction {
     vm: Arc<dyn HypervisorVm>,
@@ -68,7 +69,7 @@ impl VfioPciFunction {
         buf.copy_from_slice(&msix.table.as_bytes()[offset..offset + buf.len()]);
     }
 
-    fn write_msix_table(&self, offset: usize, buf: &[u8]) {
+    fn write_msix_table(&self, msix_info: &VfioMsixInfo, offset: usize, buf: &[u8]) {
         let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
         let msix = interrupt_manager.msix.as_mut().unwrap();
 
@@ -85,29 +86,25 @@ impl VfioPciFunction {
             .copy_from_slice(buf);
         let ctrl_new = entry.control;
 
-        if ctrl_old != ctrl_new {
-            // TODO: introduce sgi allocator
-            let sgi = (32 + vector) as u32;
-            let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
-            sgi_routing.add_msi_gsi_routing(sgi, entry.addr_lo, entry.addr_hi, entry.data);
-            drop(sgi_routing);
-            self.vm.set_gsi_routing().unwrap();
+        if ctrl_old == ctrl_new {
+            return;
+        }
 
-            if entry.is_mask() {
-                self.vm
-                    .del_irqfd(
-                        &self.interrupt_info.msix.as_ref().unwrap().event_fds[vector],
-                        sgi,
-                    )
-                    .unwrap();
-            } else {
-                self.vm
-                    .set_irqfd(
-                        &self.interrupt_info.msix.as_ref().unwrap().event_fds[vector],
-                        sgi,
-                    )
-                    .unwrap();
-            }
+        // TODO: introduce sgi allocator
+        let sgi = (32 + vector) as u32;
+        let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
+        sgi_routing.add_msi_gsi_routing(sgi, entry.addr_lo, entry.addr_hi, entry.data);
+        drop(sgi_routing);
+        self.vm.set_gsi_routing().unwrap();
+
+        if entry.is_mask() {
+            self.vm
+                .del_irqfd(&msix_info.event_fds[vector], sgi)
+                .unwrap();
+        } else {
+            self.vm
+                .set_irqfd(&msix_info.event_fds[vector], sgi)
+                .unwrap();
         }
     }
 
@@ -475,7 +472,7 @@ impl PciFunction for VfioPciFunction {
             let pba_range = msix.pba_offset as u64..msix.pba_offset as u64 + msix.pba_len as u64;
 
             if msix.table_bar == bar && table_range.contains(&offset) {
-                self.write_msix_table((offset - table_range.start).try_into().unwrap(), buf);
+                self.write_msix_table(msix, (offset - table_range.start).try_into().unwrap(), buf);
             }
 
             if msix.pba_bar == bar && pba_range.contains(&offset) {
