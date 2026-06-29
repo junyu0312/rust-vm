@@ -19,7 +19,7 @@ use crate::arch::x86_64::layout::IRQ_ALLOCATION_START;
 use crate::cpu::vm_exit::VmExit;
 use crate::virtualization::irq_allocator::IrqAllocator;
 use crate::virtualization::kvm::gsi_routing::KvmGsiRouting;
-use crate::virtualization::kvm::gsi_routing::get_kvm_sgi_routing_instance;
+use crate::virtualization::kvm::gsi_routing::get_kvm_gsi_routing_instance;
 use crate::virtualization::kvm::irq_chip::KvmIrqChip;
 use crate::virtualization::kvm::vcpu::KvmVcpu;
 use crate::virtualization::vcpu::HypervisorVcpu;
@@ -123,7 +123,7 @@ impl HypervisorVm for KvmVm {
     }
 
     fn set_gsi_routing(&self) -> Result<(), VmError> {
-        let instance = get_kvm_sgi_routing_instance().lock().unwrap();
+        let instance = get_kvm_gsi_routing_instance().lock().unwrap();
         let instance: &KvmGsiRouting = &instance;
 
         self.vm_fd.set_gsi_routing(

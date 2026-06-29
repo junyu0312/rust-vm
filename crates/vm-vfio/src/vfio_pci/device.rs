@@ -179,6 +179,8 @@ fn setup_interrupt_capability(
         let mask = ctrl & PCI_MSI_FLAGS_MASKBIT != 0;
         let cap_offset;
         let cap_len;
+
+        let mask = false;
         match (bit64, mask) {
             (false, false) => {
                 let cap: StandardCapability = PciMsiCap::new(mmc).into();
@@ -210,7 +212,6 @@ fn setup_interrupt_capability(
             event_fds,
             bit64,
             mask,
-            vectors: mmc.vectors(),
             cap_offset_range: cap_offset as u16..cap_offset as u16 + cap_len as u16,
         });
         msi = Some(VfioMsi { enabled: false });

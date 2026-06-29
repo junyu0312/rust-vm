@@ -16,7 +16,7 @@ mod aarch64;
 #[cfg(target_arch = "x86_64")]
 mod x86_64;
 
-pub enum KvmSgiRoutingEntryU {
+pub enum KvmGsiRoutingEntryU {
     Irqchip {
         irqchip: u32,
         pin: u32,
@@ -28,16 +28,16 @@ pub enum KvmSgiRoutingEntryU {
     },
 }
 
-impl From<&KvmSgiRoutingEntryU> for kvm_irq_routing_entry__bindgen_ty_1 {
-    fn from(u: &KvmSgiRoutingEntryU) -> Self {
+impl From<&KvmGsiRoutingEntryU> for kvm_irq_routing_entry__bindgen_ty_1 {
+    fn from(u: &KvmGsiRoutingEntryU) -> Self {
         match u {
-            KvmSgiRoutingEntryU::Irqchip { irqchip, pin } => kvm_irq_routing_entry__bindgen_ty_1 {
+            KvmGsiRoutingEntryU::Irqchip { irqchip, pin } => kvm_irq_routing_entry__bindgen_ty_1 {
                 irqchip: kvm_irq_routing_irqchip {
                     irqchip: *irqchip,
                     pin: *pin,
                 },
             },
-            KvmSgiRoutingEntryU::Msi {
+            KvmGsiRoutingEntryU::Msi {
                 address_lo,
                 address_hi,
                 data,
@@ -55,19 +55,19 @@ impl From<&KvmSgiRoutingEntryU> for kvm_irq_routing_entry__bindgen_ty_1 {
 
 #[derive(Clone, Copy)]
 #[repr(u32)]
-pub enum KvmSgiRoutingEntryType {
+pub enum KvmGsiRoutingEntryType {
     Irqchip = 1,
     Msi = 2,
 }
 
-pub struct KvmSgiRoutingEntry {
+pub struct KvmGsiRoutingEntry {
     pub gsi: u32,
-    pub r#type: KvmSgiRoutingEntryType,
-    pub u: KvmSgiRoutingEntryU,
+    pub r#type: KvmGsiRoutingEntryType,
+    pub u: KvmGsiRoutingEntryU,
 }
 
-impl From<&KvmSgiRoutingEntry> for kvm_irq_routing_entry {
-    fn from(entry: &KvmSgiRoutingEntry) -> Self {
+impl From<&KvmGsiRoutingEntry> for kvm_irq_routing_entry {
+    fn from(entry: &KvmGsiRoutingEntry) -> Self {
         kvm_irq_routing_entry {
             gsi: entry.gsi,
             type_: entry.r#type as u32,
@@ -81,27 +81,27 @@ impl From<&KvmSgiRoutingEntry> for kvm_irq_routing_entry {
 #[derive(Default)]
 pub struct KvmGsiRouting {
     nr: u32,
-    entries: Vec<KvmSgiRoutingEntry>,
+    entries: Vec<KvmGsiRoutingEntry>,
 }
 
 impl KvmGsiRouting {
-    pub fn push(&mut self, entry: KvmSgiRoutingEntry) {
+    pub fn push(&mut self, entry: KvmGsiRoutingEntry) {
         self.entries.push(entry);
     }
 
     pub fn add_intx_gsi_routing(&mut self, gsi: u32, irqchip: u32, pin: u32) {
-        self.entries.push(KvmSgiRoutingEntry {
+        self.entries.push(KvmGsiRoutingEntry {
             gsi,
-            r#type: KvmSgiRoutingEntryType::Irqchip,
-            u: KvmSgiRoutingEntryU::Irqchip { irqchip, pin },
+            r#type: KvmGsiRoutingEntryType::Irqchip,
+            u: KvmGsiRoutingEntryU::Irqchip { irqchip, pin },
         });
     }
 
     pub fn add_msi_gsi_routing(&mut self, gsi: u32, address_lo: u32, address_hi: u32, data: u32) {
-        self.entries.push(KvmSgiRoutingEntry {
+        self.entries.push(KvmGsiRoutingEntry {
             gsi,
-            r#type: KvmSgiRoutingEntryType::Msi,
-            u: KvmSgiRoutingEntryU::Msi {
+            r#type: KvmGsiRoutingEntryType::Msi,
+            u: KvmGsiRoutingEntryU::Msi {
                 address_lo,
                 address_hi,
                 data,
@@ -124,9 +124,9 @@ impl TryFrom<&KvmGsiRouting> for KvmIrqRouting {
     }
 }
 
-static KVM_SGI_ROUTING: LazyLock<Mutex<KvmGsiRouting>> =
+static KVM_GSI_ROUTING: LazyLock<Mutex<KvmGsiRouting>> =
     LazyLock::new(|| Mutex::new(new_irq_gsi_routing()));
 
-pub fn get_kvm_sgi_routing_instance() -> &'static Mutex<KvmGsiRouting> {
-    &KVM_SGI_ROUTING
+pub fn get_kvm_gsi_routing_instance() -> &'static Mutex<KvmGsiRouting> {
+    &KVM_GSI_ROUTING
 }

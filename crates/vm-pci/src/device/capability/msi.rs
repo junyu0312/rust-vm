@@ -31,11 +31,11 @@ impl PciMsiMmc {
 }
 
 pub trait PciMsiCapOps {
-    fn mmc(&self) -> usize {
+    fn available_vectors(&self) -> usize {
         1 << (((self.ctrl() & PCI_MSI_FLAGS_QMASK) >> 1) as usize)
     }
 
-    fn mme(&self) -> usize {
+    fn configured_vectors(&self) -> usize {
         1 << (((self.ctrl() & PCI_MSI_FLAGS_QSIZE) >> 4) as usize)
     }
 
@@ -51,7 +51,7 @@ pub trait PciMsiCapOps {
 
     fn vector_data(&self, vector: usize) -> u32 {
         let mut data = self.data() as u32;
-        data &= !(self.mme() as u32 - 1);
+        data &= !(self.configured_vectors() as u32 - 1);
         data |= vector as u32;
         data
     }

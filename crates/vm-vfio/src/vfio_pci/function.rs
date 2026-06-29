@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use tracing::warn;
 use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
 use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
-use vm_core::virtualization::kvm::gsi_routing::get_kvm_sgi_routing_instance;
+use vm_core::virtualization::kvm::gsi_routing::get_kvm_gsi_routing_instance;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_pci::device::capability::msi::PCI_MSI_FLAGS_ENABLE;
 use vm_pci::device::capability::msi::PciMsiCap;
@@ -97,20 +97,20 @@ impl VfioPciFunction {
             return;
         }
 
-        // TODO: introduce sgi allocator
-        let sgi = (32 + vector) as u32;
-        let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
-        sgi_routing.add_msi_gsi_routing(sgi, entry.addr_lo, entry.addr_hi, entry.data);
-        drop(sgi_routing);
+        // TODO: introduce gsi allocator
+        let gsi = (32 + vector) as u32;
+        let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
+        gsi_routing.add_msi_gsi_routing(gsi, entry.addr_lo, entry.addr_hi, entry.data);
+        drop(gsi_routing);
         self.vm.set_gsi_routing().unwrap();
 
         if entry.is_mask() {
             self.vm
-                .del_irqfd(&msix_info.event_fds[vector], sgi)
+                .del_irqfd(&msix_info.event_fds[vector], gsi)
                 .unwrap();
         } else {
             self.vm
-                .set_irqfd(&msix_info.event_fds[vector], sgi)
+                .set_irqfd(&msix_info.event_fds[vector], gsi)
                 .unwrap();
         }
     }
@@ -161,21 +161,28 @@ impl VfioPciFunction {
         };
 
         if !msi.enabled {
-            for vector in 0..msi_cap.mme() {
-                // TODO: introduce sgi allocator
-                let sgi = (32 + vector) as u32;
-                let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
-                sgi_routing.add_msi_gsi_routing(
-                    sgi,
+            println!("enable msi");
+            for vector in 0..msi_cap.configured_vectors() {
+                // TODO: introduce gsi allocator
+                let gsi = (32 + vector) as u32;
+                let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
+                println!(
+                    "lo {} hi {} data {}",
                     msi_cap.address_lo(),
                     msi_cap.address_hi(),
                     msi_cap.vector_data(vector),
                 );
-                drop(sgi_routing);
+                gsi_routing.add_msi_gsi_routing(
+                    gsi,
+                    msi_cap.address_lo(),
+                    msi_cap.address_hi(),
+                    msi_cap.vector_data(vector),
+                );
+                drop(gsi_routing);
                 self.vm.set_gsi_routing().unwrap();
 
                 self.vm
-                    .set_irqfd(&msi_info.event_fds[vector as usize], sgi)
+                    .set_irqfd(&msi_info.event_fds[vector as usize], gsi)
                     .unwrap();
             }
 
@@ -268,6 +275,8 @@ impl VfioPciFunction {
             // ctrl
             let old_ctrl = cap.ctrl();
             let new_ctrl = u16::from_le_bytes(buf.try_into().unwrap());
+            println!("old ctrl: {}", old_ctrl);
+            println!("new ctrl: {}", new_ctrl);
             cap.set_ctrl(new_ctrl);
             self.on_msi_ctrl_changing(msi_info, cap, old_ctrl, new_ctrl);
         } else {

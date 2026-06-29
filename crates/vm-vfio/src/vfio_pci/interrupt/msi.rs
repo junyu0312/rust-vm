@@ -6,7 +6,6 @@ pub struct VfioMsiInfo {
     pub event_fds: Vec<EventFd>,
     pub bit64: bool,
     pub mask: bool,
-    pub vectors: u8,
     pub cap_offset_range: Range<u16>,
 }
 
