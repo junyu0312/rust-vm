@@ -208,6 +208,8 @@ fn setup_interrupt_capability(
 
         msi_info = Some(VfioMsiInfo {
             event_fds,
+            bit64,
+            mask,
             vectors: mmc.vectors(),
             cap_offset_range: cap_offset as u16..cap_offset as u16 + cap_len as u16,
         });

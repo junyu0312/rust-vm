@@ -97,6 +97,18 @@ impl VfioDevice {
         Ok(())
     }
 
+    pub(crate) fn enable_msi(&self, fds: Vec<&EventFd>) -> Result<()> {
+        self.device.enable_msi(fds)?;
+
+        Ok(())
+    }
+
+    pub(crate) fn disable_msi(&self) -> Result<()> {
+        self.device.disable_msi()?;
+
+        Ok(())
+    }
+
     pub(crate) fn get_msix_irq_info(&self) -> Option<&VfioIrq> {
         self.device.get_irq_info(VFIO_PCI_MSIX_IRQ_INDEX)
     }

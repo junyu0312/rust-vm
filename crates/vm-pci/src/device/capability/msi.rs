@@ -30,12 +30,54 @@ impl PciMsiMmc {
     }
 }
 
+pub trait PciMsiCapOps {
+    fn mmc(&self) -> usize {
+        1 << (((self.ctrl() & PCI_MSI_FLAGS_QMASK) >> 1) as usize)
+    }
+
+    fn mme(&self) -> usize {
+        1 << (((self.ctrl() & PCI_MSI_FLAGS_QSIZE) >> 4) as usize)
+    }
+
+    fn ctrl(&self) -> u16;
+
+    fn set_ctrl(&mut self, ctrl: u16);
+
+    fn address_lo(&self) -> u32;
+
+    fn address_hi(&self) -> u32;
+
+    fn data(&self) -> u16;
+}
+
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct PciMsiCap {
     control: u16,
     address_lo: u32,
     data: u16,
+}
+
+impl PciMsiCapOps for PciMsiCap {
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn address_hi(&self) -> u32 {
+        0
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
 }
 
 impl PciMsiCap {
@@ -63,6 +105,28 @@ pub struct PciMsiCap64 {
     address_lo: u32,
     address_hi: u32,
     data: u16,
+}
+
+impl PciMsiCapOps for PciMsiCap64 {
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn address_hi(&self) -> u32 {
+        self.address_hi
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
 }
 
 impl PciMsiCap64 {
@@ -93,6 +157,28 @@ pub struct PciMsiCapMask {
     reserved: u16,
     mask_bits: u32,
     pending_bits: u32,
+}
+
+impl PciMsiCapOps for PciMsiCapMask {
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn address_hi(&self) -> u32 {
+        0
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
 }
 
 impl PciMsiCapMask {
@@ -126,6 +212,28 @@ pub struct PciMsiCap64Mask {
     reserved: u16,
     mask_bits: u32,
     pending_bits: u32,
+}
+
+impl PciMsiCapOps for PciMsiCap64Mask {
+    fn ctrl(&self) -> u16 {
+        self.control
+    }
+
+    fn set_ctrl(&mut self, ctrl: u16) {
+        self.control = ctrl;
+    }
+
+    fn address_lo(&self) -> u32 {
+        self.address_lo
+    }
+
+    fn address_hi(&self) -> u32 {
+        self.address_hi
+    }
+
+    fn data(&self) -> u16 {
+        self.data
+    }
 }
 
 impl PciMsiCap64Mask {

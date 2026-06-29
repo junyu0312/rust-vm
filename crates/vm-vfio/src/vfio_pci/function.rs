@@ -6,6 +6,12 @@ use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
 use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
 use vm_core::virtualization::kvm::gsi_routing::get_kvm_sgi_routing_instance;
 use vm_core::virtualization::vm::HypervisorVm;
+use vm_pci::device::capability::msi::PCI_MSI_FLAGS_ENABLE;
+use vm_pci::device::capability::msi::PciMsiCap;
+use vm_pci::device::capability::msi::PciMsiCap64;
+use vm_pci::device::capability::msi::PciMsiCap64Mask;
+use vm_pci::device::capability::msi::PciMsiCapMask;
+use vm_pci::device::capability::msi::PciMsiCapOps;
 use vm_pci::device::capability::msix::MsixEntry;
 use vm_pci::device::capability::msix::PCI_MSIX_FLAGS_ENABLE;
 use vm_pci::device::capability::msix::PciMsixCap;
@@ -29,6 +35,7 @@ use zerocopy::IntoBytes;
 use crate::vfio::device::VfioDevice;
 use crate::vfio_pci::interrupt::VfioInterruptInfo;
 use crate::vfio_pci::interrupt::VfioInterruptManager;
+use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
 pub struct VfioPciFunction {
@@ -147,6 +154,50 @@ impl VfioPciFunction {
         }
     }
 
+    fn enable_msi(&self, msi_info: &VfioMsiInfo, msi_cap: &mut dyn PciMsiCapOps) {
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let Some(msi) = &mut interrupt_manager.msi else {
+            return;
+        };
+
+        if !msi.enabled {
+            for vector in 0..msi_info.vectors {
+                // TODO: introduce sgi allocator
+                let sgi = (32 + vector) as u32;
+                let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
+                sgi_routing.add_msi_gsi_routing(
+                    sgi,
+                    msi_cap.address_lo(),
+                    msi_cap.address_hi(),
+                    msi_cap.data() as u32,
+                );
+                drop(sgi_routing);
+                self.vm.set_gsi_routing().unwrap();
+
+                self.vm
+                    .set_irqfd(&msi_info.event_fds[vector as usize], sgi)
+                    .unwrap();
+            }
+
+            self.device
+                .enable_msi(msi_info.event_fds.iter().collect())
+                .unwrap();
+            msi.enabled = true;
+        }
+    }
+
+    fn disable_msi(&self) {
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let Some(msi) = &mut interrupt_manager.msi else {
+            return;
+        };
+
+        if msi.enabled {
+            self.device.disable_msi().unwrap();
+            msi.enabled = false;
+        }
+    }
+
     fn enable_msix(&self) {
         let Some(msix_info) = &self.interrupt_info.msix else {
             return;
@@ -174,6 +225,52 @@ impl VfioPciFunction {
         if msix.enabled {
             self.device.disable_msix().unwrap();
             msix.enabled = false;
+        }
+    }
+
+    fn on_msi_ctrl_changing(
+        &self,
+        msi_info: &VfioMsiInfo,
+        msi_cap: &mut dyn PciMsiCapOps,
+        old_ctrl: u16,
+        new_ctrl: u16,
+    ) {
+        // enable msix
+        if old_ctrl & PCI_MSI_FLAGS_ENABLE == 0 && new_ctrl & PCI_MSI_FLAGS_ENABLE != 0 {
+            self.disable_intx();
+            self.enable_msi(msi_info, msi_cap);
+        }
+
+        // disable msix
+        if old_ctrl & PCI_MSI_FLAGS_ENABLE != 0 && new_ctrl & PCI_MSI_FLAGS_ENABLE == 0 {
+            self.disable_msi();
+            self.enable_intx();
+        }
+    }
+
+    fn update_msi_capability(&self, msi_info: &VfioMsiInfo, offset_within_cap: u16, buf: &[u8]) {
+        let mut configuration_space = self.configuration_space.lock().unwrap();
+
+        let msi_cap_buf = &mut configuration_space.as_bytes_mut()
+            [msi_info.cap_offset_range.start as usize..msi_info.cap_offset_range.end as usize];
+
+        // Skip `cap_id` and `next`, since the length of msi cap is variable
+        let cap: &mut dyn PciMsiCapOps = match (msi_info.bit64, msi_info.mask) {
+            (false, false) => PciMsiCap::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
+            (true, false) => PciMsiCap64::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
+            (false, true) => PciMsiCapMask::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
+            (true, true) => PciMsiCap64Mask::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
+        };
+
+        if offset_within_cap == 2 {
+            // ctrl
+            let old_ctrl = cap.ctrl();
+            let new_ctrl = u16::from_le_bytes(buf.try_into().unwrap());
+            cap.set_ctrl(new_ctrl);
+            self.on_msi_ctrl_changing(msi_info, cap, old_ctrl, new_ctrl);
+        } else {
+            msi_cap_buf[offset_within_cap as usize..offset_within_cap as usize + buf.len()]
+                .copy_from_slice(buf);
         }
     }
 
@@ -212,16 +309,16 @@ impl VfioPciFunction {
     }
 
     fn write_capability(&self, offset: u16, buf: &[u8]) {
+        if let Some(msi_info) = &self.interrupt_info.msi
+            && msi_info.cap_offset_range.contains(&offset)
+        {
+            self.update_msi_capability(msi_info, offset - msi_info.cap_offset_range.start, buf);
+        }
+
         if let Some(msix_info) = &self.interrupt_info.msix
             && msix_info.cap_offset_range.contains(&offset)
         {
             self.update_msix_capability(msix_info, offset - msix_info.cap_offset_range.start, buf);
-        }
-
-        if let Some(msi) = &self.interrupt_info.msi
-            && msi.cap_offset_range.contains(&offset)
-        {
-            todo!()
         }
     }
 
