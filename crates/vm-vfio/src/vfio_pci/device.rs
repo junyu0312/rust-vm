@@ -231,11 +231,13 @@ fn setup_interrupt_capability(
             let interrupt_pin =
                 InterruptPin::from_repr(raw_header.interrupt_pin).ok_or(Error::ParseIntx)?;
             header.interrupt_pin = interrupt_pin as u8;
-            header.interrupt_line = irq_allocator
+
+            let gsi = irq_allocator
                 .alloc()
                 .map_err(|_| Error::AllocIrq)?
                 .try_into()
                 .unwrap();
+            header.interrupt_line = gsi;
 
             if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
                 return Err(Error::PrepareIrq("intx does not support eventfd".into()));
@@ -244,13 +246,14 @@ fn setup_interrupt_capability(
             let active_fd = EventFd::new(0).map_err(|err| Error::PrepareIrq(err.into()))?;
             let deactive_fd = EventFd::new(0).map_err(|err| Error::PrepareIrq(err.into()))?;
 
-            vm.set_irqfd_with_resample(&active_fd, &deactive_fd, header.interrupt_line as u32)
+            vm.set_irqfd_with_resample(&active_fd, &deactive_fd, gsi as u32)
                 .map_err(|err| Error::PrepareIrq(err.into()))?;
 
             vfio_device.enable_intx(&active_fd)?;
             vfio_device.set_intx_resample_fd(&deactive_fd)?;
 
             intx_info = Some(VfioIntxInfo {
+                gsi: gsi as u32,
                 trigger_fd: active_fd,
                 resample_fd: deactive_fd,
                 pin: interrupt_pin,

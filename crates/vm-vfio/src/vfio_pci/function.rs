@@ -86,11 +86,22 @@ impl VfioPciFunction {
             self.device
                 .set_intx_resample_fd(&intx_info.resample_fd)
                 .unwrap();
+            self.vm
+                .set_irqfd_with_resample(
+                    &intx_info.trigger_fd,
+                    &intx_info.resample_fd,
+                    intx_info.gsi,
+                )
+                .unwrap();
             intx.enabled = true;
         }
     }
 
     fn disable_intx(&self) {
+        let Some(intx_info) = &self.interrupt_info.intx else {
+            return;
+        };
+
         let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
         let Some(intx) = &mut interrupt_manager.intx else {
             return;
@@ -98,6 +109,12 @@ impl VfioPciFunction {
 
         if intx.enabled {
             self.device.disable_intx().unwrap();
+            self.vm
+                .del_irqfd(&intx_info.trigger_fd, intx_info.gsi)
+                .unwrap();
+            self.vm
+                .del_irqfd(&intx_info.resample_fd, intx_info.gsi)
+                .unwrap();
             intx.enabled = false;
         }
     }

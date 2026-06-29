@@ -4,6 +4,7 @@ use vmm_sys_util::eventfd::EventFd;
 pub struct VfioIntxInfo {
     pub trigger_fd: EventFd,
     pub resample_fd: EventFd,
+    pub gsi: u32,
     pub pin: InterruptPin,
     pub line: u8,
 }
