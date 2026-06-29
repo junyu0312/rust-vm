@@ -81,10 +81,8 @@ impl VfioPciFunction {
         let msix = interrupt_manager.msix.as_mut().unwrap();
 
         let vector = offset / size_of::<MsixEntry>();
-        let vector = usize::try_from(vector).unwrap();
 
         let offset_within_entry = offset % size_of::<MsixEntry>();
-        let offset_within_entry = usize::try_from(offset_within_entry).unwrap();
 
         let entry = &mut msix.table[vector];
         let ctrl_old = entry.control;
@@ -287,9 +285,7 @@ impl VfioPciFunction {
                 drop(gsi_routing);
                 self.vm.set_gsi_routing().unwrap();
 
-                self.vm
-                    .set_irqfd(&msi_info.event_fds[vector as usize], gsi)
-                    .unwrap();
+                self.vm.set_irqfd(&msi_info.event_fds[vector], gsi).unwrap();
             }
         }
     }
@@ -605,7 +601,7 @@ impl PciFunction for VfioPciFunction {
             }
 
             if msix.pba_bar == bar && pba_range.contains(&offset) {
-                self.read_msix_pba((offset - pba_range.start).try_into().unwrap(), buf);
+                self.read_msix_pba(offset - pba_range.start, buf);
             }
         }
     }
@@ -625,7 +621,7 @@ impl PciFunction for VfioPciFunction {
             }
 
             if msix.pba_bar == bar && pba_range.contains(&offset) {
-                self.write_msix_pba((offset - pba_range.start).try_into().unwrap(), buf);
+                self.write_msix_pba(offset - pba_range.start, buf);
             }
         }
     }
