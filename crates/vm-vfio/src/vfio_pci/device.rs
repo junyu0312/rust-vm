@@ -39,6 +39,7 @@ use vm_pci::types::bar::pci_mmio_64_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::PciConfigurationSpace;
 use vm_pci::types::configuration_space::capability::StandardCapability;
+use vm_pci::types::configuration_space::command::PciCommand;
 use vm_pci::types::configuration_space::header::CommonHeaderOffset;
 use vm_pci::types::configuration_space::header::PciHeaderType;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
@@ -307,6 +308,8 @@ impl VfioPciDevice {
             let header = configuration_space.as_header_mut::<Type0Header>();
 
             // Clear fields
+            header.common.command &= !PciCommand::IO.bits();
+            header.common.command &= !PciCommand::MEMORY.bits();
             for index in VFIO_PCI_BAR0_REGION_INDEX..=VFIO_PCI_BAR5_REGION_INDEX {
                 let index = index as usize;
                 if raw_header.bar[index] & PCI_BASE_ADDRESS_SPACE == 0 {

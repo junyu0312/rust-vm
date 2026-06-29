@@ -214,7 +214,6 @@ impl VfioPciFunction {
     fn write_command(&self, command: u16) -> Option<EcamUpdateCallback> {
         let mut callback_ops = vec![];
 
-        let bars = self.bars.clone();
         let mut configuration_space = self.configuration_space.lock().unwrap();
 
         let header = configuration_space.as_header_mut::<Type0Header>();
@@ -224,17 +223,18 @@ impl VfioPciFunction {
         let old_command = PciCommand::from_bits_retain(old_command);
         let command = PciCommand::from_bits_retain(command);
 
-        for (i, bar) in bars.iter().enumerate() {
+        for (i, bar) in self.bars.iter().enumerate() {
             let Some(bar_info) = bar else {
                 continue;
             };
 
             let bar = header.bar[i];
-            let address = address_of_bar(bar);
 
             match bar_info {
                 #[cfg(target_arch = "x86_64")]
                 PciBarInfo::Pio { len } => {
+                    let address = address_of_bar(bar);
+
                     if command.contains(PciCommand::IO) && !old_command.contains(PciCommand::IO) {
                         callback_ops.push(EcamUpdateCallbackOps::AddPioRouter {
                             bar: i as u8,
@@ -246,13 +246,18 @@ impl VfioPciFunction {
                         callback_ops.push(EcamUpdateCallbackOps::RemovePioRouter { bar: i as u8 });
                     }
                 }
-                PciBarInfo::Mmio { len, .. } => {
+                PciBarInfo::Mmio { is_64bit, len } => {
+                    let address = if *is_64bit {
+                        (header.bar[i + 1] as u64) << 32 | address_of_bar(bar) as u64
+                    } else {
+                        address_of_bar(bar) as u64
+                    };
                     if command.contains(PciCommand::MEMORY)
                         && !old_command.contains(PciCommand::MEMORY)
                     {
                         callback_ops.push(EcamUpdateCallbackOps::AddMmioRouter {
                             bar: i as u8,
-                            pci_address_range: address as u64..address as u64 + *len as u64,
+                            pci_address_range: address..address + *len as u64,
                         });
                     } else if !command.contains(PciCommand::MEMORY)
                         && old_command.contains(PciCommand::MEMORY)
