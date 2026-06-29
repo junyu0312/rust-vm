@@ -13,6 +13,9 @@ pub const PCI_MSI_FLAGS_QSIZE: u16 = 0x0070; /* Message queue size configured */
 pub const PCI_MSI_FLAGS_64BIT: u16 = 0x0080; /* 64-bit addresses allowed */
 pub const PCI_MSI_FLAGS_MASKBIT: u16 = 0x0100; /* Per-vector masking capable */
 
+const PCI_MSI_MASK_32: usize = 0x0c; /* Mask bits register for 32-bit devices */
+const PCI_MSI_MASK_64: usize = 0x10; /* Mask bits register for 64-bit devices */
+
 #[derive(Clone, Copy, FromRepr)]
 #[repr(u8)]
 pub enum PciMsiMmc {
@@ -31,6 +34,10 @@ impl PciMsiMmc {
 }
 
 pub trait PciMsiCapOps {
+    fn mask_bits_offset(&self) -> Option<usize> {
+        None
+    }
+
     fn available_vectors(&self) -> usize {
         1 << (((self.ctrl() & PCI_MSI_FLAGS_QMASK) >> 1) as usize)
     }
@@ -45,7 +52,9 @@ pub trait PciMsiCapOps {
 
     fn address_lo(&self) -> u32;
 
-    fn address_hi(&self) -> u32;
+    fn address_hi(&self) -> u32 {
+        0
+    }
 
     fn data(&self) -> u16;
 
@@ -54,6 +63,14 @@ pub trait PciMsiCapOps {
         data &= !(self.configured_vectors() as u32 - 1);
         data |= vector as u32;
         data
+    }
+
+    fn mask_bits(&self) -> u32 {
+        unreachable!()
+    }
+
+    fn set_mask_bits(&mut self, _mask_bits: u32) {
+        unreachable!()
     }
 }
 
@@ -76,10 +93,6 @@ impl PciMsiCapOps for PciMsiCap {
 
     fn address_lo(&self) -> u32 {
         self.address_lo
-    }
-
-    fn address_hi(&self) -> u32 {
-        0
     }
 
     fn data(&self) -> u16 {
@@ -167,6 +180,10 @@ pub struct PciMsiCapMask {
 }
 
 impl PciMsiCapOps for PciMsiCapMask {
+    fn mask_bits_offset(&self) -> Option<usize> {
+        Some(PCI_MSI_MASK_32)
+    }
+
     fn ctrl(&self) -> u16 {
         self.control
     }
@@ -179,12 +196,16 @@ impl PciMsiCapOps for PciMsiCapMask {
         self.address_lo
     }
 
-    fn address_hi(&self) -> u32 {
-        0
-    }
-
     fn data(&self) -> u16 {
         self.data
+    }
+
+    fn mask_bits(&self) -> u32 {
+        self.mask_bits
+    }
+
+    fn set_mask_bits(&mut self, mask_bits: u32) {
+        self.mask_bits = mask_bits;
     }
 }
 
@@ -222,6 +243,10 @@ pub struct PciMsiCap64Mask {
 }
 
 impl PciMsiCapOps for PciMsiCap64Mask {
+    fn mask_bits_offset(&self) -> Option<usize> {
+        Some(PCI_MSI_MASK_64)
+    }
+
     fn ctrl(&self) -> u16 {
         self.control
     }
@@ -240,6 +265,14 @@ impl PciMsiCapOps for PciMsiCap64Mask {
 
     fn data(&self) -> u16 {
         self.data
+    }
+
+    fn mask_bits(&self) -> u32 {
+        self.mask_bits
+    }
+
+    fn set_mask_bits(&mut self, mask_bits: u32) {
+        self.mask_bits = mask_bits;
     }
 }
 

@@ -92,6 +92,7 @@ impl VfioDevice {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn unmask_intx(&self) -> Result<()> {
         self.device.unmask_irq(VFIO_PCI_INTX_IRQ_INDEX)?;
         Ok(())

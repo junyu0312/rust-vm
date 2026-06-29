@@ -142,7 +142,7 @@ fn setup_interrupt_capability(
         });
         msix = Some(VfioMsix {
             table,
-            pba,
+            _pba: pba,
             enabled: false,
         });
     }
@@ -180,7 +180,6 @@ fn setup_interrupt_capability(
         let cap_offset;
         let cap_len;
 
-        let mask = false;
         match (bit64, mask) {
             (false, false) => {
                 let cap: StandardCapability = PciMsiCap::new(mmc).into();

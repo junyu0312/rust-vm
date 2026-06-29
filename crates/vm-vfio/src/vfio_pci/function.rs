@@ -154,24 +154,18 @@ impl VfioPciFunction {
         }
     }
 
-    fn enable_msi(&self, msi_info: &VfioMsiInfo, msi_cap: &mut dyn PciMsiCapOps) {
+    fn enable_msi(&self, msi_info: &VfioMsiInfo, _msi_cap: &mut dyn PciMsiCapOps) {
         let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
         let Some(msi) = &mut interrupt_manager.msi else {
             return;
         };
 
         if !msi.enabled {
-            println!("enable msi");
+            /*
             for vector in 0..msi_cap.configured_vectors() {
                 // TODO: introduce gsi allocator
                 let gsi = (32 + vector) as u32;
                 let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
-                println!(
-                    "lo {} hi {} data {}",
-                    msi_cap.address_lo(),
-                    msi_cap.address_hi(),
-                    msi_cap.vector_data(vector),
-                );
                 gsi_routing.add_msi_gsi_routing(
                     gsi,
                     msi_cap.address_lo(),
@@ -185,6 +179,7 @@ impl VfioPciFunction {
                     .set_irqfd(&msi_info.event_fds[vector as usize], gsi)
                     .unwrap();
             }
+             */
 
             self.device
                 .enable_msi(msi_info.event_fds.iter().collect())
@@ -241,9 +236,11 @@ impl VfioPciFunction {
         &self,
         msi_info: &VfioMsiInfo,
         msi_cap: &mut dyn PciMsiCapOps,
-        old_ctrl: u16,
         new_ctrl: u16,
     ) {
+        let old_ctrl = msi_cap.ctrl();
+        msi_cap.set_ctrl(new_ctrl);
+
         // enable msix
         if old_ctrl & PCI_MSI_FLAGS_ENABLE == 0 && new_ctrl & PCI_MSI_FLAGS_ENABLE != 0 {
             self.disable_intx();
@@ -254,6 +251,46 @@ impl VfioPciFunction {
         if old_ctrl & PCI_MSI_FLAGS_ENABLE != 0 && new_ctrl & PCI_MSI_FLAGS_ENABLE == 0 {
             self.disable_msi();
             self.enable_intx();
+        }
+    }
+
+    fn on_msi_mask_bits_changing(
+        &self,
+        msi_info: &VfioMsiInfo,
+        msi_cap: &mut dyn PciMsiCapOps,
+        new_mask_bits: u32,
+    ) {
+        let old_mask_bits = msi_cap.mask_bits();
+
+        msi_cap.set_mask_bits(new_mask_bits);
+
+        for vector in 0..msi_cap.available_vectors() {
+            let was_masked = (old_mask_bits & (1 << vector)) != 0;
+            let mask = (new_mask_bits & (1 << vector)) != 0;
+
+            if !was_masked && mask {
+                // TODO: update route, del irq_fd
+                // self.vm
+                //     .del_irqfd(&msi_info.event_fds[vector as usize], gsi)
+                //     .unwrap();
+                println!("mask : {vector}");
+            } else if was_masked && !mask {
+                // TODO: introduce gsi allocator
+                let gsi = (32 + vector) as u32;
+                let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
+                gsi_routing.add_msi_gsi_routing(
+                    gsi,
+                    msi_cap.address_lo(),
+                    msi_cap.address_hi(),
+                    msi_cap.vector_data(vector),
+                );
+                drop(gsi_routing);
+                self.vm.set_gsi_routing().unwrap();
+
+                self.vm
+                    .set_irqfd(&msi_info.event_fds[vector as usize], gsi)
+                    .unwrap();
+            }
         }
     }
 
@@ -272,13 +309,15 @@ impl VfioPciFunction {
         };
 
         if offset_within_cap == 2 {
-            // ctrl
-            let old_ctrl = cap.ctrl();
-            let new_ctrl = u16::from_le_bytes(buf.try_into().unwrap());
-            println!("old ctrl: {}", old_ctrl);
-            println!("new ctrl: {}", new_ctrl);
-            cap.set_ctrl(new_ctrl);
-            self.on_msi_ctrl_changing(msi_info, cap, old_ctrl, new_ctrl);
+            self.on_msi_ctrl_changing(msi_info, cap, u16::from_le_bytes(buf.try_into().unwrap()));
+        } else if let Some(mask_bits_offset) = cap.mask_bits_offset()
+            && offset_within_cap as usize == mask_bits_offset
+        {
+            self.on_msi_mask_bits_changing(
+                msi_info,
+                cap,
+                u32::from_le_bytes(buf.try_into().unwrap()),
+            );
         } else {
             msi_cap_buf[offset_within_cap as usize..offset_within_cap as usize + buf.len()]
                 .copy_from_slice(buf);

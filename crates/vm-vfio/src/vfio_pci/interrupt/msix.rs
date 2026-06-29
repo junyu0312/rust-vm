@@ -16,6 +16,6 @@ pub struct VfioMsixInfo {
 
 pub struct VfioMsix {
     pub table: Vec<MsixEntry>,
-    pub pba: Vec<u8>,
+    pub _pba: Vec<u8>,
     pub enabled: bool,
 }
