@@ -191,29 +191,31 @@ impl VfioPciFunction {
         }
     }
 
-    fn write_capability(&self, offset: u16, buf: &[u8]) {
+    fn update_msix_capability(&self, msix_info: &VfioMsixInfo, offset_within_cap: u16, buf: &[u8]) {
         let mut configuration_space = self.configuration_space.lock().unwrap();
 
+        let cap = PciMsixCap::mut_from_bytes(
+            &mut configuration_space.as_bytes_mut()[msix_info.cap_offset_range.start as usize
+                ..msix_info.cap_offset_range.end as usize],
+        )
+        .unwrap();
+
+        // ctrl
+        if offset_within_cap == PciMsixCapOffset::Ctrl as u16 {
+            let old_ctrl = cap.ctrl;
+            let new_ctrl = u16::from_le_bytes(buf.try_into().unwrap());
+            cap.ctrl = new_ctrl;
+            self.on_msix_ctrl_changing(old_ctrl, new_ctrl);
+        } else {
+            panic!("guest try to write a invalid field of msi-x cap")
+        }
+    }
+
+    fn write_capability(&self, offset: u16, buf: &[u8]) {
         if let Some(msix_info) = &self.interrupt_info.msix
             && msix_info.cap_offset_range.contains(&offset)
         {
-            let cap = PciMsixCap::mut_from_bytes(
-                &mut configuration_space.as_bytes_mut()[msix_info.cap_offset_range.start as usize
-                    ..msix_info.cap_offset_range.end as usize],
-            )
-            .unwrap();
-
-            let offset_within_cap = offset - msix_info.cap_offset_range.start;
-
-            // ctrl
-            if offset_within_cap == PciMsixCapOffset::Ctrl as u16 {
-                let old_ctrl = cap.ctrl;
-                let new_ctrl = u16::from_le_bytes(buf.try_into().unwrap());
-                cap.ctrl = new_ctrl;
-                self.on_msix_ctrl_changing(old_ctrl, new_ctrl);
-            } else {
-                panic!("guest try to write a invalid field of msi-x cap")
-            }
+            self.update_msix_capability(msix_info, offset - msix_info.cap_offset_range.start, buf);
         }
 
         if let Some(msi) = &self.interrupt_info.msi
