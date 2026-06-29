@@ -113,12 +113,6 @@ impl VfioDevice {
         Ok(())
     }
 
-    pub(crate) fn trigger_msix(&self, vector: u32) -> Result<()> {
-        self.device.trigger_irq(VFIO_PCI_MSIX_IRQ_INDEX, vector)?;
-
-        Ok(())
-    }
-
     pub(crate) fn get_msi_irq_info(&self) -> Option<&VfioIrq> {
         self.device.get_irq_info(VFIO_PCI_MSI_IRQ_INDEX)
     }

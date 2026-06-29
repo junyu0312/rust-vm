@@ -26,7 +26,6 @@ use zerocopy::IntoBytes;
 use crate::vfio::device::VfioDevice;
 use crate::vfio_pci::interrupt::VfioInterruptInfo;
 use crate::vfio_pci::interrupt::VfioInterruptManager;
-use crate::vfio_pci::interrupt::msix::VfioMsix;
 
 pub struct VfioPciFunction {
     vm: Arc<dyn HypervisorVm>,
@@ -70,7 +69,7 @@ impl VfioPciFunction {
         let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
         let msix = interrupt_manager.msix.as_mut().unwrap();
 
-        let vector = usize::try_from(offset).unwrap() / size_of::<MsixEntry>();
+        let vector = offset / size_of::<MsixEntry>();
         let offset_within_entry = offset % size_of::<MsixEntry>();
 
         let entry = &mut msix.table[vector];
@@ -298,10 +297,7 @@ impl PciFunction for VfioPciFunction {
                 "offset: {offset}"
             );
 
-            self.configuration_space
-                .lock()
-                .unwrap()
-                .read(offset as u16, buf);
+            self.configuration_space.lock().unwrap().read(offset, buf);
 
             return;
         };
@@ -341,11 +337,9 @@ impl PciFunction for VfioPciFunction {
             | Type0HeaderOffset::Bar3
             | Type0HeaderOffset::Bar4
             | Type0HeaderOffset::Bar5
-            | Type0HeaderOffset::CapPointer => self
-                .configuration_space
-                .lock()
-                .unwrap()
-                .read(offset as u16, buf),
+            | Type0HeaderOffset::CapPointer => {
+                self.configuration_space.lock().unwrap().read(offset, buf)
+            }
             Type0HeaderOffset::RomBaseAddress => (),
         }
     }
