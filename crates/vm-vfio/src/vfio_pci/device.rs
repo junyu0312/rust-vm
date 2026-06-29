@@ -39,7 +39,6 @@ use vm_pci::types::bar::pci_mmio_64_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
 use vm_pci::types::configuration_space::PciConfigurationSpace;
 use vm_pci::types::configuration_space::capability::StandardCapability;
-use vm_pci::types::configuration_space::command::PciCommand;
 use vm_pci::types::configuration_space::header::CommonHeaderOffset;
 use vm_pci::types::configuration_space::header::PciHeaderType;
 use vm_pci::types::configuration_space::header::type0::Type0Header;
@@ -308,8 +307,6 @@ impl VfioPciDevice {
             let header = configuration_space.as_header_mut::<Type0Header>();
 
             // Clear fields
-            header.common.command &= !PciCommand::IO.bits();
-            header.common.command &= !PciCommand::MEMORY.bits();
             for index in VFIO_PCI_BAR0_REGION_INDEX..=VFIO_PCI_BAR5_REGION_INDEX {
                 let index = index as usize;
                 if raw_header.bar[index] & PCI_BASE_ADDRESS_SPACE == 0 {
@@ -318,6 +315,7 @@ impl VfioPciDevice {
                     header.bar[index] = raw_header.bar[index] & 0x3;
                 }
             }
+            header.expansion_rom_base_address = 0;
             header.common.status &= !(PciStatus::CapList as u16);
             header.cap_pointer = 0;
             configuration_space.as_bytes_mut()[CommonHeaderOffset::CapabilityStart as usize..]
@@ -389,14 +387,6 @@ impl VfioPciDevice {
 
                 bar_info[index] = Some(resource);
             }
-        }
-
-        if false {
-            vfio_device.region_write(
-                VFIO_PCI_CONFIG_REGION_INDEX,
-                configuration_space.as_bytes(),
-                0,
-            )?;
         }
 
         let function = VfioPciFunction::new(

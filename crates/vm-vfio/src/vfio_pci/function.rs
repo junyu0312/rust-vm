@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use tracing::warn;
 use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
 use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
 use vm_core::virtualization::kvm::gsi_routing::get_kvm_sgi_routing_instance;
@@ -279,115 +280,116 @@ impl PciFunctionArch for VfioPciFunction {
 
 impl PciFunction for VfioPciFunction {
     fn ecam_read(&self, offset: u16, buf: &mut [u8]) {
-        let Some(field) = Type0HeaderOffset::from_repr(offset) else {
-            // capability
+        if offset < CommonHeaderOffset::CapabilityStart as u16 {
+            let Some(field) = Type0HeaderOffset::from_repr(offset) else {
+                warn!(?offset, "reading from a invalid header field");
+                panic!()
+            };
 
-            assert!(
-                offset >= CommonHeaderOffset::CapabilityStart as u16,
-                "offset: {offset}"
-            );
-
+            match field {
+                Type0HeaderOffset::VendorId
+                | Type0HeaderOffset::DeviceId
+                | Type0HeaderOffset::RevisionId
+                | Type0HeaderOffset::ProgIf
+                | Type0HeaderOffset::Subclass
+                | Type0HeaderOffset::ClassCode
+                | Type0HeaderOffset::CacheLineSize
+                | Type0HeaderOffset::LatencyTimer
+                | Type0HeaderOffset::HeaderType
+                | Type0HeaderOffset::Bist
+                | Type0HeaderOffset::CardbusCisPointer
+                | Type0HeaderOffset::SubsystemVendorId
+                | Type0HeaderOffset::SubsystemId
+                | Type0HeaderOffset::RomBaseAddress
+                | Type0HeaderOffset::Reserved
+                | Type0HeaderOffset::InterruptLine
+                | Type0HeaderOffset::InterruptPin
+                | Type0HeaderOffset::MinGnt
+                | Type0HeaderOffset::MaxLat => {
+                    buf.copy_from_slice(
+                        &self.raw_configuration_space.as_bytes()
+                            [offset as usize..offset as usize + buf.len()],
+                    );
+                }
+                Type0HeaderOffset::Command | Type0HeaderOffset::Status => {
+                    self.device
+                        .region_read(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
+                        .unwrap();
+                }
+                Type0HeaderOffset::Bar0
+                | Type0HeaderOffset::Bar1
+                | Type0HeaderOffset::Bar2
+                | Type0HeaderOffset::Bar3
+                | Type0HeaderOffset::Bar4
+                | Type0HeaderOffset::Bar5
+                | Type0HeaderOffset::CapPointer => {
+                    self.configuration_space.lock().unwrap().read(offset, buf)
+                }
+            }
+        } else {
             self.configuration_space.lock().unwrap().read(offset, buf);
-
-            return;
-        };
-
-        match field {
-            Type0HeaderOffset::VendorId
-            | Type0HeaderOffset::DeviceId
-            | Type0HeaderOffset::RevisionId
-            | Type0HeaderOffset::ProgIf
-            | Type0HeaderOffset::Subclass
-            | Type0HeaderOffset::ClassCode
-            | Type0HeaderOffset::CacheLineSize
-            | Type0HeaderOffset::LatencyTimer
-            | Type0HeaderOffset::HeaderType
-            | Type0HeaderOffset::Bist
-            | Type0HeaderOffset::CardbusCisPointer
-            | Type0HeaderOffset::SubsystemVendorId
-            | Type0HeaderOffset::SubsystemId
-            | Type0HeaderOffset::Reserved
-            | Type0HeaderOffset::InterruptLine
-            | Type0HeaderOffset::InterruptPin
-            | Type0HeaderOffset::MinGnt
-            | Type0HeaderOffset::MaxLat => {
-                buf.copy_from_slice(
-                    &self.raw_configuration_space.as_bytes()
-                        [offset as usize..offset as usize + buf.len()],
-                );
-            }
-            Type0HeaderOffset::Command | Type0HeaderOffset::Status => {
-                self.device
-                    .region_read(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
-                    .unwrap();
-            }
-            Type0HeaderOffset::Bar0
-            | Type0HeaderOffset::Bar1
-            | Type0HeaderOffset::Bar2
-            | Type0HeaderOffset::Bar3
-            | Type0HeaderOffset::Bar4
-            | Type0HeaderOffset::Bar5
-            | Type0HeaderOffset::CapPointer => {
-                self.configuration_space.lock().unwrap().read(offset, buf)
-            }
-            Type0HeaderOffset::RomBaseAddress => (),
         }
     }
 
     fn ecam_write(&self, offset: u16, buf: &[u8]) -> Option<EcamUpdateCallback> {
-        let Some(offset) = Type0HeaderOffset::from_repr(offset) else {
-            // capability
-            assert!(offset >= CommonHeaderOffset::CapabilityStart as u16);
+        if offset < CommonHeaderOffset::CapabilityStart as u16 {
+            let Some(field) = Type0HeaderOffset::from_repr(offset) else {
+                warn!(?offset, "writing to a invalid header field");
+                panic!()
+            };
 
+            match field {
+                Type0HeaderOffset::VendorId
+                | Type0HeaderOffset::DeviceId
+                | Type0HeaderOffset::RevisionId
+                | Type0HeaderOffset::ProgIf
+                | Type0HeaderOffset::Subclass
+                | Type0HeaderOffset::ClassCode
+                | Type0HeaderOffset::CacheLineSize
+                | Type0HeaderOffset::LatencyTimer
+                | Type0HeaderOffset::HeaderType
+                | Type0HeaderOffset::Bist
+                | Type0HeaderOffset::CardbusCisPointer
+                | Type0HeaderOffset::SubsystemVendorId
+                | Type0HeaderOffset::SubsystemId
+                | Type0HeaderOffset::RomBaseAddress
+                | Type0HeaderOffset::CapPointer
+                | Type0HeaderOffset::Reserved
+                | Type0HeaderOffset::InterruptLine
+                | Type0HeaderOffset::InterruptPin
+                | Type0HeaderOffset::MinGnt
+                | Type0HeaderOffset::MaxLat => {
+                    let mut configuration_space = self.configuration_space.lock().unwrap();
+                    configuration_space.as_bytes_mut()
+                        [offset as usize..offset as usize + buf.len()]
+                        .copy_from_slice(buf);
+                }
+                Type0HeaderOffset::Command => {
+                    let cb = self.write_command(u16::from_le_bytes(buf.try_into().unwrap()));
+                    self.device
+                        .region_write(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
+                        .unwrap();
+                    return cb;
+                }
+                Type0HeaderOffset::Status => {
+                    self.device
+                        .region_write(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
+                        .unwrap();
+                }
+                Type0HeaderOffset::Bar0 => self.write_bar(0, buf),
+                Type0HeaderOffset::Bar1 => self.write_bar(1, buf),
+                Type0HeaderOffset::Bar2 => self.write_bar(2, buf),
+                Type0HeaderOffset::Bar3 => self.write_bar(3, buf),
+                Type0HeaderOffset::Bar4 => self.write_bar(4, buf),
+                Type0HeaderOffset::Bar5 => self.write_bar(5, buf),
+            }
+
+            None
+        } else {
             self.write_capability(offset, buf);
 
-            return None;
-        };
-
-        match offset {
-            Type0HeaderOffset::VendorId
-            | Type0HeaderOffset::DeviceId
-            | Type0HeaderOffset::RevisionId
-            | Type0HeaderOffset::ProgIf
-            | Type0HeaderOffset::Subclass
-            | Type0HeaderOffset::ClassCode
-            | Type0HeaderOffset::CacheLineSize
-            | Type0HeaderOffset::HeaderType
-            | Type0HeaderOffset::Bist
-            | Type0HeaderOffset::CardbusCisPointer
-            | Type0HeaderOffset::SubsystemVendorId
-            | Type0HeaderOffset::SubsystemId
-            | Type0HeaderOffset::CapPointer
-            | Type0HeaderOffset::Reserved
-            | Type0HeaderOffset::InterruptLine
-            | Type0HeaderOffset::InterruptPin
-            | Type0HeaderOffset::MinGnt
-            | Type0HeaderOffset::MaxLat => {
-                panic!("should not write by guest, {offset:?}");
-            }
-
-            Type0HeaderOffset::Command => {
-                let cb = self.write_command(u16::from_le_bytes(buf.try_into().unwrap()));
-                self.device
-                    .region_write(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
-                    .unwrap();
-                return cb;
-            }
-            Type0HeaderOffset::Status => {
-                self.device
-                    .region_write(VFIO_PCI_CONFIG_REGION_INDEX, buf, offset as u64)
-                    .unwrap();
-            }
-            Type0HeaderOffset::Bar0 => self.write_bar(0, buf),
-            Type0HeaderOffset::Bar1 => self.write_bar(1, buf),
-            Type0HeaderOffset::Bar2 => self.write_bar(2, buf),
-            Type0HeaderOffset::Bar3 => self.write_bar(3, buf),
-            Type0HeaderOffset::Bar4 => self.write_bar(4, buf),
-            Type0HeaderOffset::Bar5 => self.write_bar(5, buf),
-            Type0HeaderOffset::LatencyTimer | Type0HeaderOffset::RomBaseAddress => (), // TODO
+            None
         }
-
-        None
     }
 
     fn bar_read(&self, bar: u8, offset: u64, buf: &mut [u8]) {
