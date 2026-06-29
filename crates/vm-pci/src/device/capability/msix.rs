@@ -18,6 +18,15 @@ pub const PCI_MSIX_PBA_OFFSET: u32 = 0xfffffff8; /* Offset into specified BAR */
 
 pub const PCI_MSIX_ENTRY_CTRL_MASKBIT: u32 = 0x00000001;
 
+#[repr(u8)]
+pub enum PciMsixCapOffset {
+    Cap = 0x00,
+    Next = 0x01,
+    Ctrl = 0x02,
+    TableOffset = 0x04,
+    PbaOffset = 0x08,
+}
+
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct MsixEntry {

@@ -7,7 +7,9 @@ use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
 use vm_core::virtualization::kvm::gsi_routing::get_kvm_sgi_routing_instance;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_pci::device::capability::msix::MsixEntry;
+use vm_pci::device::capability::msix::PCI_MSIX_FLAGS_ENABLE;
 use vm_pci::device::capability::msix::PciMsixCap;
+use vm_pci::device::capability::msix::PciMsixCapOffset;
 use vm_pci::types::bar::PciBarInfo;
 use vm_pci::types::bar::address_of_bar;
 use vm_pci::types::configuration_space::ConfigurationSpace;
@@ -78,26 +80,13 @@ impl VfioPciFunction {
 
         let entry = &mut msix.table[vector];
         let ctrl_old = entry.control;
-        {
-            let ctrl = entry.control;
-            println!(
-                "before vector: {vector}, offset_within_entry: {offset_within_entry} ctrl: {}",
-                ctrl
-            );
-        }
+
         entry.as_mut_bytes()[offset_within_entry..offset_within_entry + buf.len()]
             .copy_from_slice(buf);
         let ctrl_new = entry.control;
 
-        {
-            let ctrl = entry.control;
-            println!(
-                "after vector: {vector}, offset_within_entry {offset_within_entry} ctrl: {}",
-                ctrl
-            );
-        }
-
         if ctrl_old != ctrl_new {
+            // TODO: introduce sgi allocator
             let sgi = (32 + vector) as u32;
             let mut sgi_routing = get_kvm_sgi_routing_instance().lock().unwrap();
             sgi_routing.add_msi_gsi_routing(sgi, entry.addr_lo, entry.addr_hi, entry.data);
@@ -122,51 +111,109 @@ impl VfioPciFunction {
         }
     }
 
-    fn read_msix_pba(&self, offset: u64, buf: &mut [u8]) {
+    fn read_msix_pba(&self, _offset: u64, _buf: &mut [u8]) {
         todo!()
     }
 
-    fn write_msix_pba(&self, offset: u64, buf: &[u8]) {
+    fn write_msix_pba(&self, _offset: u64, _buf: &[u8]) {
         todo!()
+    }
+
+    fn enable_intx(&self) {
+        let Some(intx_info) = &self.interrupt_info.intx else {
+            return;
+        };
+
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let Some(intx) = &mut interrupt_manager.intx else {
+            return;
+        };
+
+        if !intx.enabled {
+            self.device.enable_intx(&intx_info.trigger_fd).unwrap();
+            self.device
+                .set_intx_resample_fd(&intx_info.resample_fd)
+                .unwrap();
+            intx.enabled = true;
+        }
+    }
+
+    fn disable_intx(&self) {
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let Some(intx) = &mut interrupt_manager.intx else {
+            return;
+        };
+
+        if intx.enabled {
+            self.device.disable_intx().unwrap();
+            intx.enabled = false;
+        }
+    }
+
+    fn enable_msix(&self) {
+        let Some(msix_info) = &self.interrupt_info.msix else {
+            return;
+        };
+
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let Some(msix) = &mut interrupt_manager.msix else {
+            return;
+        };
+
+        if !msix.enabled {
+            self.device
+                .enable_msix(msix_info.event_fds.iter().collect())
+                .unwrap();
+            msix.enabled = true;
+        }
+    }
+
+    fn disable_msix(&self) {
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let Some(msix) = &mut interrupt_manager.msix else {
+            return;
+        };
+
+        if msix.enabled {
+            self.device.disable_msix().unwrap();
+            msix.enabled = false;
+        }
+    }
+
+    fn on_msix_ctrl_changing(&self, old_ctrl: u16, new_ctrl: u16) {
+        // enable msix
+        if old_ctrl & PCI_MSIX_FLAGS_ENABLE == 0 && new_ctrl & PCI_MSIX_FLAGS_ENABLE != 0 {
+            self.disable_intx();
+            self.enable_msix();
+        }
+
+        // disable msix
+        if old_ctrl & PCI_MSIX_FLAGS_ENABLE != 0 && new_ctrl & PCI_MSIX_FLAGS_ENABLE == 0 {
+            self.disable_msix();
+            self.enable_intx();
+        }
     }
 
     fn write_capability(&self, offset: u16, buf: &[u8]) {
         let mut configuration_space = self.configuration_space.lock().unwrap();
 
-        if let Some(msix) = &self.interrupt_info.msix
-            && msix.cap_offset_range.contains(&offset)
+        if let Some(msix_info) = &self.interrupt_info.msix
+            && msix_info.cap_offset_range.contains(&offset)
         {
             let cap = PciMsixCap::mut_from_bytes(
-                &mut configuration_space.as_bytes_mut()
-                    [msix.cap_offset_range.start as usize..msix.cap_offset_range.end as usize],
+                &mut configuration_space.as_bytes_mut()[msix_info.cap_offset_range.start as usize
+                    ..msix_info.cap_offset_range.end as usize],
             )
             .unwrap();
 
-            let offset_within_cap = offset - msix.cap_offset_range.start;
+            let offset_within_cap = offset - msix_info.cap_offset_range.start;
 
             // ctrl
-            if offset_within_cap == 2 {
-                let ctrl = u16::from_le_bytes(buf.try_into().unwrap());
-                cap.ctrl = ctrl;
-
-                let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
-
-                if !interrupt_manager.msix.as_mut().unwrap().enabled && cap.enable() {
-                    if let Some(intx) = &mut interrupt_manager.intx
-                        && intx.enabled
-                    {
-                        intx.enabled = false;
-                        self.device.disable_intx().unwrap();
-                    }
-
-                    interrupt_manager.msix.as_mut().unwrap().enabled = true;
-                    self.device
-                        .enable_msix(msix.event_fds.iter().collect())
-                        .unwrap();
-                } else if interrupt_manager.msix.as_mut().unwrap().enabled && !cap.enable() {
-                    interrupt_manager.msix.as_mut().unwrap().enabled = false;
-                    self.device.disable_msix().unwrap();
-                }
+            if offset_within_cap == PciMsixCapOffset::Ctrl as u16 {
+                let old_ctrl = cap.ctrl;
+                let new_ctrl = u16::from_le_bytes(buf.try_into().unwrap());
+                cap.ctrl = new_ctrl;
+                self.on_msix_ctrl_changing(old_ctrl, new_ctrl);
             } else {
                 panic!("guest try to write a invalid field of msi-x cap")
             }
@@ -438,9 +485,9 @@ impl PciFunction for VfioPciFunction {
     }
 
     fn legacy_irq(&self) -> Option<(u8, u8)> {
-        let cs = self.configuration_space.lock().unwrap();
-        let header = cs.as_header::<Type0Header>();
-
-        Some((header.interrupt_line, header.interrupt_pin))
+        self.interrupt_info
+            .intx
+            .as_ref()
+            .map(|intx| (intx.line, intx.pin as u8))
     }
 }

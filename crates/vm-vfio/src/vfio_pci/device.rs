@@ -234,11 +234,6 @@ fn setup_interrupt_capability(
                 .map_err(|_| Error::AllocIrq)?
                 .try_into()
                 .unwrap();
-            intx_info = Some(VfioIntxInfo {
-                pin: interrupt_pin,
-                line: header.interrupt_line,
-            });
-            intx = Some(VfioIntx { enabled: true });
 
             if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
                 return Err(Error::PrepareIrq("intx does not support eventfd".into()));
@@ -252,6 +247,14 @@ fn setup_interrupt_capability(
 
             vfio_device.enable_intx(&active_fd)?;
             vfio_device.set_intx_resample_fd(&deactive_fd)?;
+
+            intx_info = Some(VfioIntxInfo {
+                trigger_fd: active_fd,
+                resample_fd: deactive_fd,
+                pin: interrupt_pin,
+                line: header.interrupt_line,
+            });
+            intx = Some(VfioIntx { enabled: true });
         }
     }
 
