@@ -71,9 +71,3 @@ impl<'a> KvmVcpuInternal<'a> {
         }
     }
 }
-
-impl KvmVm {
-    pub(crate) fn set_irq_gsi_routing_arch(&self) -> Result<(), VmError> {
-        todo!()
-    }
-}

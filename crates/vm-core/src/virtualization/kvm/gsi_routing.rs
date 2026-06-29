@@ -9,6 +9,8 @@ use kvm_bindings::kvm_irq_routing_irqchip;
 use kvm_bindings::kvm_irq_routing_msi;
 use kvm_bindings::kvm_irq_routing_msi__bindgen_ty_1;
 
+#[cfg(target_arch = "aarch64")]
+use crate::virtualization::kvm::gsi_routing::aarch64::new_irq_gsi_routing;
 #[cfg(target_arch = "x86_64")]
 use crate::virtualization::kvm::gsi_routing::x86_64::new_irq_gsi_routing;
 

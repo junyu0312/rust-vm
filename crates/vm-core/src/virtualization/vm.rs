@@ -51,5 +51,6 @@ pub trait HypervisorVm: Send + Sync {
         gsi: u32,
     ) -> Result<(), VmError>;
 
+    #[cfg(target_os = "linux")]
     fn set_gsi_routing(&self) -> Result<(), VmError>;
 }
