@@ -64,6 +64,10 @@ use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsix;
 use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
+pub const DEBUG_ENABLE_MSIX: bool = true;
+pub const DEBUG_ENABLE_MSI: bool = true;
+pub const DEBUG_ENABLE_INTX: bool = true;
+
 fn setup_interrupt_capability(
     vm: &dyn HypervisorVm,
     vfio_device: Arc<VfioDevice>,
@@ -73,7 +77,7 @@ fn setup_interrupt_capability(
 ) -> Result<(VfioInterruptInfo, VfioInterruptManager)> {
     let mut msix = None;
     let mut msix_info = None;
-    if let Some(offset) = raw.find_cap(PciCapId::MsiX as u8) {
+    if DEBUG_ENABLE_MSIX && let Some(offset) = raw.find_cap(PciCapId::MsiX as u8) {
         let cap = PciMsixCap::ref_from_bytes(
             &raw.as_bytes()[offset as usize..offset as usize + size_of::<PciMsixCap>()],
         )
@@ -146,7 +150,7 @@ fn setup_interrupt_capability(
 
     let mut msi_info = None;
     let mut msi = None;
-    if let Some(offset) = raw.find_cap(PciCapId::Msi as u8) {
+    if DEBUG_ENABLE_MSI && let Some(offset) = raw.find_cap(PciCapId::Msi as u8) {
         let ctrl = u16::from_le_bytes(
             raw.as_bytes()[offset as usize + 2..offset as usize + 4]
                 .try_into()
@@ -154,14 +158,25 @@ fn setup_interrupt_capability(
         );
         let mmc = PciMsiMmc::from_repr(((ctrl & PCI_MSI_FLAGS_QMASK) >> 1) as u8)
             .ok_or(Error::ParseMsi)?;
+
+        let irq_info = vfio_device
+            .get_msi_irq_info()
+            .ok_or(Error::PrepareIrq("Failed to get msi info".into()))?;
+
+        if irq_info.count == 0 {
+            return Err(Error::PrepareIrq("msi count is zero".into()));
+        }
+
+        if irq_info.count != mmc.vectors() as u32 {
+            return Err(Error::PrepareIrq("msi count inconsistent".into()));
+        }
+
+        if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
+            return Err(Error::PrepareIrq("msi does not support eventfd".into()));
+        }
+
         let bit64 = ctrl & PCI_MSI_FLAGS_64BIT != 0;
         let mask = ctrl & PCI_MSI_FLAGS_MASKBIT != 0;
-
-        msi_info = Some(VfioMsiInfo {
-            vectors: mmc.vectors(),
-        });
-        msi = Some(VfioMsi { enabled: false });
-
         match (bit64, mask) {
             (false, false) => {
                 let cap = PciMsiCap::new(mmc);
@@ -181,26 +196,16 @@ fn setup_interrupt_capability(
             }
         }
 
-        let irq_info = vfio_device
-            .get_msi_irq_info()
-            .ok_or(Error::PrepareIrq("Failed to get msi info".into()))?;
-
-        if irq_info.count == 0 {
-            return Err(Error::PrepareIrq("msi count is zero".into()));
-        }
-
-        if irq_info.count != mmc.vectors() as u32 {
-            return Err(Error::PrepareIrq("msi count inconsistent".into()));
-        }
-
-        if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
-            return Err(Error::PrepareIrq("msi does not support eventfd".into()));
-        }
+        msi_info = Some(VfioMsiInfo {
+            vectors: mmc.vectors(),
+        });
+        msi = Some(VfioMsi { enabled: false });
     }
 
     let mut intx = None;
     let mut intx_info = None;
-    if let Some(irq_info) = vfio_device.get_intx_irq_info()
+    if DEBUG_ENABLE_INTX
+        && let Some(irq_info) = vfio_device.get_intx_irq_info()
         && irq_info.count != 0
     {
         assert_eq!(irq_info.count, 1);
