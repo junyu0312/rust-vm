@@ -124,6 +124,10 @@ impl KvmGsiRouting {
 
         true
     }
+
+    pub fn remove_msi_gsi_routing(&mut self, gsi: u32) -> bool {
+        self.msi_entryies.remove(&gsi).is_some()
+    }
 }
 
 impl TryFrom<&KvmGsiRouting> for KvmIrqRouting {

@@ -64,7 +64,7 @@ use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsix;
 use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
-const DEBUG_ENABLE_MSIX: bool = true;
+const DEBUG_ENABLE_MSIX: bool = false;
 const DEBUG_ENABLE_MSI: bool = true;
 const DEBUG_ENABLE_INTX: bool = true;
 
@@ -203,6 +203,7 @@ fn setup_interrupt_capability(
             }
         }
 
+        let irqrd = vec![false; mmc.vectors() as usize];
         let event_fds = (0..mmc.vectors())
             .map(|_| EventFd::new(0))
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -213,7 +214,10 @@ fn setup_interrupt_capability(
             mask,
             cap_offset_range: cap_offset as u16..cap_offset as u16 + cap_len as u16,
         });
-        msi = Some(VfioMsi { enabled: false });
+        msi = Some(VfioMsi {
+            irqrd,
+            enabled: false,
+        });
     }
 
     let mut intx = None;

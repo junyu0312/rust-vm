@@ -6,7 +6,6 @@ use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
 use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
 use vm_core::virtualization::kvm::gsi_routing::get_kvm_gsi_routing_instance;
 use vm_core::virtualization::vm::HypervisorVm;
-use vm_pci::device::capability::msi::PCI_MSI_FLAGS_ENABLE;
 use vm_pci::device::capability::msi::PciMsiCap;
 use vm_pci::device::capability::msi::PciMsiCap64;
 use vm_pci::device::capability::msi::PciMsiCap64Mask;
@@ -35,6 +34,7 @@ use zerocopy::IntoBytes;
 use crate::vfio::device::VfioDevice;
 use crate::vfio_pci::interrupt::VfioInterruptInfo;
 use crate::vfio_pci::interrupt::VfioInterruptManager;
+use crate::vfio_pci::interrupt::msi::VfioMsi;
 use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
@@ -132,33 +132,88 @@ impl VfioPciFunction {
 }
 
 impl VfioPciFunction {
-    fn enable_msi(&self, msi_info: &VfioMsiInfo, _msi_cap: &mut dyn PciMsiCapOps) {
+    fn update_msi_vector_enable(
+        &self,
+        msi_info: &VfioMsiInfo,
+        msi: &mut VfioMsi,
+        msi_cap: &dyn PciMsiCapOps,
+        enable: bool,
+        vector: usize,
+    ) {
+        // TODO: introduce gsi allocator
+        let gsi = (32 + vector) as u32;
+
+        self.insert_or_update_msi_gsi_entry(
+            msi_cap.address_lo(),
+            msi_cap.address_hi(),
+            msi_cap.vector_data(vector),
+            gsi,
+        );
+        let fd = &msi_info.event_fds[vector];
+        if enable {
+            self.vm.set_irqfd(fd, gsi).unwrap();
+            msi.irqrd[vector] = true;
+        } else {
+            self.vm.del_irqfd(fd, gsi).unwrap();
+            msi.irqrd[vector] = false;
+        }
+    }
+
+    fn update_msi_vector_routing(
+        &self,
+        old_msi_cap: &dyn PciMsiCapOps,
+        new_msi_cap: &dyn PciMsiCapOps,
+        vector: usize,
+    ) {
+        let Some(msi_info) = &self.interrupt_info.msi else {
+            return;
+        };
+
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let Some(msi) = &mut interrupt_manager.msi else {
+            return;
+        };
+
+        if old_msi_cap.is_mask(vector) != new_msi_cap.is_mask(vector) {
+            self.update_msi_vector_enable(
+                msi_info,
+                msi,
+                new_msi_cap,
+                !new_msi_cap.is_mask(vector),
+                vector,
+            );
+        }
+    }
+
+    fn force_update_msi_vector_routing(
+        &self,
+        msi_info: &VfioMsiInfo,
+        msi: &mut VfioMsi,
+        msi_cap: &dyn PciMsiCapOps,
+    ) {
+        if msi_cap.mask_bits_offset().is_some() {
+            return;
+        }
+
+        for vector in 0..msi_cap.configured_vectors() {
+            if !msi.irqrd[vector] && msi_cap.enable() {
+                self.update_msi_vector_enable(msi_info, msi, msi_cap, true, vector);
+            }
+
+            if msi.irqrd[vector] && !msi_cap.enable() {
+                self.update_msi_vector_enable(msi_info, msi, msi_cap, false, vector);
+            }
+        }
+    }
+
+    fn enable_msi(&self, msi_info: &VfioMsiInfo, new_msi_cap: &dyn PciMsiCapOps) {
         let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
         let Some(msi) = &mut interrupt_manager.msi else {
             return;
         };
 
         if !msi.enabled {
-            /*
-            for vector in 0..msi_cap.configured_vectors() {
-                // TODO: introduce gsi allocator
-                let gsi = (32 + vector) as u32;
-                let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
-                gsi_routing.add_msi_gsi_routing(
-                    gsi,
-                    msi_cap.address_lo(),
-                    msi_cap.address_hi(),
-                    msi_cap.vector_data(vector),
-                );
-                drop(gsi_routing);
-                self.vm.set_gsi_routing().unwrap();
-
-                self.vm
-                    .set_irqfd(&msi_info.event_fds[vector as usize], gsi)
-                    .unwrap();
-            }
-             */
-
+            self.force_update_msi_vector_routing(msi_info, msi, new_msi_cap);
             self.device
                 .enable_msi(msi_info.event_fds.iter().collect())
                 .unwrap();
@@ -166,77 +221,50 @@ impl VfioPciFunction {
         }
     }
 
-    fn disable_msi(&self) {
+    fn disable_msi(&self, msi_info: &VfioMsiInfo, new_msi_cap: &dyn PciMsiCapOps) {
         let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
         let Some(msi) = &mut interrupt_manager.msi else {
             return;
         };
 
         if msi.enabled {
+            self.force_update_msi_vector_routing(msi_info, msi, new_msi_cap);
             self.device.disable_msi().unwrap();
             msi.enabled = false;
-
-            todo!("update router, del irqrd")
-        }
-    }
-
-    fn on_msi_ctrl_changing(
-        &self,
-        msi_info: &VfioMsiInfo,
-        msi_cap: &mut dyn PciMsiCapOps,
-        new_ctrl: u16,
-    ) {
-        let old_ctrl = msi_cap.ctrl();
-        msi_cap.set_ctrl(new_ctrl);
-
-        // enable msix
-        if old_ctrl & PCI_MSI_FLAGS_ENABLE == 0 && new_ctrl & PCI_MSI_FLAGS_ENABLE != 0 {
-            self.disable_intx();
-            self.enable_msi(msi_info, msi_cap);
-        }
-
-        // disable msix
-        if old_ctrl & PCI_MSI_FLAGS_ENABLE != 0 && new_ctrl & PCI_MSI_FLAGS_ENABLE == 0 {
-            self.disable_msi();
-            self.enable_intx();
         }
     }
 
     fn on_msi_mask_bits_changing(
         &self,
-        msi_info: &VfioMsiInfo,
-        msi_cap: &mut dyn PciMsiCapOps,
-        new_mask_bits: u32,
+        old_msi_cap: &dyn PciMsiCapOps,
+        msi_cap: &dyn PciMsiCapOps,
     ) {
-        let old_mask_bits = msi_cap.mask_bits();
-
-        msi_cap.set_mask_bits(new_mask_bits);
-
         for vector in 0..msi_cap.available_vectors() {
-            let was_masked = (old_mask_bits & (1 << vector)) != 0;
-            let mask = (new_mask_bits & (1 << vector)) != 0;
+            self.update_msi_vector_routing(old_msi_cap, msi_cap, vector);
+        }
+    }
 
-            if !was_masked && mask {
-                // TODO: update route, del irq_fd
-                // self.vm
-                //     .del_irqfd(&msi_info.event_fds[vector as usize], gsi)
-                //     .unwrap();
-                println!("mask : {vector}");
-            } else if was_masked && !mask {
-                // TODO: introduce gsi allocator
-                let gsi = (32 + vector) as u32;
-                let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
-                gsi_routing.insert_or_update_msi_gsi_routing(
-                    gsi,
-                    msi_cap.address_lo(),
-                    msi_cap.address_hi(),
-                    msi_cap.vector_data(vector),
-                );
-                drop(gsi_routing);
-                self.vm.set_gsi_routing().unwrap();
+    fn on_msi_ctrl_enable_changing(&self, new_msi_cap: &dyn PciMsiCapOps) {
+        let Some(msi_info) = &self.interrupt_info.msi else {
+            return;
+        };
 
-                self.vm.set_irqfd(&msi_info.event_fds[vector], gsi).unwrap();
-            }
+        if new_msi_cap.enable() {
+            self.disable_intx();
+            self.enable_msi(msi_info, new_msi_cap);
+        } else {
+            self.disable_msi(msi_info, new_msi_cap);
+            self.enable_intx();
+        }
+    }
+
+    fn sync_msi_cap_changing(&self, old_cap: &dyn PciMsiCapOps, new_cap: &dyn PciMsiCapOps) {
+        if old_cap.mask_bits() != new_cap.mask_bits() {
+            self.on_msi_mask_bits_changing(old_cap, new_cap);
+        }
+
+        if old_cap.enable() != new_cap.enable() {
+            self.on_msi_ctrl_enable_changing(new_cap);
         }
     }
 
@@ -247,27 +275,23 @@ impl VfioPciFunction {
             [msi_info.cap_offset_range.start as usize..msi_info.cap_offset_range.end as usize];
 
         // Skip `cap_id` and `next`, since the length of msi cap is variable
-        let cap: &mut dyn PciMsiCapOps = match (msi_info.bit64, msi_info.mask) {
-            (false, false) => PciMsiCap::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
-            (true, false) => PciMsiCap64::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
-            (false, true) => PciMsiCapMask::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
-            (true, true) => PciMsiCap64Mask::mut_from_bytes(&mut msi_cap_buf[2..]).unwrap(),
+        let old_cap: Box<dyn PciMsiCapOps> = match (msi_info.bit64, msi_info.mask) {
+            (false, false) => Box::new(PciMsiCap::read_from_bytes(&msi_cap_buf[2..]).unwrap()),
+            (true, false) => Box::new(PciMsiCap64::read_from_bytes(&msi_cap_buf[2..]).unwrap()),
+            (false, true) => Box::new(PciMsiCapMask::read_from_bytes(&msi_cap_buf[2..]).unwrap()),
+            (true, true) => Box::new(PciMsiCap64Mask::read_from_bytes(&msi_cap_buf[2..]).unwrap()),
         };
 
-        if offset_within_cap == 2 {
-            self.on_msi_ctrl_changing(msi_info, cap, u16::from_le_bytes(buf.try_into().unwrap()));
-        } else if let Some(mask_bits_offset) = cap.mask_bits_offset()
-            && offset_within_cap as usize == mask_bits_offset
-        {
-            self.on_msi_mask_bits_changing(
-                msi_info,
-                cap,
-                u32::from_le_bytes(buf.try_into().unwrap()),
-            );
-        } else {
-            msi_cap_buf[offset_within_cap as usize..offset_within_cap as usize + buf.len()]
-                .copy_from_slice(buf);
-        }
+        msi_cap_buf[offset_within_cap as usize..offset_within_cap as usize + buf.len()]
+            .copy_from_slice(buf);
+        let cap: &dyn PciMsiCapOps = match (msi_info.bit64, msi_info.mask) {
+            (false, false) => PciMsiCap::ref_from_bytes(&msi_cap_buf[2..]).unwrap(),
+            (true, false) => PciMsiCap64::ref_from_bytes(&msi_cap_buf[2..]).unwrap(),
+            (false, true) => PciMsiCapMask::ref_from_bytes(&msi_cap_buf[2..]).unwrap(),
+            (true, true) => PciMsiCap64Mask::ref_from_bytes(&msi_cap_buf[2..]).unwrap(),
+        };
+
+        self.sync_msi_cap_changing(old_cap.as_ref(), cap);
     }
 }
 

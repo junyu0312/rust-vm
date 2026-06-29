@@ -10,5 +10,6 @@ pub struct VfioMsiInfo {
 }
 
 pub struct VfioMsi {
+    pub irqrd: Vec<bool>,
     pub enabled: bool,
 }

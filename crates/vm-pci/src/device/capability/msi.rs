@@ -50,6 +50,10 @@ pub trait PciMsiCapOps {
 
     fn set_ctrl(&mut self, ctrl: u16);
 
+    fn enable(&self) -> bool {
+        self.ctrl() & PCI_MSI_FLAGS_ENABLE != 0
+    }
+
     fn address_lo(&self) -> u32;
 
     fn address_hi(&self) -> u32 {
@@ -66,11 +70,15 @@ pub trait PciMsiCapOps {
     }
 
     fn mask_bits(&self) -> u32 {
-        unreachable!()
+        0
     }
 
     fn set_mask_bits(&mut self, _mask_bits: u32) {
         unreachable!()
+    }
+
+    fn is_mask(&self, vector: usize) -> bool {
+        (self.mask_bits() & (1 << vector as u32)) != 0
     }
 }
 
