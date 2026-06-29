@@ -27,7 +27,7 @@ pub enum PciMsixCapOffset {
     PbaOffset = 0x08,
 }
 
-#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+#[derive(Clone, FromBytes, IntoBytes, KnownLayout, Immutable)]
 #[repr(C, packed)]
 pub struct MsixEntry {
     pub addr_lo: u32,

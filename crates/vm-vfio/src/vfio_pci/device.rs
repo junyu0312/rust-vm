@@ -64,9 +64,9 @@ use crate::vfio_pci::interrupt::msi::VfioMsiInfo;
 use crate::vfio_pci::interrupt::msix::VfioMsix;
 use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
-pub const DEBUG_ENABLE_MSIX: bool = true;
-pub const DEBUG_ENABLE_MSI: bool = true;
-pub const DEBUG_ENABLE_INTX: bool = true;
+const DEBUG_ENABLE_MSIX: bool = true;
+const DEBUG_ENABLE_MSI: bool = true;
+const DEBUG_ENABLE_INTX: bool = true;
 
 fn setup_interrupt_capability(
     vm: &dyn HypervisorVm,
@@ -142,7 +142,7 @@ fn setup_interrupt_capability(
         });
         msix = Some(VfioMsix {
             table,
-            _pba: pba,
+            pba,
             enabled: false,
         });
     }

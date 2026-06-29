@@ -68,6 +68,17 @@ impl VfioPciFunction {
             interrupt_manager: Arc::new(Mutex::new(interrupt_manager)),
         }
     }
+
+    fn insert_or_update_msi_gsi_entry(&self, addr_lo: u32, addr_hi: u32, data: u32, gsi: u32) {
+        let updated = {
+            let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
+            gsi_routing.insert_or_update_msi_gsi_routing(gsi, addr_lo, addr_hi, data)
+        };
+
+        if updated {
+            self.vm.set_gsi_routing().unwrap();
+        }
+    }
 }
 
 impl VfioPciFunction {
@@ -215,7 +226,7 @@ impl VfioPciFunction {
                 // TODO: introduce gsi allocator
                 let gsi = (32 + vector) as u32;
                 let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
-                gsi_routing.add_msi_gsi_routing(
+                gsi_routing.insert_or_update_msi_gsi_routing(
                     gsi,
                     msi_cap.address_lo(),
                     msi_cap.address_hi(),
@@ -269,48 +280,53 @@ impl VfioPciFunction {
     }
 
     fn write_msix_table(&self, msix_info: &VfioMsixInfo, offset: usize, buf: &[u8]) {
+        // ensure field writing
+        let _val = u32::from_le_bytes(buf.try_into().unwrap());
+
         let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
         let msix = interrupt_manager.msix.as_mut().unwrap();
 
         let vector = offset / size_of::<MsixEntry>();
-
         let offset_within_entry = offset % size_of::<MsixEntry>();
 
-        let entry = &mut msix.table[vector];
-        let ctrl_old = entry.control;
-
-        entry.as_mut_bytes()[offset_within_entry..offset_within_entry + buf.len()]
+        let msi_entry_old = msix.table[vector].clone();
+        let msi_entry_new = &mut msix.table[vector];
+        msi_entry_new.as_mut_bytes()[offset_within_entry..offset_within_entry + buf.len()]
             .copy_from_slice(buf);
-        let ctrl_new = entry.control;
-
-        if ctrl_old == ctrl_new {
-            return;
-        }
 
         // TODO: introduce gsi allocator
         let gsi = (32 + vector) as u32;
-        let mut gsi_routing = get_kvm_gsi_routing_instance().lock().unwrap();
-        gsi_routing.add_msi_gsi_routing(gsi, entry.addr_lo, entry.addr_hi, entry.data);
-        drop(gsi_routing);
-        self.vm.set_gsi_routing().unwrap();
-
-        if entry.is_mask() {
-            self.vm
-                .del_irqfd(&msix_info.event_fds[vector], gsi)
-                .unwrap();
-        } else {
-            self.vm
-                .set_irqfd(&msix_info.event_fds[vector], gsi)
-                .unwrap();
+        self.insert_or_update_msi_gsi_entry(
+            msi_entry_new.addr_lo,
+            msi_entry_new.addr_hi,
+            msi_entry_new.data,
+            gsi,
+        );
+        if msi_entry_old.is_mask() != msi_entry_new.is_mask() {
+            if msi_entry_new.is_mask() {
+                self.vm
+                    .del_irqfd(&msix_info.event_fds[vector], gsi)
+                    .unwrap();
+            } else {
+                self.vm
+                    .set_irqfd(&msix_info.event_fds[vector], gsi)
+                    .unwrap();
+            }
         }
     }
 
-    fn read_msix_pba(&self, _offset: u64, _buf: &mut [u8]) {
-        todo!()
+    fn read_msix_pba(&self, offset: usize, buf: &mut [u8]) {
+        let interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let msix = interrupt_manager.msix.as_ref().unwrap();
+
+        buf.copy_from_slice(&msix.pba[offset..offset + buf.len()]);
     }
 
-    fn write_msix_pba(&self, _offset: u64, _buf: &[u8]) {
-        todo!()
+    fn write_msix_pba(&self, offset: usize, buf: &[u8]) {
+        let mut interrupt_manager = self.interrupt_manager.lock().unwrap();
+        let msix = interrupt_manager.msix.as_mut().unwrap();
+
+        msix.pba[offset..offset + buf.len()].copy_from_slice(buf);
     }
 
     fn enable_msix(&self) {
@@ -626,7 +642,7 @@ impl PciFunction for VfioPciFunction {
             }
 
             if msix.pba_bar == bar && pba_range.contains(&offset) {
-                self.read_msix_pba(offset - pba_range.start, buf);
+                self.read_msix_pba((offset - pba_range.start).try_into().unwrap(), buf);
             }
         }
     }
@@ -646,7 +662,7 @@ impl PciFunction for VfioPciFunction {
             }
 
             if msix.pba_bar == bar && pba_range.contains(&offset) {
-                self.write_msix_pba(offset - pba_range.start, buf);
+                self.write_msix_pba((offset - pba_range.start).try_into().unwrap(), buf);
             }
         }
     }

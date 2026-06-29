@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 
@@ -16,6 +17,7 @@ mod aarch64;
 #[cfg(target_arch = "x86_64")]
 mod x86_64;
 
+#[derive(PartialEq)]
 pub enum KvmGsiRoutingEntryU {
     Irqchip {
         irqchip: u32,
@@ -53,13 +55,14 @@ impl From<&KvmGsiRoutingEntryU> for kvm_irq_routing_entry__bindgen_ty_1 {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 #[repr(u32)]
 pub enum KvmGsiRoutingEntryType {
     Irqchip = 1,
     Msi = 2,
 }
 
+#[derive(PartialEq)]
 pub struct KvmGsiRoutingEntry {
     pub gsi: u32,
     pub r#type: KvmGsiRoutingEntryType,
@@ -81,24 +84,27 @@ impl From<&KvmGsiRoutingEntry> for kvm_irq_routing_entry {
 #[derive(Default)]
 pub struct KvmGsiRouting {
     nr: u32,
-    entries: Vec<KvmGsiRoutingEntry>,
+    irqchip_entries: Vec<KvmGsiRoutingEntry>,
+    msi_entryies: HashMap<u32, KvmGsiRoutingEntry>,
 }
 
 impl KvmGsiRouting {
-    pub fn push(&mut self, entry: KvmGsiRoutingEntry) {
-        self.entries.push(entry);
-    }
-
     pub fn add_intx_gsi_routing(&mut self, gsi: u32, irqchip: u32, pin: u32) {
-        self.entries.push(KvmGsiRoutingEntry {
+        self.irqchip_entries.push(KvmGsiRoutingEntry {
             gsi,
             r#type: KvmGsiRoutingEntryType::Irqchip,
             u: KvmGsiRoutingEntryU::Irqchip { irqchip, pin },
         });
     }
 
-    pub fn add_msi_gsi_routing(&mut self, gsi: u32, address_lo: u32, address_hi: u32, data: u32) {
-        self.entries.push(KvmGsiRoutingEntry {
+    pub fn insert_or_update_msi_gsi_routing(
+        &mut self,
+        gsi: u32,
+        address_lo: u32,
+        address_hi: u32,
+        data: u32,
+    ) -> bool {
+        let new = KvmGsiRoutingEntry {
             gsi,
             r#type: KvmGsiRoutingEntryType::Msi,
             u: KvmGsiRoutingEntryU::Msi {
@@ -106,7 +112,17 @@ impl KvmGsiRouting {
                 address_hi,
                 data,
             },
-        });
+        };
+
+        let old = self.msi_entryies.get(&gsi);
+
+        if old == Some(&new) {
+            return false;
+        }
+
+        self.msi_entryies.insert(gsi, new);
+
+        true
     }
 }
 
@@ -116,7 +132,10 @@ impl TryFrom<&KvmGsiRouting> for KvmIrqRouting {
     fn try_from(routing: &KvmGsiRouting) -> Result<Self, Self::Error> {
         let mut kvm_irq_routing = KvmIrqRouting::new(routing.nr as usize)?;
 
-        for entry in &routing.entries {
+        for entry in &routing.irqchip_entries {
+            kvm_irq_routing.push(entry.into())?;
+        }
+        for entry in routing.msi_entryies.values() {
             kvm_irq_routing.push(entry.into())?;
         }
 
