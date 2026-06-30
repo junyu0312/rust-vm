@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use tracing::warn;
 use vfio_bindings::bindings::vfio::VFIO_PCI_BAR0_REGION_INDEX;
 use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
+use vm_core::interrupt_manager::InterruptManager;
 use vm_core::virtualization::kvm::gsi_routing::get_kvm_gsi_routing_instance;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_pci::device::capability::msi::PciMsiCap;
@@ -40,6 +41,7 @@ use crate::vfio_pci::interrupt::msix::VfioMsixInfo;
 
 pub struct VfioPciFunction {
     vm: Arc<dyn HypervisorVm>,
+    irq_manager: Arc<InterruptManager>,
     raw_configuration_space: PciConfigurationSpace,
     configuration_space: Mutex<ConfigurationSpace>,
     bars: [Option<PciBarInfo>; 6],
@@ -49,8 +51,10 @@ pub struct VfioPciFunction {
 }
 
 impl VfioPciFunction {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         vm: Arc<dyn HypervisorVm>,
+        irq_manager: Arc<InterruptManager>,
         raw_configuration_space: PciConfigurationSpace,
         configuration_space: ConfigurationSpace,
         bars: [Option<PciBarInfo>; 6],
@@ -60,6 +64,7 @@ impl VfioPciFunction {
     ) -> Self {
         VfioPciFunction {
             vm,
+            irq_manager,
             raw_configuration_space,
             configuration_space: configuration_space.into(),
             bars,
@@ -140,8 +145,13 @@ impl VfioPciFunction {
         enable: bool,
         vector: usize,
     ) {
-        // TODO: introduce gsi allocator
-        let gsi = (32 + vector) as u32;
+        let gsi = if let Some(gsi) = msi.gsi[vector] {
+            gsi
+        } else {
+            let gsi = self.irq_manager.allocate_gsi().unwrap();
+            msi.gsi[vector] = Some(gsi);
+            gsi
+        };
 
         self.insert_or_update_msi_gsi_entry(
             msi_cap.address_lo(),
@@ -348,8 +358,13 @@ impl VfioPciFunction {
         msi_entry_new.as_mut_bytes()[offset_within_entry..offset_within_entry + buf.len()]
             .copy_from_slice(buf);
 
-        // TODO: introduce gsi allocator
-        let gsi = (32 + vector) as u32;
+        let gsi = if let Some(gsi) = msix.gsi[vector] {
+            gsi
+        } else {
+            let gsi = self.irq_manager.allocate_gsi().unwrap();
+            msix.gsi[vector] = Some(gsi);
+            gsi
+        };
         self.insert_or_update_msi_gsi_entry(
             msi_entry_new.addr_lo,
             msi_entry_new.addr_hi,

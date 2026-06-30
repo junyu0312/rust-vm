@@ -10,6 +10,7 @@ pub struct VfioMsiInfo {
 }
 
 pub struct VfioMsi {
+    pub gsi: Vec<Option<u32>>,
     pub irqrd: Vec<bool>,
     pub enabled: bool,
 }

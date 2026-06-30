@@ -2,6 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 use vm_core::device::error::DeviceError;
+use vm_core::interrupt_manager::InterruptManagerError;
 use vm_core::utils::address_space::AddressSpaceError;
 use vm_virtio::result::VirtioError;
 
@@ -24,6 +25,9 @@ pub enum InitDeviceError {
 
     #[error("Failed to alloc resource, {0}")]
     AllocResource(Box<dyn Error + Send + Sync>),
+
+    #[error("Failed to alloc interrupt: {0}")]
+    AllocInterrupt(#[from] InterruptManagerError),
 
     #[error("Failed to register monitor command for device {device}")]
     RegisterMonitorCommand { device: String },

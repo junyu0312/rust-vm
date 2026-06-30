@@ -6,7 +6,7 @@ use vm_core::arch::aarch64::layout::*;
 use vm_core::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
 use vm_core::arch::x86_64::layout::*;
-use vm_core::virtualization::irq_allocator::IrqAllocator;
+use vm_core::interrupt_manager::InterruptManager;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_device::device::Device;
 use vm_device::device::VirtioTransport;
@@ -40,7 +40,7 @@ mod vfio;
 pub struct DeviceManagerBuilder<'a> {
     #[allow(dead_code)]
     vm: Arc<dyn HypervisorVm>,
-    irq_allocator: IrqAllocator,
+    interrupt_manager: Arc<InterruptManager>,
     irq_chip: Arc<dyn InterruptController>,
     memory: Arc<MemoryAddressSpace>,
     monitor_server_builder: &'a mut MonitorServerBuilder,
@@ -77,7 +77,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                         self.device_manager
                             .attach_device(Box::new(dev.into_mmio_device(
                                 &mut self.mmio_allocator,
-                                &mut self.irq_allocator,
+                                &self.interrupt_manager,
                                 &mut self.virtio_mmio_index_allocator,
                                 tokio::runtime::Handle::current(),
                                 self.memory.clone(),
@@ -90,7 +90,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                                 #[cfg(target_arch = "x86_64")]
                                 self.pci_pio_allocator.get_mut().unwrap(),
                                 self.pci_mmio_allocator.get_mut().unwrap(),
-                                &mut self.irq_allocator,
+                                &self.interrupt_manager,
                                 tokio::runtime::Handle::current(),
                                 self.memory.clone(),
                                 self.irq_chip.clone(),
@@ -110,7 +110,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                     VirtioTransport::Mmio => {
                         let device = dev.into_mmio_device(
                             &mut self.mmio_allocator,
-                            &mut self.irq_allocator,
+                            &self.interrupt_manager,
                             &mut self.virtio_mmio_index_allocator,
                             tokio::runtime::Handle::current(),
                             self.memory.clone(),
@@ -123,7 +123,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                     }
                     VirtioTransport::Pci => {
                         let device = dev.into_virtio_pci_device(
-                            &mut self.irq_allocator,
+                            &self.interrupt_manager,
                             tokio::runtime::Handle::current(),
                             self.memory.clone(),
                             self.irq_chip.clone(),
@@ -158,7 +158,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                         self.device_manager
                             .attach_device(Box::new(dev.into_mmio_device(
                                 &mut self.mmio_allocator,
-                                &mut self.irq_allocator,
+                                &self.interrupt_manager,
                                 &mut self.virtio_mmio_index_allocator,
                                 tokio::runtime::Handle::current(),
                                 self.memory.clone(),
@@ -171,7 +171,7 @@ impl<'a> DeviceManagerBuilder<'a> {
                                 #[cfg(target_arch = "x86_64")]
                                 self.pci_pio_allocator.get_mut().unwrap(),
                                 self.pci_mmio_allocator.get_mut().unwrap(),
-                                &mut self.irq_allocator,
+                                &self.interrupt_manager,
                                 tokio::runtime::Handle::current(),
                                 self.memory.clone(),
                                 self.irq_chip.clone(),
@@ -236,10 +236,11 @@ impl<'a> DeviceManagerBuilder<'a> {
     pub fn new(
         vm: Arc<dyn HypervisorVm>,
         irq_chip: Arc<dyn InterruptController>,
-        irq_allocator: IrqAllocator,
+        interrupt_manager: InterruptManager,
         memory: Arc<MemoryAddressSpace>,
         monitor_server_builder: &'a mut MonitorServerBuilder,
     ) -> Result<Self, InitDeviceError> {
+        let interrupt_manager = Arc::new(interrupt_manager);
         let device_manager = DeviceManagerV2::default();
 
         let mut virtio_mmio_index_allocator = RangeAllocator::<u8>::default();
@@ -247,7 +248,7 @@ impl<'a> DeviceManagerBuilder<'a> {
 
         Ok(DeviceManagerBuilder {
             vm,
-            irq_allocator,
+            interrupt_manager,
             irq_chip,
             memory,
             monitor_server_builder,

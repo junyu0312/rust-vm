@@ -21,7 +21,7 @@ const KERNEL_MAX: usize = 0x0400_0000;
 
 // We use SPI index to facilitate device-tree generating, triggering irq should add 32.
 pub const IRQ_ALLOCATION_START: u32 = 0;
-pub const IRQ_ALLOCATION_END: u32 = 256 - 32;
+pub const IRQ_ALLOCATION_LEN: usize = 256 - 32;
 
 const_assert!(ECAM_BASE >= MMIO_START + MMIO_LEN);
 const_assert!(PCI_BAR_MMIO_WINDOW_START >= ECAM_BASE + ECAM_LENGTH);

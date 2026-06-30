@@ -2,6 +2,7 @@ use thiserror::Error;
 use vm_core::arch::irq::error::IrqChipError;
 use vm_core::cpu::error::CpuError;
 use vm_core::device::error::DeviceSnapshotError;
+use vm_core::interrupt_manager::InterruptManagerError;
 use vm_core::monitor::MonitorError;
 use vm_core::virtualization::hypervisor::error::HypervisorError;
 use vm_core::virtualization::vm::error::VmError;
@@ -55,6 +56,9 @@ pub enum VmmError {
 
     #[error("{0}")]
     Memory(#[from] vm_mm::error::Error),
+
+    #[error("{0}")]
+    InterruptManager(#[from] InterruptManagerError),
 
     #[error("Failed to setup with bootloader, error: {0}")]
     Bootloader(#[from] BootloaderError),

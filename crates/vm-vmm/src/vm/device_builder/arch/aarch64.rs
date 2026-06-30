@@ -29,9 +29,7 @@ impl<'a> DeviceManagerBuilder<'a> {
         {
             let pl011 = Pl011::new(
                 &mut self.mmio_allocator,
-                self.irq_allocator
-                    .alloc()
-                    .map_err(|err| InitDeviceError::AllocResource(Box::new(err)))?,
+                self.interrupt_manager.allocate_irq()?,
                 self.irq_chip.clone(),
             )?;
             self.device_manager.attach_device(Box::new(pl011))?;

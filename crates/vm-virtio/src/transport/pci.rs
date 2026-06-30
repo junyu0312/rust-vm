@@ -10,7 +10,7 @@ use tokio::runtime::Handle;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::Device;
 use vm_core::device::error::DeviceSnapshotError;
-use vm_core::virtualization::irq_allocator::IrqAllocator;
+use vm_core::interrupt_manager::InterruptManager;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::device::capability::msix::PciMsixCap;
 use vm_pci::device::function::PciTypeFunctionCommon;
@@ -92,7 +92,7 @@ where
     }
 
     fn new(
-        irq_allocator: &mut IrqAllocator,
+        interrupt_manager: &InterruptManager,
         tokio_runtime: Handle,
         memory: Arc<MemoryAddressSpace>,
         irq_chip: Arc<dyn InterruptController>,
@@ -115,7 +115,13 @@ where
                 legacy_int = None;
                 msix = Some(Arc::new(RwLock::new(VirtioPciMsixInfo::new(num_queues))));
             } else {
-                legacy_int = Some(irq_allocator.alloc().unwrap().try_into().unwrap());
+                legacy_int = Some(
+                    interrupt_manager
+                        .allocate_irq()
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                );
                 msix = None
             };
 
@@ -412,13 +418,13 @@ pub trait VirtioPciDevice: VirtioDevice {
 
     fn into_virtio_pci_device(
         self,
-        irq_allocator: &mut IrqAllocator,
+        interrupt_manager: &InterruptManager,
         tokio_runtime: Handle,
         memory: Arc<MemoryAddressSpace>,
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<VirtioPciTransport<Self>> {
         let dev = VirtioPciTransport::new(
-            irq_allocator,
+            interrupt_manager,
             tokio_runtime,
             memory,
             irq_chip,
@@ -431,12 +437,12 @@ pub trait VirtioPciDevice: VirtioDevice {
         self,
         #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
         pci_mmio_window_allocator: &mut RangeAllocator<u64>,
-        irq_allocator: &mut IrqAllocator,
+        interrupt_manager: &InterruptManager,
         tokio_runtime: Handle,
         memory: Arc<MemoryAddressSpace>,
         irq_chip: Arc<dyn InterruptController>,
     ) -> Result<VirtioPciDev<Self>> {
-        self.into_virtio_pci_device(irq_allocator, tokio_runtime, memory, irq_chip)?
+        self.into_virtio_pci_device(interrupt_manager, tokio_runtime, memory, irq_chip)?
             .into_pci_device(
                 #[cfg(target_arch = "x86_64")]
                 pci_io_window_allocator,

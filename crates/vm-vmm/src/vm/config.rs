@@ -92,7 +92,7 @@ impl Vm {
             let device_manager = DeviceManagerBuilder::new(
                 vm_instance.clone(),
                 irq_chip.clone(),
-                vm_instance.create_irq_allocator()?,
+                vm_instance.create_irq_manager()?,
                 memory_address_space.clone(),
                 &mut monitor_server_builder,
             )?

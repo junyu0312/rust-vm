@@ -15,6 +15,7 @@ pub struct VfioMsixInfo {
 }
 
 pub struct VfioMsix {
+    pub gsi: Vec<Option<u32>>,
     pub table: Vec<MsixEntry>,
     pub pba: Vec<u8>,
     pub enabled: bool,

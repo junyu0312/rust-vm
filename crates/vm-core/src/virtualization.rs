@@ -5,6 +5,5 @@ pub mod hvp;
 pub mod kvm;
 
 pub mod hypervisor;
-pub mod irq_allocator;
 pub mod vcpu;
 pub mod vm;

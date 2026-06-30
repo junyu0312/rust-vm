@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::cpu::error::CpuError;
+use crate::interrupt_manager::InterruptManagerError;
 use crate::virtualization::vm::state::VmState;
 
 #[derive(Error, Debug)]
@@ -34,8 +35,8 @@ pub enum VmError {
     #[error("Cpu error: {0}")]
     CpuError(#[from] CpuError),
 
-    #[error("No space to alloc irq")]
-    AllocIrq,
+    #[error("Interrupt manager error: {0}")]
+    InterruptManagerError(#[from] InterruptManagerError),
 
     #[error("vm state is not satisfied, current: {current:?}")]
     VmState { current: VmState },

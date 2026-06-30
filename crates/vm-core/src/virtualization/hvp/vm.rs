@@ -18,15 +18,15 @@ use crate::arch::aarch64::irq::GIC_SPI_START;
 use crate::arch::aarch64::layout::GIC_DISTRIBUTOR;
 use crate::arch::aarch64::layout::GIC_MSI;
 use crate::arch::aarch64::layout::GIC_REDISTRIBUTOR;
-use crate::arch::aarch64::layout::IRQ_ALLOCATION_END;
+use crate::arch::aarch64::layout::IRQ_ALLOCATION_LEN;
 use crate::arch::aarch64::layout::IRQ_ALLOCATION_START;
 use crate::arch::aarch64::layout::RAM_BASE;
 use crate::arch::irq::InterruptController;
 use crate::cpu::vm_exit::VmExit;
+use crate::interrupt_manager::InterruptManager;
 use crate::virtualization::hvp::hv_unsafe_call;
 use crate::virtualization::hvp::irq_chip::HvpGicV3;
 use crate::virtualization::hvp::vcpu::HvpVcpu;
-use crate::virtualization::irq_allocator::IrqAllocator;
 use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vm::HypervisorVm;
 use crate::virtualization::vm::SetUserMemoryRegionFlags;
@@ -135,7 +135,7 @@ impl HypervisorVm for AppleHypervisorVm {
         )))
     }
 
-    fn create_irq_allocator(&self) -> Result<IrqAllocator, VmError> {
+    fn create_irq_manager(&self) -> Result<InterruptManager, VmError> {
         let mut spi_intid_base = 0;
         let mut spi_intid_count = 0;
         hv_unsafe_call!(hv_gic_get_spi_interrupt_range(
@@ -144,9 +144,12 @@ impl HypervisorVm for AppleHypervisorVm {
         ))?;
 
         assert!(IRQ_ALLOCATION_START + GIC_SPI_START >= spi_intid_base);
-        assert!(IRQ_ALLOCATION_END + GIC_SPI_START <= spi_intid_base + spi_intid_count);
+        assert!(
+            IRQ_ALLOCATION_START + IRQ_ALLOCATION_LEN as u32 + GIC_SPI_START
+                <= spi_intid_base + spi_intid_count
+        );
 
-        let allocator = IrqAllocator::new(IRQ_ALLOCATION_START, IRQ_ALLOCATION_END);
+        let allocator = InterruptManager::new(IRQ_ALLOCATION_START, IRQ_ALLOCATION_LEN)?;
 
         Ok(allocator)
     }
