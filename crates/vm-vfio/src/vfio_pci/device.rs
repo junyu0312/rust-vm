@@ -8,7 +8,7 @@ use vfio_bindings::bindings::vfio::VFIO_PCI_CONFIG_REGION_INDEX;
 use vfio_bindings::bindings::vfio::VFIO_REGION_INFO_FLAG_READ;
 use vfio_bindings::bindings::vfio::VFIO_REGION_INFO_FLAG_WRITE;
 use vm_core::device::Device;
-use vm_core::virtualization::irq_allocator::IrqAllocator;
+use vm_core::interrupt_manager::InterruptManager;
 use vm_core::virtualization::vm::HypervisorVm;
 use vm_pci::device::capability::PciCapId;
 use vm_pci::device::capability::msi::PCI_MSI_FLAGS_64BIT;
@@ -71,7 +71,7 @@ const DEBUG_ENABLE_INTX: bool = true;
 fn setup_interrupt_capability(
     vm: &dyn HypervisorVm,
     vfio_device: Arc<VfioDevice>,
-    irq_allocator: &mut IrqAllocator,
+    interrupt_manager: &InterruptManager,
     raw: &PciConfigurationSpace,
     cfg: &mut ConfigurationSpace,
 ) -> Result<(VfioInterruptInfo, VfioInterruptManager)> {
@@ -116,6 +116,7 @@ fn setup_interrupt_capability(
         let pba_offset = cap.pba_offset & PCI_MSIX_PBA_OFFSET;
         let pba_len = pba.as_bytes().len();
 
+        let gsi = vec![None; vectors as usize];
         let event_fds = (0..vectors)
             .map(|_| EventFd::new(0))
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -141,6 +142,7 @@ fn setup_interrupt_capability(
             cap_offset_range: cap_offset as u16..cap_offset as u16 + cap_len as u16,
         });
         msix = Some(VfioMsix {
+            gsi,
             table,
             pba,
             enabled: false,
@@ -203,6 +205,7 @@ fn setup_interrupt_capability(
             }
         }
 
+        let gsi = vec![None; mmc.vectors() as usize];
         let irqrd = vec![false; mmc.vectors() as usize];
         let event_fds = (0..mmc.vectors())
             .map(|_| EventFd::new(0))
@@ -215,6 +218,7 @@ fn setup_interrupt_capability(
             cap_offset_range: cap_offset as u16..cap_offset as u16 + cap_len as u16,
         });
         msi = Some(VfioMsi {
+            gsi,
             irqrd,
             enabled: false,
         });
@@ -236,11 +240,11 @@ fn setup_interrupt_capability(
                 InterruptPin::from_repr(raw_header.interrupt_pin).ok_or(Error::ParseIntx)?;
             header.interrupt_pin = interrupt_pin as u8;
 
-            let gsi = irq_allocator
-                .alloc()
+            let gsi = interrupt_manager
+                .allocate_irq()
                 .map_err(|_| Error::AllocIrq)?
                 .try_into()
-                .unwrap();
+                .map_err(|_| Error::AllocIrq)?;
             header.interrupt_line = gsi;
 
             if irq_info.flags & VFIO_IRQ_INFO_EVENTFD == 0 {
@@ -288,7 +292,7 @@ impl VfioPciDevice {
         vm: Arc<dyn HypervisorVm>,
         #[cfg(target_arch = "x86_64")] pci_io_window_allocator: &mut RangeAllocator<u16>,
         pci_mmio_window_allocator: &mut RangeAllocator<u64>,
-        irq_allocator: &mut IrqAllocator,
+        irq_manager: Arc<InterruptManager>,
         vfio_device: VfioDevice,
     ) -> Result<Self> {
         let vfio_device = Arc::new(vfio_device);
@@ -348,7 +352,7 @@ impl VfioPciDevice {
         let (interrupt_info, interrupt_manager) = setup_interrupt_capability(
             vm.as_ref(),
             vfio_device.clone(),
-            irq_allocator,
+            irq_manager.as_ref(),
             &raw_configuration_space,
             &mut configuration_space,
         )?;
@@ -414,6 +418,7 @@ impl VfioPciDevice {
 
         let function = VfioPciFunction::new(
             vm,
+            irq_manager,
             raw_configuration_space,
             configuration_space,
             bar_info,

@@ -6,7 +6,7 @@ use vmm_sys_util::eventfd::EventFd;
 
 use crate::arch::irq::InterruptController;
 use crate::cpu::vm_exit::VmExit;
-use crate::virtualization::irq_allocator::IrqAllocator;
+use crate::interrupt_manager::InterruptManager;
 use crate::virtualization::vcpu::HypervisorVcpu;
 use crate::virtualization::vm::error::VmError;
 
@@ -27,7 +27,7 @@ pub trait HypervisorVm: Send + Sync {
 
     fn create_irq_chip(&self) -> Result<Box<dyn InterruptController>, VmError>;
 
-    fn create_irq_allocator(&self) -> Result<IrqAllocator, VmError>;
+    fn create_irq_manager(&self) -> Result<InterruptManager, VmError>;
 
     fn set_user_memory_region(
         &self,

@@ -8,16 +8,20 @@ use vm_mm::manager::MemoryAddressSpace;
 use vmm_sys_util::eventfd::EventFd;
 
 #[cfg(target_arch = "aarch64")]
-use crate::arch::aarch64::layout::IRQ_ALLOCATION_END;
+use crate::arch::aarch64::layout::IRQ_ALLOCATION_LEN;
 #[cfg(target_arch = "aarch64")]
 use crate::arch::aarch64::layout::IRQ_ALLOCATION_START;
 use crate::arch::irq::InterruptController;
 #[cfg(target_arch = "x86_64")]
-use crate::arch::x86_64::layout::IRQ_ALLOCATION_END;
+use crate::arch::x86_64::layout::GSI_ALLOCATION_LEN;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::x86_64::layout::GSI_ALLOCATION_START;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::x86_64::layout::IRQ_ALLOCATION_LEN;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::x86_64::layout::IRQ_ALLOCATION_START;
 use crate::cpu::vm_exit::VmExit;
-use crate::virtualization::irq_allocator::IrqAllocator;
+use crate::interrupt_manager::InterruptManager;
 use crate::virtualization::kvm::gsi_routing::KvmGsiRouting;
 use crate::virtualization::kvm::gsi_routing::get_kvm_gsi_routing_instance;
 use crate::virtualization::kvm::irq_chip::KvmIrqChip;
@@ -73,8 +77,17 @@ impl HypervisorVm for KvmVm {
         Ok(Box::new(irq_chip))
     }
 
-    fn create_irq_allocator(&self) -> Result<IrqAllocator, VmError> {
-        Ok(IrqAllocator::new(IRQ_ALLOCATION_START, IRQ_ALLOCATION_END))
+    fn create_irq_manager(&self) -> Result<InterruptManager, VmError> {
+        let interrupt_manager = InterruptManager::new(
+            IRQ_ALLOCATION_START,
+            IRQ_ALLOCATION_LEN,
+            #[cfg(target_arch = "x86_64")]
+            GSI_ALLOCATION_START,
+            #[cfg(target_arch = "x86_64")]
+            GSI_ALLOCATION_LEN,
+        )?;
+
+        Ok(interrupt_manager)
     }
 
     fn set_user_memory_region(

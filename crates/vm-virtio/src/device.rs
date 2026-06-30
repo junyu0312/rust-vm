@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use vm_core::arch::irq::InterruptController;
 use vm_core::device::error::DeviceSnapshotError;
-use vm_core::virtualization::irq_allocator::IrqAllocator;
+use vm_core::interrupt_manager::InterruptManager;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_utils::range_allocator::RangeAllocator;
 
@@ -70,7 +70,7 @@ pub trait VirtioDevice: Sized + Send + Sync + 'static {
     fn into_mmio_device(
         self,
         mmio_allocator: &mut RangeAllocator<u64>,
-        irq_allocator: &mut IrqAllocator,
+        interrupt_manager: &InterruptManager,
         virtio_aml_path_allocator: &mut RangeAllocator<u8>,
         tokio_runtime: Handle,
         memory: Arc<MemoryAddressSpace>,
@@ -82,7 +82,7 @@ pub trait VirtioDevice: Sized + Send + Sync + 'static {
 
         let id = virtio_aml_path_allocator
             .alloc(1)
-            .map_err(VirtioError::AllocIrq)?;
+            .map_err(VirtioError::AllocId)?;
 
         let dev = VirtioMmioTransport::new(
             tokio_runtime,
@@ -90,7 +90,7 @@ pub trait VirtioDevice: Sized + Send + Sync + 'static {
             irq_chip,
             id.start,
             mmio_range,
-            irq_allocator.alloc().unwrap().try_into().unwrap(),
+            interrupt_manager.allocate_irq()?.try_into().unwrap(),
             VirtioTransportCommon::new(self)?,
         );
 

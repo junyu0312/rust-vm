@@ -1,4 +1,5 @@
 use thiserror::Error;
+use vm_core::interrupt_manager::InterruptManagerError;
 use vm_utils::range_allocator::RangeAllocatorError;
 
 #[derive(Error, Debug)]
@@ -7,7 +8,10 @@ pub enum VirtioError {
     AllocMmioRange(RangeAllocatorError),
 
     #[error("Failed to alloc irq")]
-    AllocIrq(RangeAllocatorError),
+    AllocIrq(#[from] InterruptManagerError),
+
+    #[error("Failed to alloc virtio-mmio id")]
+    AllocId(RangeAllocatorError),
 
     #[error("queue id exceeds u16")]
     QueueExceedsU16 { device: &'static str },

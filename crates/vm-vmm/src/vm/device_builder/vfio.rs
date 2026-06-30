@@ -36,7 +36,7 @@ impl<'a> DeviceManagerBuilder<'a> {
             #[cfg(target_arch = "x86_64")]
             self.pci_pio_allocator.get_mut().unwrap(),
             self.pci_mmio_allocator.get_mut().unwrap(),
-            &mut self.irq_allocator,
+            self.interrupt_manager.clone(),
             vfio_device,
         )?;
 
