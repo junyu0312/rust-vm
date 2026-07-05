@@ -19,10 +19,10 @@ mod term;
 
 fn build_hypervisor() -> anyhow::Result<Box<dyn Hypervisor>> {
     cfg_select! {
-        all(target_arch = "aarch64", feature = "hvp") => {
+        target_os = "macos" => {
             Ok(Box::new(vm_core::virtualization::hvp::AppleHypervisor))
         }
-        feature = "kvm" => {
+        target_os = "linux" => {
             Ok(Box::new(vm_core::virtualization::kvm::KvmHypervisor::new()?))
         }
         _ => panic!(),

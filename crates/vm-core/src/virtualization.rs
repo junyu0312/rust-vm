@@ -1,7 +1,7 @@
-#[cfg(feature = "hvp")]
+#[cfg(target_os = "macos")]
 pub mod hvp;
 
-#[cfg(feature = "kvm")]
+#[cfg(target_os = "linux")]
 pub mod kvm;
 
 pub mod hypervisor;
