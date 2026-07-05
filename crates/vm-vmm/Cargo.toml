@@ -29,12 +29,5 @@ vm-utils = { workspace = true }
 vm-virtio = { workspace = true }
 winnow = { workspace = true }
 
-[target.'cfg(target_arch = "aarch64")'.dependencies]
-strum = { workspace = true, optional = true }
-
 [target.'cfg(target_os = "linux")'.dependencies]
 vm-vfio = { workspace = true }
-
-[features]
-kvm = []
-hvp = ["strum"]

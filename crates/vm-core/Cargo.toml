@@ -5,13 +5,9 @@ edition = "2024"
 
 [dependencies]
 acpi_tables = { workspace = true }
-applevisor = { workspace = true, optional = true }
-applevisor-sys = { workspace = true, optional = true }
 async-trait = { workspace = true }
 bitflags = { workspace = true }
 gdbstub_arch = { workspace = true }
-kvm-bindings = { workspace = true, optional = true }
-kvm-ioctls = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 static_assertions = { workspace = true }
@@ -25,16 +21,18 @@ vm-utils = { workspace = true }
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 anyhow = { workspace = true }
 futures = { workspace = true }
-vm-aarch64 = { workspace = true }
-strum = { workspace = true, optional = true }
 strum_macros = { workspace = true }
+vm-aarch64 = { workspace = true }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 vm-firmware = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+kvm-bindings = { workspace = true }
+kvm-ioctls = { workspace = true }
 vmm-sys-util = { workspace = true }
 
-[features]
-kvm = ["kvm-bindings", "kvm-ioctls"]
-hvp = ["applevisor", "applevisor-sys", "strum"]
+[target.'cfg(target_os = "macos")'.dependencies]
+applevisor = { workspace = true }
+applevisor-sys = { workspace = true }
+strum = { workspace = true }

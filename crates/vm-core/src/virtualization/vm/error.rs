@@ -24,11 +24,11 @@ pub enum VmError {
     #[error("Failed to create memory region")]
     MemoryRegionOverlap,
 
-    #[cfg(feature = "hvp")]
+    #[cfg(target_os = "macos")]
     #[error("Applevisor error: {0}")]
     ApplevisorError(#[from] applevisor::error::HypervisorError),
 
-    #[cfg(feature = "kvm")]
+    #[cfg(target_os = "linux")]
     #[error("Kvm error: {0}")]
     Kvm(#[from] kvm_ioctls::Error),
 

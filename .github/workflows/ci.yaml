@@ -53,7 +53,7 @@ jobs:
           toolchain: ${{ env.RUST_STABLE }}
       - uses: Swatinem/rust-cache@v2
       - name: build(Arm64/hvp)
-        run: cargo build --no-default-features --features hvp --verbose
+        run: cargo build --verbose
 
   fmt:
     name: Fmt
@@ -113,7 +113,7 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v2
       - name: clippy
-        run: cargo clippy --all-targets --no-default-features --features hvp
+        run: cargo clippy --all-targets
 
   udeps-x86_64_kvm:
     name: Udeps(x86_64/Kvm)
@@ -164,7 +164,7 @@ jobs:
         with:
           tool: cargo-udeps
       - name: udeps
-        run: cargo udeps --all-targets --no-default-features --features hvp
+        run: cargo udeps --all-targets
 
   test:
     name: Test

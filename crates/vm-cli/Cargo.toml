@@ -17,8 +17,3 @@ vm-bootloader.workspace = true
 vm-core.workspace = true
 vm-device.workspace = true
 vm-vmm.workspace = true
-
-[features]
-default = ["kvm"]
-kvm = ["vm-core/kvm", "vm-vmm/kvm"]
-hvp = ["vm-core/hvp", "vm-vmm/hvp"]

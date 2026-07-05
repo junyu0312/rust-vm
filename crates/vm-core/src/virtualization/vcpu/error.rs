@@ -10,11 +10,11 @@ pub enum VcpuError {
     #[error("Vcpu command channel disconnected")]
     VcpuCommandDisconnected,
 
-    #[cfg(feature = "hvp")]
+    #[cfg(target_os = "macos")]
     #[error("{0}")]
     ApplevisorError(#[from] applevisor::error::HypervisorError),
 
-    #[cfg(feature = "kvm")]
+    #[cfg(target_os = "linux")]
     #[error("{0}")]
     KvmError(#[from] kvm_ioctls::Error),
 
