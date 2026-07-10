@@ -5,10 +5,19 @@ use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
 pub mod cmd_get_display_info;
+pub mod cmd_get_edid;
+pub mod cmd_resource_attach_backing;
+pub mod cmd_resource_create_2d;
+pub mod cmd_resource_detach_baking;
+pub mod cmd_resource_flush;
+pub mod cmd_resource_unref;
+pub mod cmd_set_scanout;
+pub mod cmd_transfer_to_host_2d;
+pub mod virtio_gpu_scanout;
 
 #[allow(non_camel_case_types)]
 #[repr(u32)]
-#[derive(FromRepr)]
+#[derive(Debug, FromRepr)]
 pub enum VirtioGpuCtrlType {
     /* 2D commands */
     VIRTIO_GPU_CMD_GET_DISPLAY_INFO = 0x0100,

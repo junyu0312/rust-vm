@@ -19,6 +19,7 @@ use crate::device::virtio::virtio_gpu::scanout::Scanout;
 
 mod controlq_handler;
 mod cursorq_handler;
+mod resource;
 mod scanout;
 
 // Queue for sending control commands
@@ -34,18 +35,22 @@ pub struct VirtioGpu {
 
 impl VirtioGpu {
     pub fn new(memory: Arc<MemoryAddressSpace>) -> Self {
+        let scanout = vec![Scanout {
+            width: 1024,
+            height: 768,
+            resource: 0, // disabled
+            rect: None,
+        }];
+
         VirtioGpu {
             memory,
             cfg: VirtioGpuConfig {
-                num_scanouts: 1,
+                num_scanouts: scanout.len() as u32,
                 num_capsets: 0,
                 blob_alignment: 1,
                 ..Default::default()
             },
-            scanout: Arc::new(Mutex::new(vec![Scanout {
-                width: 1024,
-                height: 768,
-            }])),
+            scanout: Arc::new(Mutex::new(scanout)),
         }
     }
 }
@@ -64,6 +69,7 @@ impl VirtioDevice for VirtioGpu {
     fn virtqueue_handler(&self, queue_sel: u16) -> Option<Box<dyn VirtqueueHandler>> {
         if queue_sel == 0 {
             return Some(Box::new(ControlqHandler {
+                resource: Default::default(),
                 scanouts: self.scanout.clone(),
                 memory: self.memory.clone(),
             }));
@@ -73,7 +79,7 @@ impl VirtioDevice for VirtioGpu {
             return Some(Box::new(CursorqHandler));
         }
 
-        return None;
+        None
     }
 
     fn read_config(&self, offset: usize, buf: &mut [u8]) -> Result<(), VirtioError> {
@@ -82,12 +88,9 @@ impl VirtioDevice for VirtioGpu {
     }
 
     fn write_config(&mut self, offset: usize, buf: &[u8]) -> Result<(), VirtioError> {
-        match VirtioGpuConfigOffset::from_repr(offset) {
-            Some(VirtioGpuConfigOffset::EventsClear) => {
-                let val = u32::from_le_bytes(buf.try_into().unwrap());
-                self.cfg.events_read &= !val;
-            }
-            _ => (),
+        if let Some(VirtioGpuConfigOffset::EventsClear) = VirtioGpuConfigOffset::from_repr(offset) {
+            let val = u32::from_le_bytes(buf.try_into().unwrap());
+            self.cfg.events_read &= !val;
         }
 
         self.cfg.as_mut_bytes()[offset..offset + buf.len()].copy_from_slice(buf);

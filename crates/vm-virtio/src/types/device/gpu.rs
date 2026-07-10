@@ -8,7 +8,7 @@ pub mod error;
 pub mod request;
 
 bitflags! {
-    pub struct Features: u32 {
+    pub struct VirtioGpuFeatures: u32 {
         const Virgl = 1 << 0;
         const Edid = 1 << 1;
         const ResourceUuid = 1 << 2;
@@ -25,6 +25,7 @@ bitflags! {
 /// updated EDID blobs using the VIRTIO_GPU_CMD_GET_EDID command.
 pub const VIRTIO_GPU_EVENT_DISPLAY: u32 = 1 << 0;
 
+#[repr(C)]
 #[derive(Default, FromBytes, IntoBytes, Immutable)]
 pub struct VirtioGpuConfig {
     /// signals pending events to the driver. The driver MUST NOT write to this field.

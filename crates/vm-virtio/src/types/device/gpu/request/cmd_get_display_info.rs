@@ -4,17 +4,9 @@ use zerocopy::IntoBytes;
 use zerocopy::KnownLayout;
 
 use crate::types::device::gpu::request::VirtioGpuCtrlHdr;
+use crate::types::device::gpu::request::virtio_gpu_scanout::VirtioGpuRect;
 
-pub const VIRTIO_GPU_MAX_SCANOUTS: usize = 16;
-
-#[repr(C)]
-#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
-pub struct VirtioGpuRect {
-    pub x: u32,
-    pub y: u32,
-    pub width: u32,
-    pub height: u32,
-}
+const VIRTIO_GPU_MAX_SCANOUTS: usize = 16;
 
 #[repr(C)]
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
