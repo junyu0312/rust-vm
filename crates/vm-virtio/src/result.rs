@@ -2,6 +2,8 @@ use thiserror::Error;
 use vm_core::interrupt_manager::InterruptManagerError;
 use vm_utils::range_allocator::RangeAllocatorError;
 
+use crate::types::device::gpu::error::VirtioGpuError;
+
 #[derive(Error, Debug)]
 pub enum VirtioError {
     #[error("Failed to alloc mmio range")]
@@ -54,6 +56,12 @@ pub enum VirtioError {
 
     #[error("access invalid gpa 0x{0:x}")]
     AccessInvalidGpa(u64),
+
+    #[error("Failed to transmute desc")]
+    TransmuteDesc,
+
+    #[error("{0}")]
+    VirtioGpu(#[from] VirtioGpuError),
 }
 
 pub type Result<T> = core::result::Result<T, VirtioError>;

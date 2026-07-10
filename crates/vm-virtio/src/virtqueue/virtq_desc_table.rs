@@ -1,6 +1,11 @@
 use std::ptr::NonNull;
+use std::slice;
 
 use vm_mm::manager::MemoryAddressSpace;
+use zerocopy::FromBytes;
+use zerocopy::Immutable;
+use zerocopy::IntoBytes;
+use zerocopy::KnownLayout;
 
 use crate::result::Result;
 use crate::result::VirtioError;
@@ -24,8 +29,6 @@ pub struct VirtqDesc {
     /// Next field if flags & NEXT
     pub next: u16,
 }
-unsafe impl Send for VirtqDesc {}
-unsafe impl Sync for VirtqDesc {}
 
 impl VirtqDesc {
     /// Get hva of the buf
@@ -34,6 +37,30 @@ impl VirtqDesc {
             .gpa_to_hva(self.addr)
             .map_err(|_| VirtioError::AccessInvalidGpa(self.addr))?;
         NonNull::new(addr).ok_or(VirtioError::AccessInvalidGpa(self.addr))
+    }
+
+    pub fn as_ref<T>(&self, memory: &MemoryAddressSpace) -> Result<&T>
+    where
+        T: FromBytes + KnownLayout + Immutable,
+    {
+        let req: NonNull<u8> = self.addr(memory)?;
+
+        let bytes = unsafe { slice::from_raw_parts(req.as_ptr(), size_of::<T>()) };
+        let t = T::ref_from_bytes(bytes).map_err(|_| VirtioError::TransmuteDesc)?;
+
+        Ok(t)
+    }
+
+    pub fn as_mut<T>(&self, memory: &MemoryAddressSpace) -> Result<&mut T>
+    where
+        T: FromBytes + IntoBytes + KnownLayout,
+    {
+        let req: NonNull<u8> = self.addr(memory)?;
+
+        let bytes = unsafe { slice::from_raw_parts_mut(req.as_ptr(), size_of::<T>()) };
+        let t = T::mut_from_bytes(bytes).map_err(|_| VirtioError::TransmuteDesc)?;
+
+        Ok(t)
     }
 }
 

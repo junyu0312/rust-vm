@@ -1,0 +1,72 @@
+use strum_macros::FromRepr;
+use zerocopy::FromBytes;
+use zerocopy::Immutable;
+use zerocopy::IntoBytes;
+use zerocopy::KnownLayout;
+
+pub mod cmd_get_display_info;
+
+#[allow(non_camel_case_types)]
+#[repr(u32)]
+#[derive(FromRepr)]
+pub enum VirtioGpuCtrlType {
+    /* 2D commands */
+    VIRTIO_GPU_CMD_GET_DISPLAY_INFO = 0x0100,
+    VIRTIO_GPU_CMD_RESOURCE_CREATE_2D,
+    VIRTIO_GPU_CMD_RESOURCE_UNREF,
+    VIRTIO_GPU_CMD_SET_SCANOUT,
+    VIRTIO_GPU_CMD_RESOURCE_FLUSH,
+    VIRTIO_GPU_CMD_TRANSFER_TO_HOST_2D,
+    VIRTIO_GPU_CMD_RESOURCE_ATTACH_BACKING,
+    VIRTIO_GPU_CMD_RESOURCE_DETACH_BACKING,
+    VIRTIO_GPU_CMD_GET_CAPSET_INFO,
+    VIRTIO_GPU_CMD_GET_CAPSET,
+    VIRTIO_GPU_CMD_GET_EDID,
+    VIRTIO_GPU_CMD_RESOURCE_ASSIGN_UUID,
+    VIRTIO_GPU_CMD_RESOURCE_CREATE_BLOB,
+    VIRTIO_GPU_CMD_SET_SCANOUT_BLOB,
+
+    /* 3D commands */
+    VIRTIO_GPU_CMD_CTX_CREATE = 0x0200,
+    VIRTIO_GPU_CMD_CTX_DESTROY,
+    VIRTIO_GPU_CMD_CTX_ATTACH_RESOURCE,
+    VIRTIO_GPU_CMD_CTX_DETACH_RESOURCE,
+    VIRTIO_GPU_CMD_RESOURCE_CREATE_3D,
+    VIRTIO_GPU_CMD_TRANSFER_TO_HOST_3D,
+    VIRTIO_GPU_CMD_TRANSFER_FROM_HOST_3D,
+    VIRTIO_GPU_CMD_SUBMIT_3D,
+    VIRTIO_GPU_CMD_RESOURCE_MAP_BLOB,
+    VIRTIO_GPU_CMD_RESOURCE_UNMAP_BLOB,
+
+    /* cursor commands */
+    VIRTIO_GPU_CMD_UPDATE_CURSOR = 0x0300,
+    VIRTIO_GPU_CMD_MOVE_CURSOR,
+
+    /* success responses */
+    VIRTIO_GPU_RESP_OK_NODATA = 0x1100,
+    VIRTIO_GPU_RESP_OK_DISPLAY_INFO,
+    VIRTIO_GPU_RESP_OK_CAPSET_INFO,
+    VIRTIO_GPU_RESP_OK_CAPSET,
+    VIRTIO_GPU_RESP_OK_EDID,
+    VIRTIO_GPU_RESP_OK_RESOURCE_UUID,
+    VIRTIO_GPU_RESP_OK_MAP_INFO,
+
+    /* error responses */
+    VIRTIO_GPU_RESP_ERR_UNSPEC = 0x1200,
+    VIRTIO_GPU_RESP_ERR_OUT_OF_MEMORY,
+    VIRTIO_GPU_RESP_ERR_INVALID_SCANOUT_ID,
+    VIRTIO_GPU_RESP_ERR_INVALID_RESOURCE_ID,
+    VIRTIO_GPU_RESP_ERR_INVALID_CONTEXT_ID,
+    VIRTIO_GPU_RESP_ERR_INVALID_PARAMETER,
+}
+
+#[repr(C)]
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable)]
+pub struct VirtioGpuCtrlHdr {
+    pub r#type: u32,
+    pub flags: u32,
+    pub fence_id: u64,
+    pub ctx_id: u32,
+    pub ring_idx: u8,
+    pub padding: [u8; 3],
+}

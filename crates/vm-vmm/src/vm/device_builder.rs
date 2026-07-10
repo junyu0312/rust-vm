@@ -14,6 +14,7 @@ use vm_device::device::virtio::virtio_balloon_traditional::device::VirtioBalloon
 use vm_device::device::virtio::virtio_balloon_traditional::monitor::VirtioBalloonMonitor;
 use vm_device::device::virtio::virtio_blk::VirtioBlkDevice;
 use vm_device::device::virtio::virtio_entropy::VirtioEntropy;
+use vm_device::device::virtio::virtio_gpu::VirtioGpu;
 use vm_mm::manager::MemoryAddressSpace;
 use vm_pci::root_complex_device::PciRootComplexDevice;
 use vm_utils::range_allocator::RangeAllocator;
@@ -153,6 +154,35 @@ impl<'a> DeviceManagerBuilder<'a> {
             Device::VirtioEntropy { transport } => {
                 let dev = VirtioEntropy::new(self.memory.clone());
 
+                match transport {
+                    VirtioTransport::Mmio => {
+                        self.device_manager
+                            .attach_device(Box::new(dev.into_mmio_device(
+                                &mut self.mmio_allocator,
+                                &self.interrupt_manager,
+                                &mut self.virtio_mmio_index_allocator,
+                                tokio::runtime::Handle::current(),
+                                self.memory.clone(),
+                                self.irq_chip.clone(),
+                            )?))?;
+                    }
+                    VirtioTransport::Pci => {
+                        pci_root_complex
+                            .register_device(Box::new(dev.into_pci_device(
+                                #[cfg(target_arch = "x86_64")]
+                                self.pci_pio_allocator.get_mut().unwrap(),
+                                self.pci_mmio_allocator.get_mut().unwrap(),
+                                &self.interrupt_manager,
+                                tokio::runtime::Handle::current(),
+                                self.memory.clone(),
+                                self.irq_chip.clone(),
+                            )?))
+                            .map_err(|_| InitDeviceError::RegisterPciDevice)?;
+                    }
+                }
+            }
+            Device::VirtioGpu { transport } => {
+                let dev = VirtioGpu::new(self.memory.clone());
                 match transport {
                     VirtioTransport::Mmio => {
                         self.device_manager

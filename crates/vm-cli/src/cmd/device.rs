@@ -12,6 +12,8 @@ pub enum Device {
     VirtioMmioBalloon,
     VirtioMmioEntropy,
     VirtioPciEntropy,
+    VirtioPciGpu,
+    VirtioMmioGpu,
     #[cfg(target_os = "linux")]
     VfioPci {
         name: String,
@@ -36,6 +38,12 @@ impl From<Device> for vm_device::device::Device {
                 transport: VirtioTransport::Mmio,
             },
             Device::VirtioPciEntropy => vm_device::device::Device::VirtioEntropy {
+                transport: VirtioTransport::Pci,
+            },
+            Device::VirtioMmioGpu => vm_device::device::Device::VirtioGpu {
+                transport: VirtioTransport::Mmio,
+            },
+            Device::VirtioPciGpu => vm_device::device::Device::VirtioGpu {
                 transport: VirtioTransport::Pci,
             },
             #[cfg(target_os = "linux")]
