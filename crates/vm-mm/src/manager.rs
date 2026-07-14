@@ -110,6 +110,46 @@ impl MemoryAddressSpace {
         Ok(())
     }
 
+    pub fn copy_to_slice(&self, mut gpa: u64, buf: &mut [u8]) -> Result<(), Error> {
+        let mut remaining = buf.len();
+        let mut check_gpa = gpa;
+
+        while remaining > 0 {
+            let region = self.try_get_region_by_gpa(check_gpa)?;
+
+            let offset = check_gpa - region.gpa;
+            let avail = region.len() - offset as usize;
+            let step = remaining.min(avail);
+
+            remaining -= step;
+            check_gpa += step as u64;
+        }
+
+        remaining = buf.len();
+        let mut dst_offset = 0;
+
+        while remaining > 0 {
+            let region = self.try_get_region_by_gpa(gpa)?;
+            let offset = gpa - region.gpa;
+            let avail = region.len() - offset as usize;
+            let step = remaining.min(avail);
+
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    region.hva().add(offset as usize),
+                    buf.as_mut_ptr().add(dst_offset),
+                    step,
+                );
+            }
+
+            remaining -= step;
+            dst_offset += step;
+            gpa += step as u64;
+        }
+
+        Ok(())
+    }
+
     fn is_overlapping(&self, region: &MemoryRegion) -> bool {
         let new_left = region.gpa;
         let new_right = region.gpa + region.len() as u64;

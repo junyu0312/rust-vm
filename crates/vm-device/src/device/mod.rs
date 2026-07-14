@@ -33,6 +33,9 @@ pub enum Device {
     VirtioEntropy {
         transport: VirtioTransport,
     },
+    VirtioGpu {
+        transport: VirtioTransport,
+    },
     #[cfg(target_os = "linux")]
     VfioPci {
         name: String,
@@ -46,7 +49,8 @@ impl Device {
             Device::GicV3 => true,
             Device::VirtioBlk { .. }
             | Device::VirtioBalloon { .. }
-            | Device::VirtioEntropy { .. } => false,
+            | Device::VirtioEntropy { .. }
+            | Device::VirtioGpu { .. } => false,
             #[cfg(target_os = "linux")]
             Device::VfioPci { .. } => false,
         }
