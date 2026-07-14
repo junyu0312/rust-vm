@@ -104,7 +104,13 @@ impl KvmVcpu {
                             //     })
                             //     .unwrap();
 
-                            let vm_exit = vcpu_fd.run()?;
+                            let vm_exit = match vcpu_fd.run() {
+                                Ok(vm_exit) => vm_exit,
+                                Err(err) => match err.errno() {
+                                    libc::EAGAIN => continue,
+                                    _ => panic!("{err}"),
+                                },
+                            };
 
                             match handle_vm_exit(vm_exit, vm_exit_handler.as_ref()) {
                                 Ok(result) => match result {

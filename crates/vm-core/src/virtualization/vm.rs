@@ -53,4 +53,6 @@ pub trait HypervisorVm: Send + Sync {
 
     #[cfg(target_os = "linux")]
     fn set_gsi_routing(&self) -> Result<(), VmError>;
+
+    fn secondary_cpu_should_run_on_booting(&self) -> bool;
 }
