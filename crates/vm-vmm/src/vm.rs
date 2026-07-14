@@ -30,7 +30,7 @@ const PAGE_SIZE: usize = 4 << 10;
 
 pub struct Vm {
     vm_config: VmConfig,
-    _vm_instance: Arc<dyn HypervisorVm>,
+    vm_instance: Arc<dyn HypervisorVm>,
     vm_state: VmState,
     vcpu_manager: Arc<Mutex<VcpuManager>>,
     memory_address_space: Arc<MemoryAddressSpace>,
@@ -73,6 +73,12 @@ impl Vm {
 
         if !stop_on_boot {
             vcpu_manager.get_vcpu_mut(0)?.boot().await?;
+
+            if self.vm_instance.secondary_cpu_should_run_on_booting() {
+                for vcpu_id in 1..vcpu_manager.get_active_vcpus() {
+                    vcpu_manager.get_vcpu_mut(vcpu_id)?.boot().await?;
+                }
+            }
 
             self.vm_state = VmState::Running;
         }

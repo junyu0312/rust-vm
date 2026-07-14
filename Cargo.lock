@@ -1285,6 +1285,7 @@ dependencies = [
  "gdbstub_arch",
  "kvm-bindings",
  "kvm-ioctls",
+ "libc",
  "serde",
  "serde_json",
  "static_assertions",

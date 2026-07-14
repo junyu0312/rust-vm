@@ -147,4 +147,8 @@ impl HypervisorVm for KvmVm {
 
         Ok(())
     }
+
+    fn secondary_cpu_should_run_on_booting(&self) -> bool {
+        true
+    }
 }

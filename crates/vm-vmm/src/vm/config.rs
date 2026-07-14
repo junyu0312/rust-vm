@@ -143,7 +143,7 @@ impl Vm {
 
         let vm = Vm {
             vm_config,
-            _vm_instance: vm_instance,
+            vm_instance,
             vm_state: VmState::Created,
             vcpu_manager,
             memory_address_space,

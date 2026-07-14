@@ -161,7 +161,7 @@ impl Vm {
 
         let vm = Vm {
             vm_config: snap.vm_config,
-            _vm_instance: vm_instance,
+            vm_instance,
             vm_state: snap.vm_state,
             vcpu_manager,
             memory_address_space,
